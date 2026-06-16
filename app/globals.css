@@ -1,0 +1,73 @@
+@import "tailwindcss";
+@plugin "daisyui" {
+  themes: barangay-bato --default, light, corporate, winter, business, night --prefersdark;
+}
+
+@plugin "daisyui/theme" {
+  name: "barangay-bato";
+  default: true;
+  prefersdark: false;
+  color-scheme: light;
+
+  --color-base-100: #ffffff;
+  --color-base-200: #f8fafc;
+  --color-base-300: #e2e8f0;
+  --color-base-content: #0f172a;
+  --color-primary: #1d4ed8;
+  --color-primary-content: #ffffff;
+  --color-secondary: #1e3a8a;
+  --color-secondary-content: #ffffff;
+  --color-accent: #14b8a6;
+  --color-accent-content: #ffffff;
+  --color-neutral: #0f172a;
+  --color-neutral-content: #ffffff;
+  --color-info: #0284c7;
+  --color-info-content: #ffffff;
+  --color-success: #16a34a;
+  --color-success-content: #ffffff;
+  --color-warning: #d97706;
+  --color-warning-content: #ffffff;
+  --color-error: #dc2626;
+  --color-error-content: #ffffff;
+
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 1;
+  --noise: 0;
+}
+
+@custom-variant dark (&:where([data-theme="night"], [data-theme="night"] *));
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    min-height: 100vh;
+  }
+}
+
+@media print {
+  @page {
+    size: Letter;
+    margin: 0.35in;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .print-surface {
+    box-shadow: none !important;
+    border: 0 !important;
+  }
+
+  body {
+    background: white !important;
+  }
+}
