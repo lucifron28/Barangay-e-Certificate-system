@@ -1,0 +1,131 @@
+import Link from "next/link";
+import {
+  CheckCircle2,
+  Clock3,
+  FileText,
+  Inbox,
+  ListChecks,
+  ThumbsUp,
+  XCircle,
+  Ban,
+} from "lucide-react";
+import { EmptyState } from "@/components/ui/empty-state";
+import { SetupRequired } from "@/components/ui/setup-required";
+import { StatCard } from "@/components/ui/stat-card";
+import { StatusBadge } from "@/components/ui/status-badge";
+import { requireAdmin } from "@/lib/auth/guards";
+import { listAdminRequests } from "@/lib/services/certificate-data";
+import { summarizeRequests } from "@/lib/utils/dashboard";
+import { certificateLabel, formatDate } from "@/lib/utils/format";
+
+export default async function AdminDashboardPage() {
+  const context = await requireAdmin();
+
+  if (context.setupMissing) {
+    return <SetupRequired missingEnv={context.missingEnv} />;
+  }
+
+  const requests = await listAdminRequests(context.supabase);
+  const { stats } = summarizeRequests(requests);
+  const recentRequests = requests.slice(0, 6);
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  const monthlyCount = requests.filter((request) =>
+    request.date_requested.startsWith(thisMonth),
+  ).length;
+
+  return (
+    <div className="space-y-6">
+      <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 className="text-3xl font-bold">Welcome, {context.profile.full_name}</h1>
+          <p className="mt-1 text-base-content/70">
+            Review requests, prepare certificates, manage schedules, and monitor
+            office activity.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link href="/admin/certificate-requests" className="btn btn-primary">
+            <ListChecks className="size-4" aria-hidden />
+            Review Requests
+          </Link>
+          <Link href="/admin/reports" className="btn btn-outline">
+            Reports
+          </Link>
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
+        <StatCard icon={Inbox} label="Total Requests" value={stats.total} />
+        <StatCard icon={Clock3} label="Pending" tone="warning" value={stats.pending} />
+        <StatCard icon={ThumbsUp} label="Accepted" tone="info" value={stats.accepted} />
+        <StatCard icon={XCircle} label="Rejected" tone="error" value={stats.rejected} />
+        <StatCard
+          icon={FileText}
+          label="Ready"
+          tone="primary"
+          value={stats.ready_for_pickup}
+        />
+        <StatCard icon={CheckCircle2} label="Done" tone="success" value={stats.done} />
+        <StatCard icon={Ban} label="Cancelled" value={stats.cancelled} />
+      </section>
+
+      <section className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
+        <h2 className="text-lg font-bold">Monthly statistics overview</h2>
+        <p className="mt-1 text-base-content/70">
+          {monthlyCount} request{monthlyCount === 1 ? "" : "s"} submitted this
+          month. Final barangay monthly report format is pending client
+          confirmation.
+        </p>
+      </section>
+
+      <section className="rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <div className="border-b border-base-300 p-5">
+          <h2 className="text-lg font-bold">Recent requests</h2>
+        </div>
+        {recentRequests.length ? (
+          <div className="overflow-x-auto">
+            <table className="table">
+              <thead>
+                <tr>
+                  <th>Request Number</th>
+                  <th>Resident</th>
+                  <th>Certificate Type</th>
+                  <th>Date Requested</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentRequests.map((request) => (
+                  <tr key={request.id}>
+                    <td>
+                      <Link
+                        href={`/admin/certificate-requests/${request.id}`}
+                        className="link link-primary font-medium"
+                      >
+                        {request.request_number}
+                      </Link>
+                    </td>
+                    <td>{request.resident?.full_name ?? "Unknown resident"}</td>
+                    <td>{certificateLabel(request.certificate_type)}</td>
+                    <td>{formatDate(request.date_requested)}</td>
+                    <td>
+                      <StatusBadge status={request.status} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="p-5">
+            <EmptyState
+              icon={Inbox}
+              title="No requests yet"
+              description="Submitted resident requests will appear here for review."
+            />
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
