@@ -18,6 +18,7 @@ coverage/
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+data/.local-demo-session-secret
 docs/client-assets/certificate-templates/original/
 .tmp-template-images/
 .tmp-*.png
