@@ -78,6 +78,10 @@ export default async function MyRequestsPage() {
                       <Link href={`/resident/my-requests/${request.id}`} className="btn btn-warning btn-sm">
                         Edit and resubmit
                       </Link>
+                    ) : request.status === "accepted" && request.payment_status === "unpaid" ? (
+                      <Link href={`/resident/payments/${request.id}`} className="btn btn-primary btn-sm">
+                        Demo payment
+                      </Link>
                     ) : null
                   }
                 />
@@ -145,6 +149,10 @@ export default async function MyRequestsPage() {
                           className="btn btn-warning btn-xs"
                         >
                           Edit & Resubmit
+                        </Link>
+                      ) : request.status === "accepted" && request.payment_status === "unpaid" ? (
+                        <Link href={`/resident/payments/${request.id}`} className="btn btn-primary btn-xs">
+                          Pay demo
                         </Link>
                       ) : (
                         <span className="text-xs text-base-content/60">None</span>

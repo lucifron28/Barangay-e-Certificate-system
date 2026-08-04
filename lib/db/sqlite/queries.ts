@@ -10,6 +10,7 @@ import type {
   CertificateRecord,
   CertificateRequest,
   Json,
+  Payment,
   PickupSchedule,
   Profile,
   SystemSetting,
@@ -17,6 +18,7 @@ import type {
 import type {
   CertificateType,
   PaymentStatus,
+  MockPaymentStatus,
   ProfileRole,
   RequestStatus,
 } from "@/types/enums";
@@ -161,6 +163,24 @@ function certificateRecordFromRow(row: Row | undefined): CertificateRecord | nul
     request_id: String(row.request_id),
     resident_id: String(row.resident_id),
     template_data: parseJson(row.template_data),
+  };
+}
+
+function paymentFromRow(row: Row | undefined): Payment | null {
+  if (!row) return null;
+  return {
+    amount: asNumber(row.amount),
+    created_at: String(row.created_at),
+    currency: String(row.currency),
+    expires_at: asText(row.expires_at),
+    id: String(row.id),
+    paid_at: asText(row.paid_at),
+    provider: String(row.provider),
+    provider_transaction_id: String(row.provider_transaction_id),
+    request_id: String(row.request_id),
+    resident_id: String(row.resident_id),
+    status: String(row.status) as MockPaymentStatus,
+    updated_at: String(row.updated_at),
   };
 }
 
@@ -467,6 +487,53 @@ export function updateRequestStatus(input: {
     );
 
   return getRequestById(input.id);
+}
+
+export function getLatestPaymentForRequest(requestId: string) {
+  return paymentFromRow(
+    getSqliteDb()
+      .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1")
+      .get(requestId) as Row | undefined,
+  );
+}
+
+export function createMockPayment(input: {
+  amount: number;
+  request_id: string;
+  resident_id: string;
+}) {
+  const timestamp = nowIso();
+  const id = randomUUID();
+  const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+  getSqliteDb()
+    .prepare(
+      `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
+       VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', 'pending', NULL, NULL, ?, ?)`,
+    )
+    .run(id, input.request_id, input.resident_id, transactionId, input.amount, timestamp, timestamp);
+  getSqliteDb()
+    .prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), id, "payment_initiated", stringifyJson({ simulated: true }), timestamp);
+  return getLatestPaymentForRequest(input.request_id);
+}
+
+export function resolveMockPayment(input: {
+  payment_id: string;
+  resident_id: string;
+  status: Extract<MockPaymentStatus, "paid" | "failed" | "cancelled">;
+}) {
+  const existing = paymentFromRow(
+    getSqliteDb().prepare("SELECT * FROM payments WHERE id = ? AND resident_id = ?").get(input.payment_id, input.resident_id) as Row | undefined,
+  );
+  if (!existing || existing.status !== "pending") return null;
+  const timestamp = nowIso();
+  getSqliteDb()
+    .prepare("UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ?")
+    .run(input.status, input.status === "paid" ? timestamp : null, timestamp, input.payment_id);
+  getSqliteDb()
+    .prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), input.payment_id, `mock_payment_${input.status}`, stringifyJson({ simulated: true }), timestamp);
+  return getLatestPaymentForRequest(existing.request_id);
 }
 
 export function cancelRequest(id: string, residentId: string) {
