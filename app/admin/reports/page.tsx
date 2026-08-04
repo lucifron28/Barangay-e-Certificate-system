@@ -59,8 +59,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         <div>
           <h1 className="text-3xl font-bold">Reports</h1>
           <p className="text-base-content/70">
-            Printable request summary. PDF and Excel exports are pending client
-            confirmation.
+            Printable request summary with PDF and Excel export.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -146,8 +145,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
       <div className="alert alert-info no-print">
         <span>
-          PDF and Excel exports use a clean thesis/demo format. TODO: Final
-          monthly barangay report format pending client confirmation.
+          PDF and Excel exports use a clean thesis/demo report format.
         </span>
       </div>
 

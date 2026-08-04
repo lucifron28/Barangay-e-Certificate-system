@@ -143,12 +143,12 @@ export function CertificateRequestForm({ profile, today }: CertificateRequestFor
       <div className="rounded-lg border border-dashed border-base-300 bg-base-200 p-4 md:col-span-2">
         <p className="font-semibold">Request details</p>
         <p className="mt-1 text-sm text-base-content/70">
-          Only the fields required for the selected certificate are shown. Certificate fees are settled during pickup.
+          Only the fields required for the selected certificate are shown. Fees are displayed before online demo payment.
         </p>
       </div>
       <div className="alert alert-info md:col-span-2">
         <span>
-          Barangay Captain signature and official stamp are applied physically after printing.
+          Issued certificates are available as verified PDF downloads in this online demo.
         </span>
       </div>
       <div className="flex flex-wrap gap-3 md:col-span-2">

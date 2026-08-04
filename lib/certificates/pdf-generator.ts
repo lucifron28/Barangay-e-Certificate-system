@@ -252,7 +252,7 @@ function bodyParagraphs(request: CertificateRequestWithResident) {
 }
 
 export async function generateCertificatePdf({
-  barangayCaptainName = "Barangay Captain Name",
+  barangayCaptainName = "Authorized Barangay Official",
   dateIssued = new Date().toISOString(),
   verificationUrl,
   preparedBy,
@@ -371,7 +371,7 @@ export async function generateCertificatePdf({
   });
   centerText(
     page,
-    "Electronic signature display is a thesis/demo visual placeholder only.",
+    "Electronic signature is a visual thesis/demo representation only.",
     91,
     fonts.regular,
     8,
@@ -385,7 +385,7 @@ export async function generateCertificatePdf({
   }
   centerText(
     page,
-    "Official stamp remains a physical process.",
+    "Online demo certificate - QR verification available for three days.",
     79,
     fonts.regular,
     8,

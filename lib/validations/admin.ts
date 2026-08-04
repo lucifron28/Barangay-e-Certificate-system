@@ -38,3 +38,8 @@ export const revokeCertificateSchema = z.object({
   certificate_record_id: z.string().uuid(),
   reason: z.string().trim().min(3, "A revocation reason is required."),
 });
+
+export const systemSettingsSchema = z.object({
+  barangay_captain_name: z.string().trim().min(2, "Authorized official name is required."),
+  signature_image_path: z.string().trim().max(500).optional(),
+});

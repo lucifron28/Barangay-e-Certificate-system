@@ -189,7 +189,7 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
   return {
     barangayCaptainName:
       (map.get("barangay_captain_name") as string | undefined) ??
-      "Barangay Captain Name",
+      "Authorized Barangay Official",
     signatureImagePath:
       (map.get("signature_image_path") as string | undefined) ?? null,
   };

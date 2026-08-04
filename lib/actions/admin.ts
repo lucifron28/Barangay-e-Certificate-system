@@ -20,6 +20,7 @@ import {
   createCertificateVerification,
   generateVerificationToken,
   revokeCertificateRecord,
+  setSystemSetting,
   updateRequestStatus,
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
@@ -42,6 +43,7 @@ import {
   revokeCertificateSchema,
   saveCertificateSchema,
   scheduleSchema,
+  systemSettingsSchema,
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
@@ -673,4 +675,33 @@ export async function revokeCertificateRecordAction(formData: FormData) {
   });
 
   redirectWithMessage(path, "Certificate revoked. You can now issue a replacement.");
+}
+
+export async function updateSystemSettingsAction(formData: FormData) {
+  const parsed = systemSettingsSchema.safeParse({
+    barangay_captain_name: formData.get("barangay_captain_name"),
+    signature_image_path: formData.get("signature_image_path") || undefined,
+  });
+  if (!parsed.success) redirectWithError("/admin/settings", firstZodError(parsed.error));
+
+  const context = await getAdminContextOrRedirect("/admin/settings");
+  if (isSqliteProvider()) {
+    setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
+    setSystemSetting("signature_image_path", parsed.data.signature_image_path || null);
+  } else {
+    const { error } = await context.supabase!.from("system_settings").upsert([
+      { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },
+      { key: "signature_image_path", value: parsed.data.signature_image_path || null },
+    ], { onConflict: "key" });
+    if (error) redirectWithError("/admin/settings", "Unable to update settings.");
+  }
+
+  await logActivity({
+    action: "System settings updated",
+    affectedTable: "system_settings",
+    profile: context.profile,
+    remarks: "Certificate signer settings updated.",
+    supabase: context.supabase,
+  });
+  redirectWithMessage("/admin/settings", "Certificate signer settings updated.");
 }

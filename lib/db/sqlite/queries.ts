@@ -971,8 +971,19 @@ export function getSystemSettings(): SystemSettings {
   return {
     barangayCaptainName:
       (settings.get("barangay_captain_name")?.value as string | undefined) ??
-      "Barangay Captain Name",
+      "Authorized Barangay Official",
     signatureImagePath:
       (settings.get("signature_image_path")?.value as string | undefined) ?? null,
   };
+}
+
+export function setSystemSetting(key: string, value: Json) {
+  const timestamp = nowIso();
+  getSqliteDb()
+    .prepare(
+      `INSERT INTO system_settings (id, key, value, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+    )
+    .run(randomUUID(), key, stringifyJson(value), timestamp, timestamp);
 }

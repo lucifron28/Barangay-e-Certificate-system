@@ -76,9 +76,9 @@ export default async function GenerateCertificatePage({
         <FlashMessage error={query?.error} message={query?.message} />
         <div className="alert alert-warning">
           <span>
-            Reminder: Barangay Captain signature and official stamp are physical
-            steps after printing. The downloadable PDF is generated from clean
-            code templates; the source PDFs remain private reference files.
+            The downloadable PDF is generated from clean code templates; the
+            source PDFs remain private reference files. The displayed signature
+            is a visual thesis/demo representation only.
           </span>
         </div>
       </div>

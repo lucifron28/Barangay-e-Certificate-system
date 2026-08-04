@@ -264,7 +264,7 @@ function ResidencyBody({
 }
 
 export function PrintableCertificate({
-  barangayCaptainName = "Barangay Captain Name",
+  barangayCaptainName = "Authorized Barangay Official",
   preparedBy,
   request,
   signatureImagePath,
@@ -334,9 +334,8 @@ export function PrintableCertificate({
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          Electronic signature display is a thesis/demo visual placeholder only
-          and is not a legally verified digital signature. Official stamp remains
-          a physical process.
+          Electronic signature is shown as a thesis/demo visual representation
+          only and is not a legally verified digital signature.
         </div>
       </div>
     </article>
