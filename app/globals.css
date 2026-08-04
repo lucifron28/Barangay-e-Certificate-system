@@ -52,6 +52,7 @@
   }
 
   .form-control {
+    display: grid;
     width: 100%;
   }
 }

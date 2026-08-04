@@ -30,6 +30,14 @@ export function PublicNavbar() {
         <div className="hidden lg:block">
           <ThemeSwitcher />
         </div>
+        <Link href="/login" className="btn btn-ghost btn-sm">
+          <LogIn className="size-4" aria-hidden />
+          Login
+        </Link>
+        <Link href="/register" className="btn btn-primary btn-sm">
+          <UserPlus className="size-4" aria-hidden />
+          Register
+        </Link>
         <details className="dropdown dropdown-end lg:hidden">
           <summary className="btn btn-ghost btn-square btn-sm" aria-label="Open navigation menu">
             <Menu className="size-5" aria-hidden />
@@ -45,14 +53,6 @@ export function PublicNavbar() {
             </li>
           </ul>
         </details>
-        <Link href="/login" className="btn btn-ghost btn-sm">
-          <LogIn className="size-4" aria-hidden />
-          Login
-        </Link>
-        <Link href="/register" className="btn btn-primary btn-sm">
-          <UserPlus className="size-4" aria-hidden />
-          Register
-        </Link>
       </div>
     </div>
   );
