@@ -29,8 +29,8 @@ export function DashboardShell({
     <div className="drawer lg:drawer-open">
       <input id="dashboard-drawer" type="checkbox" className="drawer-toggle" />
       <div className="drawer-content flex min-h-screen flex-col bg-base-200">
-        <header className="navbar no-print sticky top-0 z-20 border-b border-base-300 bg-base-100/95 px-4 backdrop-blur">
-          <div className="navbar-start gap-2">
+        <header className="navbar no-print sticky top-0 z-20 border-b border-base-300 bg-base-100/95 px-3 backdrop-blur sm:px-4">
+          <div className="navbar-start min-w-0 gap-1 sm:gap-2">
             <label
               htmlFor="dashboard-drawer"
               className="btn btn-ghost btn-square lg:hidden"
@@ -38,19 +38,24 @@ export function DashboardShell({
             >
               <Menu className="size-5" aria-hidden />
             </label>
-            <div>
+            <div className="min-w-0">
               <p className="text-xs uppercase text-base-content/60">{title}</p>
-              <h1 className="text-base font-bold lg:text-lg">
+              <p className="text-sm font-bold sm:hidden">Barangay Bato</p>
+              <h1 className="hidden text-base font-bold sm:block lg:text-lg">
                 Barangay Bato e-Certificate System
               </h1>
             </div>
           </div>
-          <div className="navbar-end gap-3">
+          <div className="navbar-end shrink-0 gap-1 sm:gap-3">
             <div className="hidden md:block">
               <ThemeSwitcher />
             </div>
             <div className="dropdown dropdown-end">
-              <button className="btn btn-ghost gap-2" type="button">
+              <button
+                className="btn btn-ghost gap-2"
+                type="button"
+                aria-label={`Open account menu for ${profile.full_name}`}
+              >
                 <div className="avatar placeholder">
                   <div className="w-9 rounded-full bg-primary text-primary-content">
                     <span className="text-xs">{getInitials(profile.full_name)}</span>
@@ -67,6 +72,9 @@ export function DashboardShell({
                 <p className="px-3 pb-3 text-xs text-base-content/65">
                   {profile.email}
                 </p>
+                <div className="px-3 pb-3 md:hidden">
+                  <ThemeSwitcher />
+                </div>
                 <form action={logoutAction}>
                   <button className="btn btn-outline btn-sm w-full" type="submit">
                     <LogOut className="size-4" aria-hidden />

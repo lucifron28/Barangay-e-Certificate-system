@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft, Inbox } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAdmin } from "@/lib/auth/guards";
@@ -72,7 +73,26 @@ export default async function ResidentDetailsPage({
           <h2 className="text-lg font-bold">Request History</h2>
         </div>
         {requests.length ? (
-          <div className="overflow-x-auto">
+          <>
+            <div className="space-y-3 p-4 md:hidden">
+              {requests.map((request) => (
+                <MobileRecordCard
+                  key={request.id}
+                  title={
+                    <Link href={`/admin/certificate-requests/${request.id}`} className="link link-primary">
+                      {request.request_number}
+                    </Link>
+                  }
+                  description={certificateLabel(request.certificate_type)}
+                  status={<StatusBadge status={request.status} />}
+                  fields={[
+                    { label: "Purpose", value: request.purpose, fullWidth: true },
+                    { label: "Requested", value: formatDate(request.date_requested) },
+                  ]}
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
             <table className="table">
               <thead>
                 <tr>
@@ -104,7 +124,8 @@ export default async function ResidentDetailsPage({
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         ) : (
           <div className="p-5">
             <EmptyState

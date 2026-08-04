@@ -216,7 +216,10 @@ npm run dev
 ```
 
 The local database is stored at `data/dev.sqlite`, with SQLite sidecar files
-ignored by Git.
+ignored by Git. When `LOCAL_DEMO_SECRET` is blank, local demo auth creates a
+random signing secret at `data/.local-demo-session-secret`; it is ignored by
+Git so cookies remain valid across Next.js development workers without placing
+a secret in source code.
 
 Useful database scripts:
 

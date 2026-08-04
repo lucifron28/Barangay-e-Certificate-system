@@ -23,18 +23,23 @@ import type { Json } from "@/types/database";
 
 const REQUEST_PATH = "/resident/request-certificate";
 
+function readTextField(formData: FormData, name: string) {
+  const value = formData.get(name);
+  return typeof value === "string" ? value : "";
+}
+
 function readRequestForm(formData: FormData) {
   return certificateRequestSchema.safeParse({
-    age: formData.get("age"),
-    birthdate: formData.get("birthdate"),
-    certificate_type: formData.get("certificate_type"),
-    contact_number: formData.get("contact_number"),
-    date_requested: formData.get("date_requested"),
-    full_name: formData.get("full_name"),
-    place_of_birth: formData.get("place_of_birth"),
-    purpose: formData.get("purpose"),
-    sitio: formData.get("sitio"),
-    years_of_residency: formData.get("years_of_residency"),
+    age: readTextField(formData, "age"),
+    birthdate: readTextField(formData, "birthdate"),
+    certificate_type: readTextField(formData, "certificate_type"),
+    contact_number: readTextField(formData, "contact_number"),
+    date_requested: readTextField(formData, "date_requested"),
+    full_name: readTextField(formData, "full_name"),
+    place_of_birth: readTextField(formData, "place_of_birth"),
+    purpose: readTextField(formData, "purpose"),
+    sitio: readTextField(formData, "sitio"),
+    years_of_residency: readTextField(formData, "years_of_residency"),
   });
 }
 

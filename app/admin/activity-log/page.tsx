@@ -1,5 +1,6 @@
 import { Activity } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listActivityLogs } from "@/lib/services/certificate-data";
@@ -24,7 +25,27 @@ export default async function ActivityLogPage() {
       </div>
 
       {logs.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {logs.map((log) => (
+              <MobileRecordCard
+                key={log.id}
+                title={log.action}
+                description={formatDateTime(log.created_at)}
+                fields={[
+                  { label: "User", value: log.user?.full_name ?? "System" },
+                  { label: "Role", value: log.role },
+                  {
+                    label: "Affected record",
+                    value: `${log.affected_table ?? "N/A"} ${log.affected_record_id?.slice(0, 8) ?? ""}`,
+                    fullWidth: true,
+                  },
+                  { label: "Remarks", value: log.remarks ?? "None", fullWidth: true },
+                ]}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -52,7 +73,8 @@ export default async function ActivityLogPage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={Activity}

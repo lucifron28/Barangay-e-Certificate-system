@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { FileText, LogIn, UserPlus } from "lucide-react";
+import { FileText, LogIn, Menu, UserPlus } from "lucide-react";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { publicNavItems } from "@/lib/navigation";
 
 export function PublicNavbar() {
   return (
-    <div className="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/95 px-4 shadow-sm backdrop-blur lg:px-8">
-      <div className="navbar-start">
+    <div className="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/95 px-3 shadow-sm backdrop-blur sm:px-4 lg:px-8">
+      <div className="navbar-start min-w-0">
         <Link href="/" className="btn btn-ghost min-h-11 gap-2 px-2 text-left">
           <FileText className="size-5 text-primary" aria-hidden />
           <span className="leading-tight">
@@ -26,8 +26,8 @@ export function PublicNavbar() {
           ))}
         </ul>
       </div>
-      <div className="navbar-end gap-2">
-        <div className="hidden sm:block">
+      <div className="navbar-end shrink-0 gap-1 sm:gap-2">
+        <div className="hidden lg:block">
           <ThemeSwitcher />
         </div>
         <Link href="/login" className="btn btn-ghost btn-sm">
@@ -38,6 +38,21 @@ export function PublicNavbar() {
           <UserPlus className="size-4" aria-hidden />
           Register
         </Link>
+        <details className="dropdown dropdown-end lg:hidden">
+          <summary className="btn btn-ghost btn-square btn-sm" aria-label="Open navigation menu">
+            <Menu className="size-5" aria-hidden />
+          </summary>
+          <ul className="menu dropdown-content z-40 mt-3 w-60 rounded-lg border border-base-300 bg-base-100 p-2 shadow">
+            {publicNavItems.map((item) => (
+              <li key={item.href}>
+                <Link href={item.href}>{item.label}</Link>
+              </li>
+            ))}
+            <li className="mt-2 border-t border-base-300 pt-2">
+              <ThemeSwitcher />
+            </li>
+          </ul>
+        </details>
       </div>
     </div>
   );

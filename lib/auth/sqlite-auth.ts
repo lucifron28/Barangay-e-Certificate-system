@@ -7,6 +7,8 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { env } from "@/lib/env";
 import {
   createActivityLog,
@@ -17,10 +19,36 @@ import type { Profile } from "@/types/database";
 
 const COOKIE_NAME = "barangay_bato_demo_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
-const ephemeralSecret = randomBytes(32).toString("hex");
+
+function getPersistedDemoSecret() {
+  const secretPath = path.join(
+    /* turbopackIgnore: true */ process.cwd(),
+    "data",
+    ".local-demo-session-secret",
+  );
+
+  if (existsSync(secretPath)) {
+    return readFileSync(secretPath, "utf8").trim();
+  }
+
+  mkdirSync(path.dirname(secretPath), { recursive: true });
+  const generatedSecret = randomBytes(32).toString("hex");
+
+  try {
+    writeFileSync(secretPath, generatedSecret, {
+      encoding: "utf8",
+      flag: "wx",
+      mode: 0o600,
+    });
+    return generatedSecret;
+  } catch {
+    // Another local dev worker may have created it first.
+    return readFileSync(secretPath, "utf8").trim();
+  }
+}
 
 function secret() {
-  return env.localDemoSecret || ephemeralSecret;
+  return env.localDemoSecret || getPersistedDemoSecret();
 }
 
 function base64Url(value: string) {

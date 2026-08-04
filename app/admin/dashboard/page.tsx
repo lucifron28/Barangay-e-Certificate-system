@@ -10,6 +10,7 @@ import {
   Ban,
 } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -54,7 +55,7 @@ export default async function AdminDashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <StatCard icon={Inbox} label="Total Requests" value={stats.total} />
         <StatCard icon={Clock3} label="Pending" tone="warning" value={stats.pending} />
         <StatCard icon={ThumbsUp} label="Accepted" tone="info" value={stats.accepted} />
@@ -83,7 +84,26 @@ export default async function AdminDashboardPage() {
           <h2 className="text-lg font-bold">Recent requests</h2>
         </div>
         {recentRequests.length ? (
-          <div className="overflow-x-auto">
+          <>
+            <div className="space-y-3 p-4 md:hidden">
+              {recentRequests.map((request) => (
+                <MobileRecordCard
+                  key={request.id}
+                  title={
+                    <Link href={`/admin/certificate-requests/${request.id}`} className="link link-primary">
+                      {request.request_number}
+                    </Link>
+                  }
+                  description={request.resident?.full_name ?? "Unknown resident"}
+                  status={<StatusBadge status={request.status} />}
+                  fields={[
+                    { label: "Certificate", value: certificateLabel(request.certificate_type) },
+                    { label: "Requested", value: formatDate(request.date_requested) },
+                  ]}
+                />
+              ))}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
             <table className="table">
               <thead>
                 <tr>
@@ -115,7 +135,8 @@ export default async function AdminDashboardPage() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         ) : (
           <div className="p-5">
             <EmptyState
