@@ -60,6 +60,18 @@ CREATE TABLE IF NOT EXISTS certificate_records (
   control_number TEXT,
   template_data TEXT NOT NULL DEFAULT '{}',
   pdf_path TEXT,
+  certificate_number TEXT,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'revoked', 'expired')),
+  issuance_mode TEXT NOT NULL DEFAULT 'fully_online_demo',
+  issued_at TEXT,
+  issued_by TEXT REFERENCES profiles(id),
+  certificate_snapshot TEXT NOT NULL DEFAULT '{}',
+  pdf_sha256 TEXT,
+  verification_expires_at TEXT,
+  revoked_at TEXT,
+  revoked_by TEXT REFERENCES profiles(id),
+  revocation_reason TEXT,
+  replacement_record_id TEXT REFERENCES certificate_records(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
@@ -137,4 +149,25 @@ CREATE TABLE IF NOT EXISTS payment_events (
   event_type TEXT NOT NULL,
   payload TEXT NOT NULL DEFAULT '{}',
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS certificate_verifications (
+  id TEXT PRIMARY KEY,
+  certificate_record_id TEXT NOT NULL UNIQUE REFERENCES certificate_records(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  short_verification_code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('valid', 'expired', 'revoked')),
+  valid_from TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS certificate_download_logs (
+  id TEXT PRIMARY KEY,
+  certificate_record_id TEXT NOT NULL REFERENCES certificate_records(id),
+  user_id TEXT NOT NULL REFERENCES profiles(id),
+  result TEXT NOT NULL,
+  downloaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
