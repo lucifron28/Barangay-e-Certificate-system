@@ -23,6 +23,7 @@ import {
   CERTIFICATE_TYPE_LABELS,
   CERTIFICATE_TYPES,
   REQUEST_STATUSES,
+  REQUEST_STATUS_LABELS,
 } from "@/types/enums";
 
 type ReportsPageProps = {
@@ -93,7 +94,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
           <option value="">All statuses</option>
           {REQUEST_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status.replaceAll("_", " ")}
+              {REQUEST_STATUS_LABELS[status]}
             </option>
           ))}
           </select>

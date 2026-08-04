@@ -13,7 +13,12 @@ import {
   markRequestDoneAction,
 } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
-import { CERTIFICATE_TYPE_LABELS, CERTIFICATE_TYPES, REQUEST_STATUSES } from "@/types/enums";
+import {
+  CERTIFICATE_TYPE_LABELS,
+  CERTIFICATE_TYPES,
+  REQUEST_STATUSES,
+  REQUEST_STATUS_LABELS,
+} from "@/types/enums";
 import {
   filterRequests,
   listAdminRequests,
@@ -81,7 +86,7 @@ export default async function AdminCertificateRequestsPage({
           <option value="">All statuses</option>
           {REQUEST_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status.replaceAll("_", " ")}
+              {REQUEST_STATUS_LABELS[status]}
             </option>
           ))}
           </select>

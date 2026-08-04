@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Eye, Search, UsersRound } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { requireAdmin } from "@/lib/auth/guards";
 import { listResidents } from "@/lib/services/certificate-data";
@@ -50,24 +51,33 @@ export default async function ResidentRecordsPage({
       </div>
 
       <form className="grid gap-3 rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm md:grid-cols-4">
-        <input
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Resident name</span>
+          <input
           className="input input-bordered input-sm"
           name="resident_name"
           placeholder="Resident name"
           defaultValue={readParam(params, "resident_name")}
-        />
-        <input
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Sitio</span>
+          <input
           className="input input-bordered input-sm"
           name="sitio"
           placeholder="Sitio"
           defaultValue={readParam(params, "sitio")}
-        />
-        <input
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Date registered</span>
+          <input
           className="input input-bordered input-sm"
           name="date_registered"
           type="date"
           defaultValue={readParam(params, "date_registered")}
-        />
+          />
+        </label>
         <button className="btn btn-primary btn-sm" type="submit">
           <Search className="size-4" aria-hidden />
           Filter
@@ -75,7 +85,31 @@ export default async function ResidentRecordsPage({
       </form>
 
       {residents.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {residents.map((resident) => (
+              <MobileRecordCard
+                key={resident.id}
+                title={resident.full_name}
+                description={`Resident ID: ${resident.id.slice(0, 8)}`}
+                fields={[
+                  { label: "Age", value: resident.age ?? "Not set" },
+                  { label: "Registered", value: formatDate(resident.created_at) },
+                  { label: "Address / Sitio", value: resident.address_sitio ?? "Not set", fullWidth: true },
+                  { label: "Contact", value: resident.contact_number ?? "Not set" },
+                  { label: "Gender", value: resident.gender ?? "Not set" },
+                  { label: "Occupation", value: resident.occupation ?? "Not set", fullWidth: true },
+                ]}
+                actions={
+                  <Link href={`/admin/resident-records/${resident.id}`} className="btn btn-ghost btn-sm">
+                    <Eye className="size-4" aria-hidden />
+                    View record
+                  </Link>
+                }
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -114,7 +148,8 @@ export default async function ResidentRecordsPage({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={UsersRound}
