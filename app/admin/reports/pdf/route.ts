@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   }
 
   page.drawText(
-    "TODO: Final monthly barangay report format pending client confirmation.",
+    "Barangay Bato e-Certificate System - thesis/demo report.",
     {
       x: 36,
       y: 36,
