@@ -10,6 +10,7 @@ export const REQUEST_STATUSES = [
   "accepted",
   "rejected",
   "ready_for_pickup",
+  "ready_for_download",
   "done",
   "cancelled",
 ] as const;
@@ -39,6 +40,7 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   accepted: "Accepted",
   rejected: "Rejected",
   ready_for_pickup: "Ready for Pickup",
+  ready_for_download: "Ready for Download",
   done: "Done",
   cancelled: "Cancelled",
 };

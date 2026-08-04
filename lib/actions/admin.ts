@@ -15,6 +15,7 @@ import {
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
+import { env } from "@/lib/env";
 import {
   canMarkDone,
   canRejectRequest,
@@ -113,26 +114,6 @@ Thank you.
 Barangay Bato e-Certificate System
 Barangay Bato, Mauban, Quezon`,
     subject: "Pickup Schedule for Your Certificate Request",
-  };
-}
-
-function readyEmail(residentName: string, certificateType: string) {
-  return {
-    message: `Dear ${residentName},
-
-Good day.
-
-Your ${certificateType} is now ready for pickup at the Barangay Bato office.
-
-Please proceed to the barangay office during office hours to claim your certificate. Kindly bring a valid identification card or any necessary document for verification. Certificate fees shall be settled upon pickup.
-
-Office Hours: ${OFFICE_HOURS_LABEL}
-
-Thank you.
-
-Barangay Bato e-Certificate System
-Barangay Bato, Mauban, Quezon`,
-    subject: "Certificate Ready for Pickup",
   };
 }
 
@@ -315,6 +296,13 @@ export async function rejectRequestAction(formData: FormData) {
 }
 
 export async function setPickupScheduleAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Pickup scheduling is unavailable in fully online demo mode.",
+    );
+  }
+
   const parsed = scheduleSchema.safeParse({
     pickup_date: formData.get("pickup_date"),
     pickup_time: formData.get("pickup_time"),
@@ -355,10 +343,6 @@ export async function setPickupScheduleAction(formData: FormData) {
       remarks: parsed.data.remarks || null,
       request_id: request.id,
     });
-    updateRequestStatus({
-      id: request.id,
-      status: "ready_for_pickup",
-    });
   } else {
     const { error: scheduleError } = await context.supabase!
       .from("pickup_schedules")
@@ -379,13 +363,6 @@ export async function setPickupScheduleAction(formData: FormData) {
       redirectWithError("/admin/pickup-schedules", "Unable to save schedule.");
     }
 
-    await context.supabase!
-      .from("certificate_requests")
-      .update({
-        status: "ready_for_pickup",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", request.id);
   }
 
   await logActivity({
@@ -403,28 +380,23 @@ export async function setPickupScheduleAction(formData: FormData) {
     parsed.data.pickup_date,
     parsed.data.pickup_time,
   );
-  const readyForPickupEmail = readyEmail(
-    request.resident?.full_name ?? "Resident",
-    certificateLabel(request.certificate_type),
-  );
-
   await notifyAndLog({
     ...scheduledEmail,
     requestId: request.id,
     supabase: context.supabase,
     to: request.resident?.email,
   });
-  await notifyAndLog({
-    ...readyForPickupEmail,
-    requestId: request.id,
-    supabase: context.supabase,
-    to: request.resident?.email,
-  });
-
   redirectWithMessage("/admin/pickup-schedules", "Pickup schedule saved.");
 }
 
 export async function markRequestReadyAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online certificates become ready after payment and issuance.",
+    );
+  }
+
   const parsed = markReadySchema.safeParse({
     request_id: formData.get("request_id"),
   });

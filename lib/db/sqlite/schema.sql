@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS certificate_requests (
   resident_id TEXT NOT NULL REFERENCES profiles(id),
   certificate_type TEXT NOT NULL CHECK (certificate_type IN ('barangay_clearance', 'barangay_certificate', 'barangay_indigency', 'barangay_residency')),
   purpose TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_pickup', 'done', 'cancelled')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_pickup', 'ready_for_download', 'done', 'cancelled')),
   remarks TEXT,
   submitted_data TEXT NOT NULL DEFAULT '{}',
   control_number TEXT UNIQUE,
@@ -103,3 +103,13 @@ CREATE TABLE IF NOT EXISTS rate_limit_attempts (
 
 CREATE INDEX IF NOT EXISTS rate_limit_attempts_action_window_idx
   ON rate_limit_attempts (action, window_started_at);
+
+CREATE TABLE IF NOT EXISTS document_counters (
+  id TEXT PRIMARY KEY,
+  counter_type TEXT NOT NULL CHECK (counter_type IN ('request_number', 'barangay_clearance_control_number')),
+  year INTEGER NOT NULL,
+  current_value INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (counter_type, year)
+);

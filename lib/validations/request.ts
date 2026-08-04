@@ -10,7 +10,6 @@ export const certificateRequestSchema = z.object({
   sitio: z.string().min(1, "Address or sitio is required."),
   purpose: z.string().min(1, "Purpose is required."),
   contact_number: z.string().min(1, "Contact number is required."),
-  date_requested: z.string().optional(),
   birthdate: z.string().optional(),
   place_of_birth: z.string().optional(),
   years_of_residency: z.coerce.number().int().min(0).optional().or(z.literal("")),

@@ -305,23 +305,33 @@ export function updateProfile(
   return getProfileById(id);
 }
 
-function generateSequence(prefix: string, column: "request_number" | "control_number") {
+function nextDocumentCounter(
+  counterType: "request_number" | "barangay_clearance_control_number",
+) {
   const year = new Date().getFullYear();
-  const count = getSqliteDb()
+  const timestamp = nowIso();
+  const row = getSqliteDb()
     .prepare(
-      `SELECT COUNT(*) AS total FROM certificate_requests WHERE ${column} LIKE ?`,
+      `INSERT INTO document_counters (id, counter_type, year, current_value, created_at, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?)
+       ON CONFLICT(counter_type, year) DO UPDATE SET
+         current_value = document_counters.current_value + 1,
+         updated_at = excluded.updated_at
+       RETURNING current_value`,
     )
-    .get(`${prefix}-${year}-%`) as { total: number };
+    .get(randomUUID(), counterType, year, timestamp, timestamp) as { current_value: number };
 
-  return `${prefix}-${year}-${String(count.total + 1).padStart(4, "0")}`;
+  return { value: row.current_value, year };
 }
 
 export function generateRequestNumber() {
-  return generateSequence("REQ", "request_number");
+  const counter = nextDocumentCounter("request_number");
+  return `REQ-${counter.year}-${String(counter.value).padStart(4, "0")}`;
 }
 
 export function generateClearanceControlNumber() {
-  return generateSequence("BCL", "control_number");
+  const counter = nextDocumentCounter("barangay_clearance_control_number");
+  return `BCL-${counter.year}-${String(counter.value).padStart(4, "0")}`;
 }
 
 export function createCertificateRequest(input: {
@@ -329,7 +339,6 @@ export function createCertificateRequest(input: {
   birthdate?: string | null;
   certificate_type: CertificateType;
   contact_number: string;
-  date_requested?: string | null;
   full_name: string;
   place_of_birth?: string | null;
   purpose: string;
@@ -341,14 +350,7 @@ export function createCertificateRequest(input: {
   const timestamp = nowIso();
   const feeAmount = getCertificateFee(input.certificate_type);
   const paymentStatus = getDefaultPaymentStatus(input.certificate_type);
-  const requestNumber = generateRequestNumber();
-  const controlNumber =
-    input.certificate_type === "barangay_clearance"
-      ? generateClearanceControlNumber()
-      : null;
-  const dateRequested = input.date_requested
-    ? new Date(`${input.date_requested}T00:00:00`).toISOString()
-    : timestamp;
+  const dateRequested = timestamp;
   const submittedData: Json = {
     certificate_specific: {
       birthdate: input.birthdate || null,
@@ -369,15 +371,22 @@ export function createCertificateRequest(input: {
     ],
   };
 
-  getSqliteDb()
-    .prepare(
+  getSqliteDb().transaction(() => {
+    const requestNumber = generateRequestNumber();
+    const controlNumber =
+      input.certificate_type === "barangay_clearance"
+        ? generateClearanceControlNumber()
+        : null;
+
+    getSqliteDb()
+      .prepare(
       `INSERT INTO certificate_requests (
         id, request_number, resident_id, certificate_type, purpose, status,
         remarks, submitted_data, control_number, fee_amount, payment_status,
         date_requested, date_accepted, date_released, cancelled_at, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, 'pending', NULL, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?, ?)`,
-    )
-    .run(
+      )
+      .run(
       id,
       requestNumber,
       input.resident_id,
@@ -389,8 +398,9 @@ export function createCertificateRequest(input: {
       paymentStatus,
       dateRequested,
       timestamp,
-      timestamp,
-    );
+        timestamp,
+      );
+  })();
 
   return getRequestById(id);
 }
