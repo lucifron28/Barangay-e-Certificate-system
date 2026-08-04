@@ -113,3 +113,28 @@ CREATE TABLE IF NOT EXISTS document_counters (
   updated_at TEXT NOT NULL DEFAULT (datetime('now')),
   UNIQUE (counter_type, year)
 );
+
+CREATE TABLE IF NOT EXISTS payments (
+  id TEXT PRIMARY KEY,
+  request_id TEXT NOT NULL REFERENCES certificate_requests(id),
+  resident_id TEXT NOT NULL REFERENCES profiles(id),
+  provider TEXT NOT NULL,
+  provider_transaction_id TEXT NOT NULL UNIQUE,
+  amount INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'PHP',
+  status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'paid', 'failed', 'cancelled', 'expired', 'refunded', 'free')),
+  paid_at TEXT,
+  expires_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS payments_request_id_idx ON payments (request_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS payment_events (
+  id TEXT PRIMARY KEY,
+  payment_id TEXT NOT NULL REFERENCES payments(id),
+  event_type TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

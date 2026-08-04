@@ -1,6 +1,7 @@
 import type {
   CertificateType,
   PaymentStatus,
+  MockPaymentStatus,
   ProfileRole,
   RequestStatus,
 } from "@/types/enums";
@@ -96,6 +97,21 @@ export type NotificationLog = {
   status: string;
   provider_response: Json | null;
   created_at: string;
+};
+
+export type Payment = {
+  id: string;
+  request_id: string;
+  resident_id: string;
+  provider: string;
+  provider_transaction_id: string;
+  amount: number;
+  currency: string;
+  status: MockPaymentStatus;
+  paid_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type SystemSetting = {
