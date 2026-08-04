@@ -7,6 +7,7 @@ export const env = {
   localDemoAdminPassword:
     process.env.LOCAL_DEMO_ADMIN_PASSWORD ?? "password123",
   localDemoSecret: process.env.LOCAL_DEMO_SECRET ?? "",
+  trustProxy: process.env.TRUST_PROXY === "true",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   sqliteDatabaseUrl:
     process.env.SQLITE_DATABASE_URL ?? "file:./data/dev.sqlite",

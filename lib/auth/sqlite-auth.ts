@@ -7,8 +7,6 @@ import {
   scryptSync,
   timingSafeEqual,
 } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
 import { env } from "@/lib/env";
 import {
   createActivityLog,
@@ -20,35 +18,16 @@ import type { Profile } from "@/types/database";
 const COOKIE_NAME = "barangay_bato_demo_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 8;
 
-function getPersistedDemoSecret() {
-  const secretPath = path.join(
-    /* turbopackIgnore: true */ process.cwd(),
-    "data",
-    ".local-demo-session-secret",
-  );
-
-  if (existsSync(secretPath)) {
-    return readFileSync(secretPath, "utf8").trim();
-  }
-
-  mkdirSync(path.dirname(secretPath), { recursive: true });
-  const generatedSecret = randomBytes(32).toString("hex");
-
-  try {
-    writeFileSync(secretPath, generatedSecret, {
-      encoding: "utf8",
-      flag: "wx",
-      mode: 0o600,
-    });
-    return generatedSecret;
-  } catch {
-    // Another local dev worker may have created it first.
-    return readFileSync(secretPath, "utf8").trim();
-  }
+export function hasLocalDemoSecret() {
+  return env.localDemoSecret.trim().length >= 32;
 }
 
 function secret() {
-  return env.localDemoSecret || getPersistedDemoSecret();
+  if (!hasLocalDemoSecret()) {
+    throw new Error("LOCAL_DEMO_SECRET must be configured for SQLite demo auth.");
+  }
+
+  return env.localDemoSecret;
 }
 
 function base64Url(value: string) {
@@ -61,6 +40,23 @@ function fromBase64Url(value: string) {
 
 function sign(payload: string) {
   return createHmac("sha256", secret()).update(payload).digest("base64url");
+}
+
+function hasValidSignature(payload: string, providedSignature: string) {
+  if (!/^[A-Za-z0-9_-]+$/.test(providedSignature)) {
+    return false;
+  }
+
+  try {
+    const expected = Buffer.from(sign(payload), "base64url");
+    const provided = Buffer.from(providedSignature, "base64url");
+
+    return (
+      expected.length === provided.length && timingSafeEqual(expected, provided)
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function hashPassword(password: string) {
@@ -113,6 +109,10 @@ export async function clearLocalSession() {
 }
 
 export async function getLocalSessionProfile() {
+  if (!hasLocalDemoSecret()) {
+    return null;
+  }
+
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
 
@@ -121,7 +121,7 @@ export async function getLocalSessionProfile() {
   }
 
   const [payload, signature] = token.split(".");
-  if (!payload || !signature || sign(payload) !== signature) {
+  if (!payload || !signature || !hasValidSignature(payload, signature)) {
     return null;
   }
 

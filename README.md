@@ -196,7 +196,9 @@ NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 LOCAL_DEMO_ADMIN_EMAIL=admin@example.com
 LOCAL_DEMO_ADMIN_PASSWORD=password123
+# Required in SQLite mode. Generate with: openssl rand -base64 32
 LOCAL_DEMO_SECRET=
+TRUST_PROXY=false
 ```
 
 Legacy `NEXT_PUBLIC_SUPABASE_ANON_KEY` and `SUPABASE_SERVICE_ROLE_KEY` are still
@@ -245,6 +247,13 @@ variables before seeding.
 
 Local demo auth is for thesis/local development only and must not be used as
 production authentication.
+
+`LOCAL_DEMO_SECRET` is required in SQLite mode and must be at least 32
+characters. Generate it locally with `openssl rand -base64 32`, place it only
+in `.env.local`, and restart the application. The system refuses local login
+and registration until it is configured. `TRUST_PROXY` remains `false` for
+local use; set it to `true` only behind a known reverse proxy that supplies a
+trusted `x-forwarded-for` header.
 
 ## Database Mode Switching
 

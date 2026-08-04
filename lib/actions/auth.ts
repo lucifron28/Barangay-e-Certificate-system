@@ -8,12 +8,14 @@ import {
   clearLocalSession,
   createLocalSession,
   hashPassword,
+  hasLocalDemoSecret,
 } from "@/lib/auth/sqlite-auth";
 import { roleHome } from "@/lib/auth/roles";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { createClient } from "@/lib/supabase/server";
 import { firstZodError, redirectWithError } from "@/lib/actions/helpers";
 import { loginSchema, registerSchema } from "@/lib/validations/auth";
+import { clearRateLimit, consumeRateLimit } from "@/lib/security/rate-limit";
 
 const LOGIN_PATH = "/login";
 const REGISTER_PATH = "/register";
@@ -29,12 +31,25 @@ export async function loginAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
+    if (!hasLocalDemoSecret()) {
+      redirectWithError(
+        LOGIN_PATH,
+        "Local demo security setup is incomplete. Set LOCAL_DEMO_SECRET and restart the app.",
+      );
+    }
+
+    const rateLimit = await consumeRateLimit("login", parsed.data.login);
+    if (!rateLimit.allowed) {
+      redirectWithError(LOGIN_PATH, "Too many attempts. Please try again later.");
+    }
+
     const profile = authenticateLocalUser(parsed.data.login, parsed.data.password);
 
     if (!profile) {
       redirectWithError(LOGIN_PATH, "Invalid username or password.");
     }
 
+    await clearRateLimit("login", parsed.data.login);
     await createLocalSession(profile);
     redirect(roleHome(profile.role));
   }
@@ -63,7 +78,7 @@ export async function loginAction(formData: FormData) {
       .maybeSingle();
 
     if (!profile?.email) {
-      redirectWithError(LOGIN_PATH, "Account not found.");
+      redirectWithError(LOGIN_PATH, "Invalid username or password.");
     }
 
     email = profile.email;
@@ -86,7 +101,7 @@ export async function loginAction(formData: FormData) {
 
   if (!profile) {
     await supabase.auth.signOut();
-    redirectWithError(LOGIN_PATH, "Account profile not found.");
+    redirectWithError(LOGIN_PATH, "Unable to sign in. Please contact the administrator.");
   }
 
   redirect(roleHome(profile.role));
@@ -113,10 +128,25 @@ export async function registerResidentAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
+    if (!hasLocalDemoSecret()) {
+      redirectWithError(
+        REGISTER_PATH,
+        "Local demo security setup is incomplete. Set LOCAL_DEMO_SECRET and restart the app.",
+      );
+    }
+
+    const rateLimit = await consumeRateLimit("registration", parsed.data.email);
+    if (!rateLimit.allowed) {
+      redirectWithError(REGISTER_PATH, "Too many attempts. Please try again later.");
+    }
+
     const username = parsed.data.username?.trim() || null;
 
     if (profileExists(parsed.data.email, username)) {
-      redirectWithError(REGISTER_PATH, "Account already exists.");
+      redirectWithError(
+        REGISTER_PATH,
+        "Unable to create account. Please review your details and try again.",
+      );
     }
 
     createProfile({
@@ -133,6 +163,8 @@ export async function registerResidentAction(formData: FormData) {
       role: "resident",
       username,
     });
+
+    await clearRateLimit("registration", parsed.data.email);
 
     redirect(
       "/login?message=" +
@@ -157,7 +189,10 @@ export async function registerResidentAction(formData: FormData) {
       .maybeSingle();
 
     if (existingUsername) {
-      redirectWithError(REGISTER_PATH, "Account already exists.");
+      redirectWithError(
+        REGISTER_PATH,
+        "Unable to create account. Please review your details and try again.",
+      );
     }
   }
 
@@ -180,10 +215,7 @@ export async function registerResidentAction(formData: FormData) {
   });
 
   if (error || !data.user) {
-    const message = error?.message.toLowerCase().includes("already")
-      ? "Account already exists."
-      : "Unable to register account. Please try again.";
-    redirectWithError(REGISTER_PATH, message);
+    redirectWithError(REGISTER_PATH, "Unable to register account. Please try again.");
   }
 
   if (serviceRole) {
