@@ -3,8 +3,8 @@ export const env = {
   databaseProvider: process.env.DATABASE_PROVIDER ?? "sqlite",
   certificateIssuanceMode:
     process.env.CERTIFICATE_ISSUANCE_MODE === "hybrid_physical_original"
-      ? "hybrid_physical_original"
-      : "fully_online_demo",
+      ? ("hybrid_physical_original" as const)
+      : ("fully_online_demo" as const),
   emailFrom: process.env.EMAIL_FROM ?? "",
   localDemoAdminEmail:
     process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",

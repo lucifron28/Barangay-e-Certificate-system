@@ -153,16 +153,28 @@ function certificateRecordFromRow(row: Row | undefined): CertificateRecord | nul
   }
 
   return {
+    certificate_number: asText(row.certificate_number),
+    certificate_snapshot: parseJson(row.certificate_snapshot),
     certificate_type: String(row.certificate_type) as CertificateType,
     control_number: asText(row.control_number),
     created_at: String(row.created_at),
     date_issued: String(row.date_issued),
     id: String(row.id),
     pdf_path: asText(row.pdf_path),
+    pdf_sha256: asText(row.pdf_sha256),
     prepared_by: asText(row.prepared_by),
+    issuance_mode: String(row.issuance_mode) as CertificateRecord["issuance_mode"],
+    issued_at: asText(row.issued_at),
+    issued_by: asText(row.issued_by),
     request_id: String(row.request_id),
+    replacement_record_id: asText(row.replacement_record_id),
+    revocation_reason: asText(row.revocation_reason),
+    revoked_at: asText(row.revoked_at),
+    revoked_by: asText(row.revoked_by),
     resident_id: String(row.resident_id),
     template_data: parseJson(row.template_data),
+    status: String(row.status) as CertificateRecord["status"],
+    verification_expires_at: asText(row.verification_expires_at),
   };
 }
 
@@ -326,7 +338,7 @@ export function updateProfile(
 }
 
 function nextDocumentCounter(
-  counterType: "request_number" | "barangay_clearance_control_number",
+  counterType: "request_number" | "barangay_clearance_control_number" | "certificate_number",
 ) {
   const year = new Date().getFullYear();
   const timestamp = nowIso();
@@ -352,6 +364,11 @@ export function generateRequestNumber() {
 export function generateClearanceControlNumber() {
   const counter = nextDocumentCounter("barangay_clearance_control_number");
   return `BCL-${counter.year}-${String(counter.value).padStart(4, "0")}`;
+}
+
+export function generateCertificateNumber() {
+  const counter = nextDocumentCounter("certificate_number");
+  return `CERT-${counter.year}-${String(counter.value).padStart(4, "0")}`;
 }
 
 export function createCertificateRequest(input: {
@@ -684,9 +701,13 @@ export function listResidentHistory(residentId: string) {
   return listResidentRequests(residentId);
 }
 
-export function saveCertificateRecord(input: {
+export function issueCertificateRecord(input: {
+  id: string;
   date_issued: string;
-  pdf_path?: string | null;
+  issued_at: string;
+  issuance_mode: CertificateRecord["issuance_mode"];
+  pdf_path: string;
+  pdf_sha256: string;
   prepared_by: string;
   request: CertificateRequest;
   template_data: Json;
@@ -695,32 +716,24 @@ export function saveCertificateRecord(input: {
     .prepare("SELECT id FROM certificate_records WHERE request_id = ?")
     .get(input.request.id) as { id: string } | undefined;
 
-  if (existing) {
-    getSqliteDb()
-      .prepare(
-        `UPDATE certificate_records
-         SET date_issued = ?, prepared_by = ?, control_number = ?,
-             template_data = ?, pdf_path = ?
-         WHERE request_id = ?`,
-      )
-      .run(
-        input.date_issued,
-        input.prepared_by,
-        input.request.control_number,
-        stringifyJson(input.template_data),
-        input.pdf_path || null,
-        input.request.id,
-      );
-  } else {
+  if (existing) return null;
+
+  const certificateNumber = generateCertificateNumber();
+  const verificationExpiresAt = new Date(
+    new Date(input.issued_at).getTime() + 3 * 24 * 60 * 60 * 1000,
+  ).toISOString();
+
     getSqliteDb()
       .prepare(
         `INSERT INTO certificate_records (
           id, request_id, certificate_type, resident_id, date_issued, prepared_by,
-          control_number, template_data, pdf_path, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          control_number, template_data, pdf_path, certificate_number, status,
+          issuance_mode, issued_at, issued_by, certificate_snapshot, pdf_sha256,
+          verification_expires_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
-        randomUUID(),
+        input.id,
         input.request.id,
         input.request.certificate_type,
         input.request.resident_id,
@@ -728,15 +741,29 @@ export function saveCertificateRecord(input: {
         input.prepared_by,
         input.request.control_number,
         stringifyJson(input.template_data),
-        input.pdf_path || null,
+        input.pdf_path,
+        certificateNumber,
+        input.issuance_mode,
+        input.issued_at,
+        input.prepared_by,
+        stringifyJson(input.template_data),
+        input.pdf_sha256,
+        verificationExpiresAt,
         nowIso(),
       );
-  }
 
   return certificateRecordFromRow(
     getSqliteDb()
       .prepare("SELECT * FROM certificate_records WHERE request_id = ?")
       .get(input.request.id) as Row | undefined,
+  );
+}
+
+export function getCertificateRecordByRequestId(requestId: string) {
+  return certificateRecordFromRow(
+    getSqliteDb()
+      .prepare("SELECT * FROM certificate_records WHERE request_id = ?")
+      .get(requestId) as Row | undefined,
   );
 }
 

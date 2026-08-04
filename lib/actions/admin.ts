@@ -1,6 +1,11 @@
 "use server";
 
 import { requireAdmin } from "@/lib/auth/guards";
+import { randomUUID } from "node:crypto";
+import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
+import { savePrivateCertificatePdf } from "@/lib/certificates/private-storage";
+import { sha256Hex } from "@/lib/security/document-hash";
+import { getSystemSettings } from "@/lib/services/certificate-data";
 import {
   firstZodError,
   logActivity,
@@ -10,7 +15,7 @@ import {
 import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createNotificationLog,
-  saveCertificateRecord,
+  issueCertificateRecord,
   updateRequestStatus,
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
@@ -567,12 +572,26 @@ export async function saveCertificateRecordAction(formData: FormData) {
   };
 
   if (isSqliteProvider()) {
-    saveCertificateRecord({
+    if (request.status !== "accepted" || !["paid", "free"].includes(request.payment_status)) {
+      redirectWithError(path, "Only accepted paid or free requests can be issued.");
+    }
+    const issuedAt = new Date(`${parsed.data.date_issued}T00:00:00.000Z`).toISOString();
+    const settings = await getSystemSettings(context.supabase);
+    const certificateId = randomUUID();
+    const pdfBytes = await generateCertificatePdf({ barangayCaptainName: settings.barangayCaptainName, dateIssued: issuedAt, preparedBy: context.profile.full_name, request });
+    const pdfPath = savePrivateCertificatePdf(certificateId, pdfBytes);
+    const record = issueCertificateRecord({
+      id: certificateId,
       date_issued: parsed.data.date_issued,
+      issued_at: issuedAt,
+      issuance_mode: env.certificateIssuanceMode,
+      pdf_path: pdfPath,
+      pdf_sha256: sha256Hex(pdfBytes),
       prepared_by: context.profile.id,
       request,
       template_data: templateData,
     });
+    if (!record) redirectWithError(path, "A certificate was already issued for this request.");
   } else {
     const { error } = await context.supabase!.from("certificate_records").upsert(
       {

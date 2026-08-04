@@ -74,6 +74,18 @@ export type CertificateRecord = {
   control_number: string | null;
   template_data: Json;
   pdf_path: string | null;
+  certificate_number: string | null;
+  status: "draft" | "issued" | "revoked" | "expired";
+  issuance_mode: "fully_online_demo" | "hybrid_physical_original";
+  issued_at: string | null;
+  issued_by: string | null;
+  certificate_snapshot: Json;
+  pdf_sha256: string | null;
+  verification_expires_at: string | null;
+  revoked_at: string | null;
+  revoked_by: string | null;
+  revocation_reason: string | null;
+  replacement_record_id: string | null;
   created_at: string;
 };
 

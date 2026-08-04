@@ -118,7 +118,7 @@ CREATE INDEX IF NOT EXISTS rate_limit_attempts_action_window_idx
 
 CREATE TABLE IF NOT EXISTS document_counters (
   id TEXT PRIMARY KEY,
-  counter_type TEXT NOT NULL CHECK (counter_type IN ('request_number', 'barangay_clearance_control_number')),
+  counter_type TEXT NOT NULL CHECK (counter_type IN ('request_number', 'barangay_clearance_control_number', 'certificate_number')),
   year INTEGER NOT NULL,
   current_value INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
