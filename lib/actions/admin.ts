@@ -16,6 +16,8 @@ import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createNotificationLog,
   issueCertificateRecord,
+  createCertificateVerification,
+  generateVerificationToken,
   updateRequestStatus,
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
@@ -578,7 +580,9 @@ export async function saveCertificateRecordAction(formData: FormData) {
     const issuedAt = new Date(`${parsed.data.date_issued}T00:00:00.000Z`).toISOString();
     const settings = await getSystemSettings(context.supabase);
     const certificateId = randomUUID();
-    const pdfBytes = await generateCertificatePdf({ barangayCaptainName: settings.barangayCaptainName, dateIssued: issuedAt, preparedBy: context.profile.full_name, request });
+    const verificationToken = generateVerificationToken();
+    const verificationUrl = `${env.appUrl.replace(/\/$/, "")}/verify/${verificationToken}`;
+    const pdfBytes = await generateCertificatePdf({ barangayCaptainName: settings.barangayCaptainName, dateIssued: issuedAt, preparedBy: context.profile.full_name, request, verificationUrl });
     const pdfPath = savePrivateCertificatePdf(certificateId, pdfBytes);
     const record = issueCertificateRecord({
       id: certificateId,
@@ -592,6 +596,7 @@ export async function saveCertificateRecordAction(formData: FormData) {
       template_data: templateData,
     });
     if (!record) redirectWithError(path, "A certificate was already issued for this request.");
+    createCertificateVerification({ certificateRecordId: certificateId, issuedAt, token: verificationToken });
   } else {
     const { error } = await context.supabase!.from("certificate_records").upsert(
       {

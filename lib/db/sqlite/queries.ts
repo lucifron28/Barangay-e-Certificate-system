@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 import {
   getCertificateFee,
@@ -765,6 +765,52 @@ export function getCertificateRecordByRequestId(requestId: string) {
       .prepare("SELECT * FROM certificate_records WHERE request_id = ?")
       .get(requestId) as Row | undefined,
   );
+}
+
+export function generateVerificationToken() {
+  return randomBytes(32).toString("base64url");
+}
+
+export function createCertificateVerification(input: {
+  certificateRecordId: string;
+  issuedAt: string;
+  token: string;
+}) {
+  const tokenHash = createHash("sha256").update(input.token).digest("hex");
+  const expiresAt = new Date(new Date(input.issuedAt).getTime() + 3 * 24 * 60 * 60 * 1000).toISOString();
+  const timestamp = nowIso();
+  const shortCode = `BB-${randomBytes(4).toString("hex").toUpperCase()}`;
+  getSqliteDb().prepare(
+    `INSERT INTO certificate_verifications (id, certificate_record_id, token_hash, short_verification_code, status, valid_from, expires_at, revoked_at, created_at, updated_at)
+     VALUES (?, ?, ?, ?, 'valid', ?, ?, NULL, ?, ?)`,
+  ).run(randomUUID(), input.certificateRecordId, tokenHash, shortCode, input.issuedAt, expiresAt, timestamp, timestamp);
+  return { expiresAt, shortCode };
+}
+
+export function getCertificateVerificationByToken(token: string) {
+  const tokenHash = createHash("sha256").update(token).digest("hex");
+  const row = getSqliteDb().prepare(
+    `SELECT v.*, c.certificate_number, c.certificate_type, c.date_issued, c.status AS certificate_status,
+            c.pdf_sha256, p.full_name
+     FROM certificate_verifications v
+     JOIN certificate_records c ON c.id = v.certificate_record_id
+     JOIN profiles p ON p.id = c.resident_id
+     WHERE v.token_hash = ?`,
+  ).get(tokenHash) as Row | undefined;
+  if (!row) return null;
+  const expiresAt = String(row.expires_at);
+  const revoked = row.revoked_at !== null || row.certificate_status === "revoked";
+  const expired = new Date(expiresAt).getTime() < Date.now();
+  return {
+    certificateNumber: String(row.certificate_number),
+    certificateType: String(row.certificate_type) as CertificateType,
+    dateIssued: String(row.date_issued),
+    expiresAt,
+    fullName: String(row.full_name),
+    pdfSha256: asText(row.pdf_sha256),
+    shortCode: String(row.short_verification_code),
+    status: revoked ? "revoked" : expired ? "expired" : "valid",
+  } as const;
 }
 
 export function createActivityLog(input: {

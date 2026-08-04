@@ -8,6 +8,7 @@ import {
   type PDFPage,
   type RGB,
 } from "pdf-lib";
+import QRCode from "qrcode";
 import { certificateLabel } from "@/lib/utils/format";
 import {
   getCertificateTemplateData,
@@ -253,11 +254,13 @@ function bodyParagraphs(request: CertificateRequestWithResident) {
 export async function generateCertificatePdf({
   barangayCaptainName = "Barangay Captain Name",
   dateIssued = new Date().toISOString(),
+  verificationUrl,
   preparedBy,
   request,
 }: {
   barangayCaptainName?: string;
   dateIssued?: string;
+  verificationUrl?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
   signatureImagePath?: string | null;
@@ -373,6 +376,13 @@ export async function generateCertificatePdf({
     fonts.regular,
     8,
   );
+
+  if (verificationUrl) {
+    const dataUrl = await QRCode.toDataURL(verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 160 });
+    const png = await pdfDoc.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
+    page.drawImage(png, { x: 460, y: 112, width: 72, height: 72 });
+    drawText(page, "Scan to verify", 454, 101, { font: fonts.regular, size: 7 });
+  }
   centerText(
     page,
     "Official stamp remains a physical process.",
