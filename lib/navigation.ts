@@ -28,6 +28,11 @@ export const residentNavItems = [
     icon: ClipboardList,
   },
   {
+    href: "/resident/certificates",
+    label: "My Certificates",
+    icon: FileText,
+  },
+  {
     href: "/resident/pickup-schedule",
     label: "Pickup Schedule",
     icon: CalendarDays,

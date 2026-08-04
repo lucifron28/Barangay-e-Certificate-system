@@ -597,6 +597,7 @@ export async function saveCertificateRecordAction(formData: FormData) {
     });
     if (!record) redirectWithError(path, "A certificate was already issued for this request.");
     createCertificateVerification({ certificateRecordId: certificateId, issuedAt, token: verificationToken });
+    updateRequestStatus({ id: request.id, status: "ready_for_download" });
   } else {
     const { error } = await context.supabase!.from("certificate_records").upsert(
       {

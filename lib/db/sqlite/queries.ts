@@ -767,6 +767,24 @@ export function getCertificateRecordByRequestId(requestId: string) {
   );
 }
 
+export function getCertificateRecordById(id: string) {
+  return certificateRecordFromRow(
+    getSqliteDb().prepare("SELECT * FROM certificate_records WHERE id = ?").get(id) as Row | undefined,
+  );
+}
+
+export function listResidentCertificateRecords(residentId: string) {
+  return getSqliteDb().prepare(
+    "SELECT * FROM certificate_records WHERE resident_id = ? ORDER BY issued_at DESC",
+  ).all(residentId).map((row) => certificateRecordFromRow(row as Row)).filter((row): row is CertificateRecord => Boolean(row));
+}
+
+export function createCertificateDownloadLog(certificateRecordId: string, userId: string, result: string) {
+  getSqliteDb().prepare(
+    "INSERT INTO certificate_download_logs (id, certificate_record_id, user_id, result, downloaded_at) VALUES (?, ?, ?, ?, ?)",
+  ).run(randomUUID(), certificateRecordId, userId, result, nowIso());
+}
+
 export function generateVerificationToken() {
   return randomBytes(32).toString("base64url");
 }
