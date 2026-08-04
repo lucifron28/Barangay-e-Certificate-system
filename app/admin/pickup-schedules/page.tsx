@@ -3,6 +3,7 @@ import { CalendarDays, Save } from "lucide-react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FlashMessage } from "@/components/ui/flash-message";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -111,7 +112,45 @@ export default async function PickupSchedulesPage({
       </div>
 
       {schedules.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {schedules.map((schedule) => (
+              <MobileRecordCard
+                key={schedule.id}
+                title={schedule.request?.request_number ?? "Unknown request"}
+                description={
+                  schedule.request
+                    ? certificateLabel(schedule.request.certificate_type)
+                    : "Certificate request"
+                }
+                status={
+                  schedule.request ? <StatusBadge status={schedule.request.status} /> : undefined
+                }
+                fields={[
+                  { label: "Resident", value: schedule.request?.resident?.full_name ?? "Unknown" },
+                  { label: "Pickup date", value: formatDate(schedule.pickup_date) },
+                  { label: "Pickup time", value: formatTime(schedule.pickup_time) },
+                  { label: "Remarks", value: schedule.remarks ?? "None", fullWidth: true },
+                ]}
+                actions={
+                  <>
+                    {schedule.request ? (
+                      <Link href={`/admin/certificate-requests/${schedule.request.id}`} className="btn btn-ghost btn-sm">
+                        View request
+                      </Link>
+                    ) : null}
+                    {schedule.request?.status === "ready_for_pickup" ? (
+                      <form action={markRequestDoneAction}>
+                        <input type="hidden" name="request_id" value={schedule.request.id} />
+                        <button className="btn btn-success btn-sm" type="submit">Mark done</button>
+                      </form>
+                    ) : null}
+                  </>
+                }
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -173,7 +212,8 @@ export default async function PickupSchedulesPage({
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={CalendarDays}

@@ -1,5 +1,6 @@
 import { CalendarDays } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { PaymentBadge } from "@/components/ui/payment-badge";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
@@ -35,7 +36,38 @@ export default async function ResidentPickupSchedulePage() {
         </p>
       </div>
       {schedules.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {schedules.map((schedule) => (
+              <MobileRecordCard
+                key={schedule.id}
+                title={schedule.request?.request_number ?? "Unknown request"}
+                description={
+                  schedule.request
+                    ? certificateLabel(schedule.request.certificate_type)
+                    : "Certificate request"
+                }
+                status={
+                  schedule.request ? <StatusBadge status={schedule.request.status} /> : undefined
+                }
+                fields={[
+                  { label: "Pickup date", value: formatDate(schedule.pickup_date) },
+                  { label: "Pickup time", value: formatTime(schedule.pickup_time) },
+                  { label: "Office hours", value: OFFICE_HOURS_LABEL, fullWidth: true },
+                  {
+                    label: "Fee",
+                    value: schedule.request ? formatCurrency(schedule.request.fee_amount) : "Unknown",
+                  },
+                  {
+                    label: "Payment",
+                    value: schedule.request ? <PaymentBadge status={schedule.request.payment_status} /> : "Unknown",
+                  },
+                  { label: "Remarks", value: schedule.remarks ?? "None", fullWidth: true },
+                ]}
+              />
+            ))}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -86,7 +118,8 @@ export default async function ResidentPickupSchedulePage() {
               ))}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={CalendarDays}

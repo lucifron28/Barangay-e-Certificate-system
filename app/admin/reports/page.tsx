@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BarChart3, FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { PaymentBadge } from "@/components/ui/payment-badge";
 import { PrintButton } from "@/components/ui/print-button";
 import { SetupRequired } from "@/components/ui/setup-required";
@@ -75,32 +76,53 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       </div>
 
       <form className="no-print grid gap-3 rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm md:grid-cols-4 xl:grid-cols-7">
-        <select className="select select-bordered select-sm" name="certificate_type" defaultValue={readParam(params, "certificate_type")}>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Certificate type</span>
+          <select className="select select-bordered select-sm" name="certificate_type" defaultValue={readParam(params, "certificate_type")}>
           <option value="">All certificate types</option>
           {CERTIFICATE_TYPES.map((type) => (
             <option key={type} value={type}>
               {CERTIFICATE_TYPE_LABELS[type]}
             </option>
           ))}
-        </select>
-        <select className="select select-bordered select-sm" name="status" defaultValue={readParam(params, "status")}>
+          </select>
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Status</span>
+          <select className="select select-bordered select-sm" name="status" defaultValue={readParam(params, "status")}>
           <option value="">All statuses</option>
           {REQUEST_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {status.replaceAll("_", " ")}
             </option>
           ))}
-        </select>
-        <input
+          </select>
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Resident name</span>
+          <input
           className="input input-bordered input-sm"
           name="resident_name"
           placeholder="Resident name"
           defaultValue={readParam(params, "resident_name")}
-        />
-        <input className="input input-bordered input-sm" name="date_from" type="date" defaultValue={readParam(params, "date_from")} />
-        <input className="input input-bordered input-sm" name="date_to" type="date" defaultValue={readParam(params, "date_to")} />
-        <input className="input input-bordered input-sm" name="month" placeholder="Month" defaultValue={readParam(params, "month")} />
-        <input className="input input-bordered input-sm" name="year" placeholder="Year" defaultValue={readParam(params, "year")} />
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Date from</span>
+          <input className="input input-bordered input-sm" name="date_from" type="date" defaultValue={readParam(params, "date_from")} />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Date to</span>
+          <input className="input input-bordered input-sm" name="date_to" type="date" defaultValue={readParam(params, "date_to")} />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Month</span>
+          <input className="input input-bordered input-sm" name="month" placeholder="Month" defaultValue={readParam(params, "month")} />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Year</span>
+          <input className="input input-bordered input-sm" name="year" placeholder="Year" defaultValue={readParam(params, "year")} />
+        </label>
         <button className="btn btn-primary btn-sm md:col-span-4 xl:col-span-1" type="submit">
           Generate Report
         </button>
@@ -129,7 +151,37 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
       </div>
 
       {requests.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {requests.map((request) => {
+              const schedule = request.pickup_schedules[0];
+              return (
+                <MobileRecordCard
+                  key={request.id}
+                  title={request.request_number}
+                  description={request.resident?.full_name ?? "Unknown resident"}
+                  status={<StatusBadge status={request.status} />}
+                  fields={[
+                    { label: "Certificate", value: certificateLabel(request.certificate_type) },
+                    { label: "Requested", value: formatDate(request.date_requested) },
+                    { label: "Purpose", value: request.purpose, fullWidth: true },
+                    { label: "Accepted", value: formatDate(request.date_accepted) },
+                    { label: "Released", value: formatDate(request.date_released) },
+                    {
+                      label: "Pickup schedule",
+                      value: schedule
+                        ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
+                        : "Not scheduled",
+                      fullWidth: true,
+                    },
+                    { label: "Fee", value: formatCurrency(request.fee_amount) },
+                    { label: "Payment", value: <PaymentBadge status={request.payment_status} /> },
+                  ]}
+                />
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -177,7 +229,8 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={BarChart3}
