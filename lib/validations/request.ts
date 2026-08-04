@@ -14,4 +14,33 @@ export const certificateRequestSchema = z.object({
   birthdate: z.string().optional(),
   place_of_birth: z.string().optional(),
   years_of_residency: z.coerce.number().int().min(0).optional().or(z.literal("")),
+}).superRefine((data, context) => {
+  if (
+    data.certificate_type === "barangay_certificate" &&
+    !data.place_of_birth?.trim()
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Place of birth is required for Barangay Certificate.",
+      path: ["place_of_birth"],
+    });
+  }
+
+  if (data.certificate_type === "barangay_residency") {
+    if (!data.birthdate?.trim()) {
+      context.addIssue({
+        code: "custom",
+        message: "Birthdate is required for Barangay Residency.",
+        path: ["birthdate"],
+      });
+    }
+
+    if (data.years_of_residency === "" || data.years_of_residency === undefined) {
+      context.addIssue({
+        code: "custom",
+        message: "Years of residency is required for Barangay Residency.",
+        path: ["years_of_residency"],
+      });
+    }
+  }
 });
