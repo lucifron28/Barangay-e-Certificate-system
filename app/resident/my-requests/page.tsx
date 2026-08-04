@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PaymentBadge } from "@/components/ui/payment-badge";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { cancelCertificateRequestAction } from "@/lib/actions/requests";
@@ -39,7 +40,51 @@ export default async function MyRequestsPage() {
       </div>
 
       {requests.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {requests.map((request) => {
+              const schedule = request.pickup_schedules[0];
+              return (
+                <MobileRecordCard
+                  key={request.id}
+                  title={
+                    <Link href={`/resident/my-requests/${request.id}`} className="link link-primary">
+                      {request.request_number}
+                    </Link>
+                  }
+                  description={certificateLabel(request.certificate_type)}
+                  status={<StatusBadge status={request.status} />}
+                  fields={[
+                    { label: "Requested", value: formatDate(request.date_requested) },
+                    { label: "Fee", value: formatCurrency(request.fee_amount) },
+                    { label: "Purpose", value: request.purpose, fullWidth: true },
+                    {
+                      label: "Pickup schedule",
+                      value: schedule
+                        ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
+                        : "Not scheduled",
+                      fullWidth: true,
+                    },
+                    { label: "Payment", value: <PaymentBadge status={request.payment_status} /> },
+                    { label: "Remarks", value: request.remarks ?? "None", fullWidth: true },
+                  ]}
+                  actions={
+                    request.status === "pending" ? (
+                      <form action={cancelCertificateRequestAction}>
+                        <input type="hidden" name="request_id" value={request.id} />
+                        <button className="btn btn-error btn-sm" type="submit">Cancel request</button>
+                      </form>
+                    ) : request.status === "rejected" ? (
+                      <Link href={`/resident/my-requests/${request.id}`} className="btn btn-warning btn-sm">
+                        Edit and resubmit
+                      </Link>
+                    ) : null
+                  }
+                />
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -110,7 +155,8 @@ export default async function MyRequestsPage() {
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={Inbox}

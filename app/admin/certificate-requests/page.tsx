@@ -3,6 +3,7 @@ import { CalendarPlus, Eye, FileText, Inbox, Printer } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PaymentBadge } from "@/components/ui/payment-badge";
+import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
@@ -63,53 +64,145 @@ export default async function AdminCertificateRequestsPage({
       <FlashMessage error={params.error} message={params.message} />
 
       <form className="grid gap-3 rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm md:grid-cols-3 xl:grid-cols-6">
-        <select className="select select-bordered select-sm" name="certificate_type" defaultValue={readParam(params, "certificate_type")}>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Certificate type</span>
+          <select className="select select-bordered select-sm" name="certificate_type" defaultValue={readParam(params, "certificate_type")}>
           <option value="">All certificate types</option>
           {CERTIFICATE_TYPES.map((type) => (
             <option key={type} value={type}>
               {CERTIFICATE_TYPE_LABELS[type]}
             </option>
           ))}
-        </select>
-        <select className="select select-bordered select-sm" name="status" defaultValue={readParam(params, "status")}>
+          </select>
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Status</span>
+          <select className="select select-bordered select-sm" name="status" defaultValue={readParam(params, "status")}>
           <option value="">All statuses</option>
           {REQUEST_STATUSES.map((status) => (
             <option key={status} value={status}>
-              {status}
+              {status.replaceAll("_", " ")}
             </option>
           ))}
-        </select>
-        <input
+          </select>
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Resident name</span>
+          <input
           className="input input-bordered input-sm"
           name="resident_name"
           placeholder="Resident name"
           defaultValue={readParam(params, "resident_name")}
-        />
-        <input
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Date requested</span>
+          <input
           className="input input-bordered input-sm"
           name="date_requested"
           type="date"
           defaultValue={readParam(params, "date_requested")}
-        />
-        <input
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Month</span>
+          <input
           className="input input-bordered input-sm"
           name="month"
           placeholder="Month 1-12"
           defaultValue={readParam(params, "month")}
-        />
-        <input
+          />
+        </label>
+        <label className="form-control gap-1">
+          <span className="label-text text-xs font-medium">Year</span>
+          <input
           className="input input-bordered input-sm"
           name="year"
           placeholder="Year"
           defaultValue={readParam(params, "year")}
-        />
+          />
+        </label>
         <button className="btn btn-primary btn-sm md:col-span-3 xl:col-span-1" type="submit">
           Filter
         </button>
       </form>
 
       {requests.length ? (
-        <div className="overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm">
+        <>
+          <div className="space-y-3 md:hidden">
+            {requests.map((request) => {
+              const schedule = request.pickup_schedules[0];
+              return (
+                <MobileRecordCard
+                  key={request.id}
+                  title={request.request_number}
+                  description={certificateLabel(request.certificate_type)}
+                  status={<StatusBadge status={request.status} />}
+                  fields={[
+                    { label: "Resident", value: request.resident?.full_name ?? "Unknown" },
+                    { label: "Requested", value: formatDate(request.date_requested) },
+                    { label: "Purpose", value: request.purpose, fullWidth: true },
+                    {
+                      label: "Pickup schedule",
+                      value: schedule
+                        ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
+                        : "Not scheduled",
+                    },
+                    { label: "Fee", value: formatCurrency(request.fee_amount) },
+                    {
+                      label: "Payment",
+                      value: <PaymentBadge status={request.payment_status} />,
+                    },
+                  ]}
+                  actions={
+                    <>
+                      <Link href={`/admin/certificate-requests/${request.id}`} className="btn btn-ghost btn-sm">
+                        <Eye className="size-4" aria-hidden />
+                        View
+                      </Link>
+                      {request.status === "pending" ? (
+                        <form action={acceptRequestAction}>
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <button className="btn btn-info btn-sm" type="submit">Accept</button>
+                        </form>
+                      ) : null}
+                      {request.status === "accepted" ? (
+                        <Link href={`/admin/pickup-schedules?request_id=${request.id}`} className="btn btn-secondary btn-sm">
+                          <CalendarPlus className="size-4" aria-hidden />
+                          Schedule
+                        </Link>
+                      ) : null}
+                      {request.status === "accepted" && schedule ? (
+                        <form action={markRequestReadyAction}>
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <button className="btn btn-accent btn-sm" type="submit">Ready</button>
+                        </form>
+                      ) : null}
+                      {request.status === "accepted" || request.status === "ready_for_pickup" ? (
+                        <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary btn-sm">
+                          <Printer className="size-4" aria-hidden />
+                          Generate
+                        </Link>
+                      ) : null}
+                      {request.payment_status === "unpaid" ? (
+                        <form action={markPaymentPaidAction}>
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <button className="btn btn-warning btn-sm" type="submit">Paid</button>
+                        </form>
+                      ) : null}
+                      {request.status === "ready_for_pickup" ? (
+                        <form action={markRequestDoneAction}>
+                          <input type="hidden" name="request_id" value={request.id} />
+                          <button className="btn btn-success btn-sm" type="submit">Done</button>
+                        </form>
+                      ) : null}
+                    </>
+                  }
+                />
+              );
+            })}
+          </div>
+          <div className="hidden overflow-x-auto rounded-lg border border-base-300 bg-base-100 shadow-sm md:block">
           <table className="table">
             <thead>
               <tr>
@@ -216,7 +309,8 @@ export default async function AdminCertificateRequestsPage({
               })}
             </tbody>
           </table>
-        </div>
+          </div>
+        </>
       ) : (
         <EmptyState
           icon={Inbox}
