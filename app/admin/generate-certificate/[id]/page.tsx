@@ -5,12 +5,14 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PrintButton } from "@/components/ui/print-button";
 import { SetupRequired } from "@/components/ui/setup-required";
-import { saveCertificateRecordAction } from "@/lib/actions/admin";
+import { revokeCertificateRecordAction, saveCertificateRecordAction } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
   getAdminRequest,
   getSystemSettings,
 } from "@/lib/services/certificate-data";
+import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
+import { isSqliteProvider } from "@/lib/db/provider";
 import { toInputDate } from "@/lib/utils/format";
 
 type GenerateCertificatePageProps = {
@@ -41,6 +43,8 @@ export default async function GenerateCertificatePage({
   if (!request) {
     return <div className="alert alert-error">Request not found.</div>;
   }
+
+  const certificateRecord = isSqliteProvider() ? getCertificateRecordByRequestId(request.id) : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -86,10 +90,18 @@ export default async function GenerateCertificatePage({
         signatureImagePath={settings.signatureImagePath}
       />
 
-      <form
-        action={saveCertificateRecordAction}
-        className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
-      >
+      {certificateRecord?.status === "issued" ? (
+        <form action={revokeCertificateRecordAction} className="no-print space-y-3 rounded-lg border border-error/30 bg-base-100 p-5 shadow-sm">
+          <input type="hidden" name="certificate_record_id" value={certificateRecord.id} />
+          <div><h2 className="font-semibold">Revoke issued certificate</h2><p className="text-sm text-base-content/70">Revocation disables the QR verification record. The original PDF is retained for the audit trail.</p></div>
+          <label className="form-control max-w-xl"><span className="label"><span className="label-text">Revocation reason</span></span><textarea className="textarea textarea-bordered" name="reason" minLength={3} required /></label>
+          <SubmitButton className="btn btn-error" pendingText="Revoking...">Revoke certificate</SubmitButton>
+        </form>
+      ) : (
+        <form
+          action={saveCertificateRecordAction}
+          className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
+        >
         <input type="hidden" name="request_id" value={request.id} />
         <label className="form-control">
           <span className="label">
@@ -110,7 +122,8 @@ export default async function GenerateCertificatePage({
         <Link href={`/admin/certificate-requests/${id}`} className="btn btn-ghost">
           Cancel
         </Link>
-      </form>
+        </form>
+      )}
     </div>
   );
 }

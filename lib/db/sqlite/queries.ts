@@ -713,7 +713,7 @@ export function issueCertificateRecord(input: {
   template_data: Json;
 }) {
   const existing = getSqliteDb()
-    .prepare("SELECT id FROM certificate_records WHERE request_id = ?")
+    .prepare("SELECT id FROM certificate_records WHERE request_id = ? AND status = 'issued'")
     .get(input.request.id) as { id: string } | undefined;
 
   if (existing) return null;
@@ -752,17 +752,31 @@ export function issueCertificateRecord(input: {
         nowIso(),
       );
 
-  return certificateRecordFromRow(
-    getSqliteDb()
-      .prepare("SELECT * FROM certificate_records WHERE request_id = ?")
-      .get(input.request.id) as Row | undefined,
+  const record = certificateRecordFromRow(
+    getSqliteDb().prepare("SELECT * FROM certificate_records WHERE id = ?").get(input.id) as
+      | Row
+      | undefined,
   );
+
+  const revokedRecord = getSqliteDb()
+    .prepare(
+      "SELECT id FROM certificate_records WHERE request_id = ? AND status = 'revoked' ORDER BY issued_at DESC LIMIT 1",
+    )
+    .get(input.request.id) as { id: string } | undefined;
+
+  if (revokedRecord) {
+    getSqliteDb()
+      .prepare("UPDATE certificate_records SET replacement_record_id = ? WHERE id = ?")
+      .run(input.id, revokedRecord.id);
+  }
+
+  return record;
 }
 
 export function getCertificateRecordByRequestId(requestId: string) {
   return certificateRecordFromRow(
     getSqliteDb()
-      .prepare("SELECT * FROM certificate_records WHERE request_id = ?")
+      .prepare("SELECT * FROM certificate_records WHERE request_id = ? ORDER BY issued_at DESC LIMIT 1")
       .get(requestId) as Row | undefined,
   );
 }
@@ -771,6 +785,32 @@ export function getCertificateRecordById(id: string) {
   return certificateRecordFromRow(
     getSqliteDb().prepare("SELECT * FROM certificate_records WHERE id = ?").get(id) as Row | undefined,
   );
+}
+
+export function revokeCertificateRecord(input: {
+  id: string;
+  reason: string;
+  revokedBy: string;
+}) {
+  const timestamp = nowIso();
+  const result = getSqliteDb()
+    .prepare(
+      `UPDATE certificate_records
+       SET status = 'revoked', revoked_at = ?, revoked_by = ?, revocation_reason = ?
+       WHERE id = ? AND status = 'issued'`,
+    )
+    .run(timestamp, input.revokedBy, input.reason, input.id);
+
+  if (result.changes === 0) return false;
+
+  getSqliteDb()
+    .prepare(
+      `UPDATE certificate_verifications
+       SET status = 'revoked', revoked_at = ?
+       WHERE certificate_record_id = ?`,
+    )
+    .run(timestamp, input.id);
+  return true;
 }
 
 export function listResidentCertificateRecords(residentId: string) {

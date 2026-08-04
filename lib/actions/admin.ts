@@ -15,9 +15,11 @@ import {
 import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createNotificationLog,
+  getCertificateRecordById,
   issueCertificateRecord,
   createCertificateVerification,
   generateVerificationToken,
+  revokeCertificateRecord,
   updateRequestStatus,
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
@@ -37,6 +39,7 @@ import {
   markPaymentPaidSchema,
   markReadySchema,
   rejectRequestSchema,
+  revokeCertificateSchema,
   saveCertificateSchema,
   scheduleSchema,
 } from "@/lib/validations/admin";
@@ -629,4 +632,45 @@ export async function saveCertificateRecordAction(formData: FormData) {
   });
 
   redirectWithMessage(path, "Certificate record saved.");
+}
+
+export async function revokeCertificateRecordAction(formData: FormData) {
+  const parsed = revokeCertificateSchema.safeParse({
+    certificate_record_id: formData.get("certificate_record_id"),
+    reason: formData.get("reason"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError("/admin/certificate-requests", firstZodError(parsed.error));
+  }
+
+  const context = await getAdminContextOrRedirect("/admin/certificate-requests");
+  if (!isSqliteProvider()) {
+    redirectWithError("/admin/certificate-requests", "Certificate revocation is not configured in this mode.");
+  }
+
+  const record = getCertificateRecordById(parsed.data.certificate_record_id);
+  if (!record) {
+    redirectWithError("/admin/certificate-requests", "Certificate record not found.");
+  }
+
+  const path = `/admin/generate-certificate/${record.request_id}`;
+  if (!revokeCertificateRecord({
+    id: record.id,
+    reason: parsed.data.reason,
+    revokedBy: context.profile.id,
+  })) {
+    redirectWithError(path, "Only an issued certificate can be revoked.");
+  }
+
+  await logActivity({
+    action: "Certificate revoked",
+    affectedRecordId: record.id,
+    affectedTable: "certificate_records",
+    profile: context.profile,
+    remarks: parsed.data.reason,
+    supabase: context.supabase,
+  });
+
+  redirectWithMessage(path, "Certificate revoked. You can now issue a replacement.");
 }

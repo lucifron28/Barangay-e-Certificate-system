@@ -33,3 +33,8 @@ export const saveCertificateSchema = z.object({
   request_id: z.string().uuid(),
   date_issued: z.string().min(1, "Date issued is required."),
 });
+
+export const revokeCertificateSchema = z.object({
+  certificate_record_id: z.string().uuid(),
+  reason: z.string().trim().min(3, "A revocation reason is required."),
+});

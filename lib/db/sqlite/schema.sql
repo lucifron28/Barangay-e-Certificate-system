@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS pickup_schedules (
 
 CREATE TABLE IF NOT EXISTS certificate_records (
   id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL UNIQUE REFERENCES certificate_requests(id),
+  request_id TEXT NOT NULL REFERENCES certificate_requests(id),
   certificate_type TEXT NOT NULL,
   resident_id TEXT NOT NULL REFERENCES profiles(id),
   date_issued TEXT NOT NULL,
@@ -74,6 +74,9 @@ CREATE TABLE IF NOT EXISTS certificate_records (
   replacement_record_id TEXT REFERENCES certificate_records(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS certificate_records_request_id_idx
+  ON certificate_records (request_id, issued_at DESC);
 
 CREATE TABLE IF NOT EXISTS activity_logs (
   id TEXT PRIMARY KEY,
