@@ -23,14 +23,12 @@ export function StatCard({
   tone = "default",
 }: StatCardProps) {
   return (
-    <div className="stats rounded-lg border border-base-300 bg-base-100 shadow-sm">
-      <div className="stat gap-2">
-        <div className={`stat-figure ${toneClass[tone]}`}>
-          <Icon className="size-7" aria-hidden />
-        </div>
-        <div className="stat-title text-xs uppercase tracking-normal">{label}</div>
-        <div className="stat-value text-2xl">{value}</div>
+    <div className="flex min-h-28 min-w-0 items-start justify-between gap-3 rounded-lg border border-base-300 bg-base-100 p-4 shadow-sm">
+      <div className="min-w-0">
+        <p className="text-xs font-medium uppercase text-base-content/60">{label}</p>
+        <p className="mt-2 text-2xl font-bold tabular-nums">{value}</p>
       </div>
+      <Icon className={`size-6 shrink-0 ${toneClass[tone]}`} aria-hidden />
     </div>
   );
 }

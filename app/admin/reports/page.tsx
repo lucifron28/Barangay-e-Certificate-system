@@ -106,7 +106,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         </button>
       </form>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <StatCard icon={BarChart3} label="Total" value={stats.total} />
         <StatCard icon={FileText} label="Pending" tone="warning" value={stats.pending} />
         <StatCard icon={FileText} label="Accepted" tone="info" value={stats.accepted} />

@@ -50,7 +50,7 @@ export default async function ResidentDashboardPage() {
         </div>
       </section>
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-7">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <StatCard icon={Inbox} label="Total Requests" value={stats.total} />
         <StatCard icon={Clock3} label="Pending" tone="warning" value={stats.pending} />
         <StatCard icon={ThumbsUp} label="Accepted" tone="info" value={stats.accepted} />

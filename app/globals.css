@@ -50,6 +50,10 @@
   body {
     min-height: 100vh;
   }
+
+  .form-control {
+    width: 100%;
+  }
 }
 
 @media print {
