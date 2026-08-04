@@ -252,10 +252,12 @@ function bodyParagraphs(request: CertificateRequestWithResident) {
 
 export async function generateCertificatePdf({
   barangayCaptainName = "Barangay Captain Name",
+  dateIssued = new Date().toISOString(),
   preparedBy,
   request,
 }: {
   barangayCaptainName?: string;
+  dateIssued?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
   signatureImagePath?: string | null;
@@ -311,7 +313,7 @@ export async function generateCertificatePdf({
     maxWidth: LETTER_WIDTH - MARGIN * 2,
     page,
     size: 12,
-    text: `Issued this ${getCertificateTemplateData(request).dateIssued} at Barangay Bato, Mauban, Quezon.`,
+    text: `Issued this ${getCertificateTemplateData(request, dateIssued).dateIssued} at Barangay Bato, Mauban, Quezon.`,
     x: MARGIN,
     y,
   });

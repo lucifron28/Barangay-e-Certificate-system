@@ -49,6 +49,7 @@ function fieldOrLine(value: string | number | null | undefined) {
 
 export function getCertificateTemplateData(
   request: CertificateRequestWithResident,
+  dateIssued = new Date().toISOString(),
 ): CertificateTemplateData {
   const submittedData = asSubmittedData(request.submitted_data);
   const resident = request.resident;
@@ -65,7 +66,7 @@ export function getCertificateTemplateData(
       submittedData.certificate_specific?.birthdate ?? resident?.date_of_birth,
     ),
     controlNumber: request.control_number ?? "Pending",
-    dateIssued: formatDate(new Date().toISOString()),
+    dateIssued: formatDate(dateIssued),
     name: fieldOrLine(submittedData.common?.full_name ?? resident?.full_name),
     purpose: fieldOrLine(submittedData.common?.purpose ?? request.purpose),
     requestNumber: request.request_number,
