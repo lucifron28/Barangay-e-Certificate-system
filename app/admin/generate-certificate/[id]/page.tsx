@@ -13,6 +13,7 @@ import {
 } from "@/lib/services/certificate-data";
 import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
 import { isSqliteProvider } from "@/lib/db/provider";
+import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import { toInputDate } from "@/lib/utils/format";
 
 type GenerateCertificatePageProps = {
@@ -45,6 +46,8 @@ export default async function GenerateCertificatePage({
   }
 
   const certificateRecord = isSqliteProvider() ? getCertificateRecordByRequestId(request.id) : null;
+  const hasActiveCertificate = certificateRecord?.status === "issued";
+  const eligibleForIssuance = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -54,7 +57,11 @@ export default async function GenerateCertificatePage({
             <ArrowLeft className="size-4" aria-hidden />
             Back
           </Link>
-          <h1 className="mt-4 text-3xl font-bold">Generate Certificate</h1>
+          <h1 className="mt-4 text-3xl font-bold">
+            {certificateRecord?.status === "revoked"
+              ? "Reissue Certificate"
+              : "Generate Certificate"}
+          </h1>
           <p className="text-base-content/70">
             Printable HTML certificate based on the provided official PDF layout
             references.
@@ -62,13 +69,15 @@ export default async function GenerateCertificatePage({
         </div>
         <div className="flex flex-wrap gap-2">
           <PrintButton />
-          <Link
-            href={`/admin/generate-certificate/${id}/pdf`}
-            className="btn btn-outline"
-          >
-            <FileDown className="size-4" aria-hidden />
-            Download PDF
-          </Link>
+          {certificateRecord?.status === "issued" ? (
+            <Link
+              href={`/admin/generate-certificate/${id}/pdf`}
+              className="btn btn-outline"
+            >
+              <FileDown className="size-4" aria-hidden />
+              Download PDF
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -87,7 +96,6 @@ export default async function GenerateCertificatePage({
         barangayCaptainName={settings.barangayCaptainName}
         preparedBy={context.profile.full_name}
         request={request}
-        signatureImagePath={settings.signatureImagePath}
       />
 
       {certificateRecord?.status === "issued" ? (
@@ -97,12 +105,17 @@ export default async function GenerateCertificatePage({
           <label className="form-control max-w-xl"><span className="label"><span className="label-text">Revocation reason</span></span><textarea className="textarea textarea-bordered" name="reason" minLength={3} required /></label>
           <SubmitButton className="btn btn-error" pendingText="Revoking...">Revoke certificate</SubmitButton>
         </form>
-      ) : (
+      ) : eligibleForIssuance || certificateRecord?.status === "revoked" ? (
         <form
           action={saveCertificateRecordAction}
           className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
         >
         <input type="hidden" name="request_id" value={request.id} />
+        <p className="basis-full text-sm text-base-content/70">
+          {certificateRecord?.status === "revoked"
+            ? "Reissue certificate: the revoked record remains in the audit trail and this issuance receives a new number and QR token."
+            : "Save the final issued certificate after reviewing the printable preview."}
+        </p>
         <label className="form-control">
           <span className="label">
             <span className="label-text">Date Issued</span>
@@ -123,6 +136,11 @@ export default async function GenerateCertificatePage({
           Cancel
         </Link>
         </form>
+      ) : (
+        <div className="no-print alert alert-warning">
+          Certificate issuance is unavailable until the request is accepted and
+          its fee is paid, or the request is marked free.
+        </div>
       )}
     </div>
   );

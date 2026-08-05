@@ -16,6 +16,9 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getSubmittedInformation, usesSitio } from "@/lib/services/submitted-data";
 import { getAdminRequest } from "@/lib/services/certificate-data";
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
+import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
+import { isSqliteProvider } from "@/lib/db/provider";
+import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import {
   certificateLabel,
   formatCurrency,
@@ -59,8 +62,12 @@ export default async function AdminRequestDetailsPage({
 
   const schedule = request.pickup_schedules[0];
   const submittedInformation = getSubmittedInformation(request);
-  const issuanceEligible = request.status === "accepted" &&
-    ["paid", "free"].includes(request.payment_status);
+  const certificateRecord = isSqliteProvider()
+    ? getCertificateRecordByRequestId(request.id)
+    : null;
+  const hasActiveCertificate = certificateRecord?.status === "issued";
+  const issuanceEligible = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
+  const reissueEligible = certificateRecord?.status === "revoked";
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -181,7 +188,7 @@ export default async function AdminRequestDetailsPage({
             >
               Reject Request
             </SubmitButton>
-            {issuanceEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />Generate Certificate</Link> : <span className="text-sm text-base-content/60">{request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete demo payment before issuing."}</span>}
+            {issuanceEligible || reissueEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />{reissueEligible ? "Reissue Certificate" : "Generate Certificate"}</Link> : <span className="text-sm text-base-content/60">{hasActiveCertificate ? "Certificate already issued. Revoke it before reissuing." : request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete demo payment before issuing."}</span>}
           </div>
         </form>
       </section>

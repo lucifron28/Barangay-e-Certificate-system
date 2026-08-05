@@ -2,13 +2,15 @@ import "server-only";
 
 import {
   PDFDocument,
-  StandardFonts,
   rgb,
   type PDFFont,
   type PDFPage,
   type RGB,
 } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { certificateLabel } from "@/lib/utils/format";
 import {
   getCertificateTemplateData,
@@ -37,7 +39,35 @@ function safePdfText(value: string) {
     .replace(/[‘’]/g, "'")
     .replace(/[–—]/g, "-")
     .replace(/₱/g, "PHP")
-    .replace(/[^\x20-\x7e]/g, "");
+    .normalize("NFC");
+}
+
+export function normalizePdfText(value: string) {
+  return safePdfText(value);
+}
+
+function formatPdfDateTime(value: string | undefined) {
+  if (!value) return "Unavailable";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unavailable";
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Manila",
+  }).format(date);
+}
+
+function readBundledFont(fileName: string) {
+  return readFileSync(
+    path.join(
+      process.cwd(),
+      "node_modules",
+      "@fontsource",
+      "noto-sans",
+      "files",
+      fileName,
+    ),
+  );
 }
 
 function centerText(
@@ -253,24 +283,32 @@ function bodyParagraphs(request: CertificateRequestWithResident) {
 
 export async function generateCertificatePdf({
   barangayCaptainName = "Authorized Barangay Official",
+  certificateNumber,
   dateIssued = new Date().toISOString(),
+  verificationCode,
+  verificationExpiresAt,
   verificationUrl,
   preparedBy,
   request,
 }: {
   barangayCaptainName?: string;
+  certificateNumber?: string;
   dateIssued?: string;
+  verificationCode?: string;
+  verificationExpiresAt?: string;
   verificationUrl?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
-  signatureImagePath?: string | null;
 }) {
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
+  const regularFont = readBundledFont("noto-sans-latin-ext-400-normal.woff");
+  const boldFont = readBundledFont("noto-sans-latin-ext-700-normal.woff");
   const fonts: PdfFonts = {
-    bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
-    regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
-    serif: await pdfDoc.embedFont(StandardFonts.TimesRoman),
+    bold: await pdfDoc.embedFont(boldFont),
+    regular: await pdfDoc.embedFont(regularFont),
+    serif: await pdfDoc.embedFont(regularFont),
   };
   const template = bodyParagraphs(request);
 
@@ -278,6 +316,10 @@ export async function generateCertificatePdf({
   drawHeader(page, fonts);
   centerText(page, certificateLabel(request.certificate_type), 622, fonts.regular, 8);
   centerText(page, template.title, 584, fonts.bold, 16);
+  drawText(page, `Certificate No.: ${certificateNumber ?? "Pending issuance"}`, MARGIN, 646, {
+    font: fonts.regular,
+    size: 9,
+  });
 
   let y = 540;
   drawText(page, template.salutation, MARGIN, y, {
@@ -371,10 +413,18 @@ export async function generateCertificatePdf({
   });
   centerText(
     page,
-    "Electronic signature is a visual thesis/demo representation only.",
+    "THESIS DEMO - NOT FOR OFFICIAL USE",
     91,
     fonts.regular,
     8,
+  );
+
+  drawText(
+    page,
+    `Verification expires: ${formatPdfDateTime(verificationExpiresAt)}`,
+    365,
+    91,
+    { font: fonts.regular, size: 7.5 },
   );
 
   if (verificationUrl) {
@@ -382,16 +432,19 @@ export async function generateCertificatePdf({
     const png = await pdfDoc.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
     page.drawImage(png, { x: 460, y: 112, width: 72, height: 72 });
     drawText(page, "Scan to verify", 454, 101, { font: fonts.regular, size: 7 });
+    drawText(page, `Code: ${verificationCode ?? "Unavailable"}`, 365, 78, {
+      font: fonts.regular,
+      size: 7.5,
+    });
   }
   centerText(
     page,
-    "Online demo certificate - QR verification available for three days.",
-    79,
+    "QR verification confirms issuance and status only. It does not prevent photocopying or prove that a printed copy is the only original.",
+    57,
     fonts.regular,
-    8,
+    6.5,
   );
 
   // TODO: Exact positioning should be compared against final approved production prints.
-  // TODO: If the client approves storage-backed assets, move final PDF/template assets to Supabase Storage.
   return pdfDoc.save();
 }

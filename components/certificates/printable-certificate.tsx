@@ -7,7 +7,6 @@ type PrintableCertificateProps = {
   barangayCaptainName?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
-  signatureImagePath?: string | null;
 };
 
 function Header() {
@@ -49,11 +48,9 @@ function Watermark() {
 function SignatureBlocks({
   barangayCaptainName,
   preparedBy,
-  signatureImagePath,
 }: {
   barangayCaptainName: string;
   preparedBy: string;
-  signatureImagePath?: string | null;
 }) {
   return (
     <div className="mt-16 grid gap-12 text-center sm:grid-cols-2">
@@ -63,17 +60,7 @@ function SignatureBlocks({
         <p className="text-xs uppercase">Prepared By</p>
       </div>
       <div>
-        {signatureImagePath ? (
-          // TODO: Confirm approved electronic signature image asset and storage path before production.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={signatureImagePath}
-            alt=""
-            className="mx-auto mb-1 h-12 max-w-56 object-contain"
-          />
-        ) : (
-          <div className="h-12" />
-        )}
+        <div className="h-12" />
         <div className="mx-auto mb-2 h-px w-56 bg-neutral" />
         <p className="font-semibold uppercase">{barangayCaptainName}</p>
         <p className="text-xs uppercase">Punong Barangay</p>
@@ -267,7 +254,6 @@ export function PrintableCertificate({
   barangayCaptainName = "Authorized Barangay Official",
   preparedBy,
   request,
-  signatureImagePath,
 }: PrintableCertificateProps) {
   const templateData = getCertificateTemplateData(request);
 
@@ -327,15 +313,25 @@ export function PrintableCertificate({
           Barangay Bato, Mauban, Quezon.
         </p>
 
+        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+          <p>
+            <span className="font-semibold">Certificate No.:</span> Assigned
+            when saved
+          </p>
+          <p>
+            <span className="font-semibold">Request No.:</span>{" "}
+            {request.request_number}
+          </p>
+        </div>
+
         <SignatureBlocks
           barangayCaptainName={barangayCaptainName}
           preparedBy={preparedBy}
-          signatureImagePath={signatureImagePath}
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          Electronic signature is shown as a thesis/demo visual representation
-          only and is not a legally verified digital signature.
+          Demo Visual Signature: the signer name is a thesis/demo visual
+          representation only and is not a legally verified digital signature.
         </div>
       </div>
     </article>
