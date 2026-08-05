@@ -1,76 +1,42 @@
-# Thesis Defense Baseline Audit
+# Thesis Defense Completion Audit
 
-Date: August 4, 2026
+Date: August 5, 2026
 Branch: `feat/thesis-defense-readiness`
-Baseline commit: `777434d` from the preserved responsive UI/auth work
+Pull request: `https://github.com/lucifron28/Barangay-e-Certificate-system/pull/2`
 
-## Reproducible Setup Results
+This audit records the current state of the repair loop. The SQLite workflow is
+the tested thesis-demo path. Supabase is schema-prepared but was not connected
+to an identified live Barangay Bato project.
 
-| Check | Result | Notes |
+## Completed Phases
+
+| Phase | Result | Evidence |
 | --- | --- | --- |
-| `npm ci` | Passed on retry | The first attempt was interrupted by a locked `lightningcss` native binary while a local Node process held the file. A second clean install from the existing lockfile succeeded. |
-| `npm run db:sqlite:reset` | Passed | Recreated `data/dev.sqlite` with the current synthetic demo data. |
-| `npm run lint` | Passed | No lint errors. |
-| `npm run typecheck` | Passed | No TypeScript errors. |
-| `npm run build` | Passed | Next.js 16.2.6 production build completed. |
+| 0. Baseline inspection | Complete | Existing App Router repo preserved; branch and history reviewed |
+| 1. Security hardening | Complete | Required local secret, signed cookies, guards, headers, rate limiting |
+| 2. Request workflow | Complete | Server date, conditional fields, cancellation, resubmission, mode copy |
+| 3. Mock online payment | Complete | Attempts, events, retry rules, idempotent success, online admin bypass blocked |
+| 4. Immutable issuance | Complete | Server-only issuance service, SQLite transaction, private PDFs, cleanup |
+| 5. QR verification | Complete | Hashed tokens, short code, expiry, valid/expired/revoked states |
+| 6. Secure resident release | Complete | Ownership, status, expiry, hash checks, download audit |
+| 7. Revocation and reissue | Complete | Immutable old record, new number/token, replacement link |
+| 8. UI/copy/report/seed polish | Complete | Fully-online copy, hybrid preservation, responsive records, demo reset |
+| 9. Automated workflow tests | Complete | Vitest auth/workflow/payment/issuance/PDF/verification coverage |
+| 10. CI quality gates | Complete | GitHub Actions runs install, reset, lint, typecheck, tests, build |
+| 11. Defense documentation | Complete | Runbook, checklist, security limitations, README updates |
+| 12. Final clean validation | Complete locally | Clean install/reset/lint/typecheck/test/build/start smoke test |
 
-`npm ci` reports ESLint 10 peer-dependency warnings from transitive Next.js
-plugins and eight transitive dependency advisories. These are baseline package
-risks; no forced upgrades were applied during the audit.
+## Remaining Manual Verification
 
-## Current Implemented Modules
+The final defense rehearsal must scan a generated QR code using a physical
+phone over a reachable LAN URL. That action is intentionally manual. The
+repository contains the runbook and checklist for it but cannot claim the phone
+scan was performed by automation.
 
-- Next.js App Router pages for public, resident, and admin workflows.
-- SQLite local-demo persistence with hashed local credentials and cookie sessions.
-- Supabase SSR utilities and prepared SQL migrations for future deployment.
-- Resident registration, login, profile editing, request submission, cancellation,
-  rejected-request resubmission, request history, and pickup visibility.
-- Admin request review, scheduling, resident records, reports, activity logs, and
-  settings display.
-- Responsive mobile card alternatives for dense tables and a daisyUI theme switcher.
-- Printable HTML certificate preview plus protected server PDF/report export routes.
-- Notification log abstraction with safe skipped-email behavior when unconfigured.
+## Known Scope Boundary
 
-## Gaps Found Against Defense Requirements
-
-- Local session signing falls back to a generated secret; Phase 1 will require
-  `LOCAL_DEMO_SECRET` and use constant-time token verification.
-- No persisted rate limiting, security-header policy, or generic auth hardening.
-- Certificate request date may be supplied by a form and sequence values use
-  `COUNT(*) + 1`; Phase 2 will replace this with transactional counters.
-- The status model is pickup-centric and does not yet include `ready_for_download`.
-- Payments are only a status field; there is no mock checkout or payment history.
-- Certificate records are mutable upserts and PDFs are not immutable private final
-  issuance artifacts with hashes.
-- QR verification, verification expiry, revocation, reissue, resident certificate
-  download history, and public privacy-minimized verification are absent.
-- Existing seeds use fixed historical dates and do not demonstrate the complete
-  online-defense state model.
-- No automated test suite or CI workflow exists yet.
-
-## Demo Accounts
-
-All current seeded accounts use `password123` after `npm run db:sqlite:reset`:
-
-| Role | Email | Username |
-| --- | --- | --- |
-| Main Admin | `admin@example.com` | `mainadmin` |
-| Barangay Secretary | `secretary@example.com` | `secretary` |
-| Resident | `resident@example.com` | `juanresident` |
-| Resident | `maria.resident@example.com` | `mariaresident` |
-
-## Phase Checklist
-
-- [x] Phase 0: baseline audit and reproducible setup
-- [ ] Phase 1: security hardening
-- [ ] Phase 2: request workflow correction
-- [ ] Phase 3: mock online payment
-- [ ] Phase 4: immutable certificate issuance
-- [ ] Phase 5: QR verification
-- [ ] Phase 6: secure resident release
-- [ ] Phase 7: revocation and reissuance
-- [ ] Phase 8: UI, copy, report, and seed polish
-- [ ] Phase 9: automated workflow tests
-- [ ] Phase 10: CI quality gates
-- [ ] Phase 11: thesis defense documentation
-- [ ] Phase 12: final clean validation
+The Supabase migrations include parity for counters, payment tables, payment
+events, certificate records, verification metadata, download logs, and RLS
+preparation. The application lifecycle remains validated in SQLite only until
+the correct Supabase project is identified and the migrations are applied and
+tested there.
