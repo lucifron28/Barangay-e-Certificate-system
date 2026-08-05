@@ -22,7 +22,7 @@ export async function startMockPaymentAction(formData: FormData) {
   const requestId = String(formData.get("request_id") ?? "");
   const path = paymentPath(requestId);
   if (!requestId || context.setupMissing || !isSqliteProvider() || !isFullyOnlineDemo) {
-    redirectWithError(path, "Mock payment is available only in local demo mode.");
+    redirectWithError(path, "Mock payment is available only in fully online local demo mode.");
   }
   const request = getResidentRequestById(requestId, context.profile.id);
   if (!request || request.status !== "accepted" || request.payment_status !== "unpaid") {
@@ -40,7 +40,7 @@ export async function resolveMockPaymentAction(formData: FormData) {
   const requestId = String(formData.get("request_id") ?? "");
   const outcome = String(formData.get("outcome") ?? "");
   const path = paymentPath(requestId);
-  if (!paymentId || !requestId || !["paid", "failed", "cancelled"].includes(outcome) || context.setupMissing || !isSqliteProvider()) {
+  if (!paymentId || !requestId || !["paid", "failed", "cancelled"].includes(outcome) || context.setupMissing || !isSqliteProvider() || !isFullyOnlineDemo) {
     redirectWithError(path, "Unable to resolve mock payment.");
   }
   const payment = resolveMockPayment({ payment_id: paymentId, resident_id: context.profile.id, status: outcome as "paid" | "failed" | "cancelled" });

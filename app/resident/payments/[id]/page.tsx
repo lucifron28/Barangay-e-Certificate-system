@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { startMockPaymentAction, resolveMockPaymentAction, getResidentDemoPayment } from "@/lib/actions/payments";
 import { certificateLabel, formatCurrency } from "@/lib/utils/format";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 export default async function ResidentPaymentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!isFullyOnlineDemo) redirect("/resident/my-requests?message=Mock%20payment%20is%20available%20only%20in%20fully%20online%20demo%20mode.");
   const { request, payment, payments } = await getResidentDemoPayment(id);
   if (!request) redirect("/resident/my-requests?error=Payment%20request%20not%20found.");
   return <div className="mx-auto max-w-2xl space-y-5">
