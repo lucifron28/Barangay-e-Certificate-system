@@ -99,7 +99,7 @@ export async function createLocalSession(profile: Profile) {
     maxAge: SESSION_TTL_SECONDS,
     path: "/",
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: env.appUrl.startsWith("https://"),
   });
 }
 
