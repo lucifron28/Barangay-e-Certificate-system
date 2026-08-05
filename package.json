@@ -12,7 +12,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
-    "test": "vitest run",
+    "test": "npm run demo:reset && vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
