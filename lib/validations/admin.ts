@@ -41,5 +41,4 @@ export const revokeCertificateSchema = z.object({
 
 export const systemSettingsSchema = z.object({
   barangay_captain_name: z.string().trim().min(2, "Authorized official name is required."),
-  signature_image_path: z.string().trim().max(500).optional(),
 });

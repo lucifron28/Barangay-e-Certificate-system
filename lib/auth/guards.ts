@@ -114,3 +114,17 @@ export async function requireAdmin() {
     profile: context.profile,
   };
 }
+
+export async function requireMainAdmin() {
+  const context = await requireAdmin();
+
+  if (context.setupMissing) {
+    return context;
+  }
+
+  if (context.profile.role !== "main_admin") {
+    redirect("/admin/dashboard?error=Main%20Admin%20access%20is%20required.");
+  }
+
+  return context;
+}

@@ -15,6 +15,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
   }
 
   const settings = await getSystemSettings(context.supabase);
+  const canEdit = context.profile.role === "main_admin";
   const query = await searchParams;
 
   return (
@@ -28,16 +29,17 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       </div>
 
       <FlashMessage error={query?.error} message={query?.message} />
-      <form action={updateSystemSettingsAction} className="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
+      <section className="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
         <Settings className="mb-4 size-10 text-primary" aria-hidden />
         <div className="grid gap-4 md:grid-cols-2">
           <div>
             <dt className="text-sm text-base-content/60">Barangay Captain</dt>
-            <input className="input input-bordered w-full" name="barangay_captain_name" defaultValue={settings.barangayCaptainName} required />
-          </div>
-          <div>
-            <dt className="text-sm text-base-content/60">Signature Image Path</dt>
-            <input className="input input-bordered w-full" name="signature_image_path" defaultValue={settings.signatureImagePath ?? ""} placeholder="Optional approved signature image URL" />
+            {canEdit ? (
+              <form action={updateSystemSettingsAction}>
+                <input className="input input-bordered w-full" name="barangay_captain_name" defaultValue={settings.barangayCaptainName} required />
+                <SubmitButton className="btn btn-primary mt-5" pendingText="Saving settings...">Save settings</SubmitButton>
+              </form>
+            ) : <dd className="font-medium">{settings.barangayCaptainName}</dd>}
           </div>
           <div>
             <dt className="text-sm text-base-content/60">Pickup Office Hours</dt>
@@ -48,9 +50,9 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             <dd className="font-medium">Online demo: unpaid, paid, or free.</dd>
           </div>
         </div>
-        <p className="mt-5 text-sm text-base-content/70">The displayed signature remains a visual thesis/demo representation, not a cryptographic signature.</p>
-        <SubmitButton className="btn btn-primary mt-5" pendingText="Saving settings...">Save settings</SubmitButton>
-      </form>
+        <p className="mt-5 text-sm text-base-content/70">The signer name is rendered as a consistent visual thesis/demo placeholder in both HTML preview and PDF. It is not a cryptographic signature.</p>
+        {!canEdit ? <p className="mt-3 text-sm text-base-content/60">Barangay Secretary access is view-only for security-sensitive settings.</p> : null}
+      </section>
     </div>
   );
 }

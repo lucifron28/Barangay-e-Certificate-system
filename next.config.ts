@@ -7,6 +7,14 @@ const nextConfig: NextConfig = {
     return [
       {
         headers: [
+          { key: "Cache-Control", value: "no-store" },
+          { key: "Referrer-Policy", value: "no-referrer" },
+          { key: "X-Robots-Tag", value: "noindex, nofollow" },
+        ],
+        source: "/verify/:path*",
+      },
+      {
+        headers: [
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
           { key: "Permissions-Policy", value: "camera=(), geolocation=(), microphone=()" },
           { key: "Referrer-Policy", value: "no-referrer" },
