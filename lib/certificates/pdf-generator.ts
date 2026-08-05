@@ -301,6 +301,16 @@ export async function generateCertificatePdf({
   request: CertificateRequestWithResident;
 }) {
   const pdfDoc = await PDFDocument.create();
+  pdfDoc.setTitle(
+    `${certificateLabel(request.certificate_type)} - ${certificateNumber ?? "Preview"}`,
+  );
+  pdfDoc.setSubject("Barangay Bato e-Certificate System thesis/demo certificate");
+  pdfDoc.setKeywords([
+    "Barangay Bato",
+    "e-Certificate",
+    certificateNumber ?? "preview",
+    verificationCode ?? "verification-preview",
+  ]);
   pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
   const regularFont = readBundledFont("noto-sans-latin-ext-400-normal.woff");
