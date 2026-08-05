@@ -78,6 +78,10 @@ CREATE TABLE IF NOT EXISTS certificate_records (
 CREATE INDEX IF NOT EXISTS certificate_records_request_id_idx
   ON certificate_records (request_id, issued_at DESC);
 
+CREATE UNIQUE INDEX IF NOT EXISTS certificate_records_number_idx
+  ON certificate_records (certificate_number)
+  WHERE certificate_number IS NOT NULL;
+
 CREATE TABLE IF NOT EXISTS activity_logs (
   id TEXT PRIMARY KEY,
   user_id TEXT REFERENCES profiles(id),

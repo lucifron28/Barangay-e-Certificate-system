@@ -1,10 +1,6 @@
 "use server";
 
-import { requireAdmin } from "@/lib/auth/guards";
-import { randomUUID } from "node:crypto";
-import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
-import { savePrivateCertificatePdf } from "@/lib/certificates/private-storage";
-import { sha256Hex } from "@/lib/security/document-hash";
+import { requireAdmin, requireMainAdmin } from "@/lib/auth/guards";
 import { getSystemSettings } from "@/lib/services/certificate-data";
 import {
   firstZodError,
@@ -16,9 +12,6 @@ import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createNotificationLog,
   getCertificateRecordById,
-  issueCertificateRecord,
-  createCertificateVerification,
-  generateVerificationToken,
   revokeCertificateRecord,
   setSystemSetting,
   updateRequestStatus,
@@ -47,6 +40,10 @@ import {
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
+import {
+  CertificateIssuanceError,
+  issueCertificate,
+} from "@/lib/services/certificate-issuance";
 import {
   getCertificateDeliveryCopy,
   isFullyOnlineDemo,
@@ -134,6 +131,27 @@ Thank you.
 Barangay Bato e-Certificate System
 Barangay Bato, Mauban, Quezon`,
     subject: "Pickup Schedule for Your Certificate Request",
+  };
+}
+
+function certificateReadyEmail(residentName: string, certificateType: string) {
+  const online = isFullyOnlineDemo;
+  return {
+    message: `Dear ${residentName},
+
+Good day.
+
+Your ${certificateType} is now ${online ? "ready as a secure PDF download" : "ready for pickup at the Barangay Bato office"}.
+
+${online ? "Please sign in to My Certificates to download the issued PDF." : `Please proceed during office hours, ${OFFICE_HOURS_LABEL}, to claim your certificate.`}
+
+${getCertificateDeliveryCopy().emailDelivery}
+
+Thank you.
+
+Barangay Bato e-Certificate System
+Barangay Bato, Mauban, Quezon`,
+    subject: online ? "Certificate Ready for Download" : "Certificate Ready for Pickup",
   };
 }
 
@@ -518,6 +536,13 @@ export async function markPaymentPaidAction(formData: FormData) {
 }
 
 export async function markRequestDoneAction(formData: FormData) {
+  if (isFullyOnlineDemo) {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online certificates are completed when the resident downloads the issued PDF.",
+    );
+  }
+
   const parsed = markDoneSchema.safeParse({
     request_id: formData.get("request_id"),
   });
@@ -593,37 +618,29 @@ export async function saveCertificateRecordAction(formData: FormData) {
 
   const templateData: Json = {
     generated_at: new Date().toISOString(),
-    note: "TODO: Exact PDF template positioning and final production asset handling pending client confirmation.",
-    request,
+    request_number: request.request_number,
     signature_notice:
-      "Electronic signature display is a thesis/demo visual placeholder and not a legal digital signature.",
+      "The displayed signer is a visual thesis/demo representation, not a cryptographic digital signature.",
   };
 
+  let issuedCertificate: Awaited<ReturnType<typeof issueCertificate>> | null = null;
+
   if (isSqliteProvider()) {
-    if (request.status !== "accepted" || !["paid", "free"].includes(request.payment_status)) {
-      redirectWithError(path, "Only accepted paid or free requests can be issued.");
-    }
-    const issuedAt = new Date(`${parsed.data.date_issued}T00:00:00.000Z`).toISOString();
     const settings = await getSystemSettings(context.supabase);
-    const certificateId = randomUUID();
-    const verificationToken = generateVerificationToken();
-    const verificationUrl = `${env.appUrl.replace(/\/$/, "")}/verify/${verificationToken}`;
-    const pdfBytes = await generateCertificatePdf({ barangayCaptainName: settings.barangayCaptainName, dateIssued: issuedAt, preparedBy: context.profile.full_name, request, verificationUrl });
-    const pdfPath = savePrivateCertificatePdf(certificateId, pdfBytes);
-    const record = issueCertificateRecord({
-      id: certificateId,
-      date_issued: parsed.data.date_issued,
-      issued_at: issuedAt,
-      issuance_mode: env.certificateIssuanceMode,
-      pdf_path: pdfPath,
-      pdf_sha256: sha256Hex(pdfBytes),
-      prepared_by: context.profile.id,
-      request,
-      template_data: templateData,
-    });
-    if (!record) redirectWithError(path, "A certificate was already issued for this request.");
-    createCertificateVerification({ certificateRecordId: certificateId, issuedAt, token: verificationToken });
-    updateRequestStatus({ id: request.id, status: "ready_for_download" });
+    try {
+      issuedCertificate = await issueCertificate({
+        dateIssued: parsed.data.date_issued,
+        preparedBy: context.profile.full_name,
+        preparedById: context.profile.id,
+        request,
+        settings,
+      });
+    } catch (error) {
+      if (error instanceof CertificateIssuanceError) {
+        redirectWithError(path, error.message);
+      }
+      redirectWithError(path, "Certificate issuance could not be completed.");
+    }
   } else {
     const { error } = await context.supabase!.from("certificate_records").upsert(
       {
@@ -650,8 +667,21 @@ export async function saveCertificateRecordAction(formData: FormData) {
     affectedRecordId: request.id,
     affectedTable: "certificate_records",
     profile: context.profile,
-    remarks: "Printable certificate record saved.",
+    remarks: issuedCertificate
+      ? `Issued ${issuedCertificate.certificateNumber} with QR verification metadata.`
+      : "Printable certificate record saved.",
     supabase: context.supabase,
+  });
+
+  const readyEmail = certificateReadyEmail(
+    request.resident?.full_name ?? "Resident",
+    certificateLabel(request.certificate_type),
+  );
+  await notifyAndLog({
+    ...readyEmail,
+    requestId: request.id,
+    supabase: context.supabase,
+    to: request.resident?.email,
   });
 
   redirectWithMessage(path, "Certificate record saved.");
@@ -701,18 +731,18 @@ export async function revokeCertificateRecordAction(formData: FormData) {
 export async function updateSystemSettingsAction(formData: FormData) {
   const parsed = systemSettingsSchema.safeParse({
     barangay_captain_name: formData.get("barangay_captain_name"),
-    signature_image_path: formData.get("signature_image_path") || undefined,
   });
   if (!parsed.success) redirectWithError("/admin/settings", firstZodError(parsed.error));
 
-  const context = await getAdminContextOrRedirect("/admin/settings");
+  const context = await requireMainAdmin();
+  if (context.setupMissing) {
+    redirectWithError("/admin/settings", "Supabase is not configured yet.");
+  }
   if (isSqliteProvider()) {
     setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
-    setSystemSetting("signature_image_path", parsed.data.signature_image_path || null);
   } else {
     const { error } = await context.supabase!.from("system_settings").upsert([
       { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },
-      { key: "signature_image_path", value: parsed.data.signature_image_path || null },
     ], { onConflict: "key" });
     if (error) redirectWithError("/admin/settings", "Unable to update settings.");
   }

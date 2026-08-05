@@ -371,6 +371,10 @@ export function generateCertificateNumber() {
   return `CERT-${counter.year}-${String(counter.value).padStart(4, "0")}`;
 }
 
+export function allocateCertificateNumber() {
+  return getSqliteDb().transaction(() => generateCertificateNumber())();
+}
+
 export function createCertificateRequest(input: {
   age: number;
   birthdate?: string | null;
@@ -533,33 +537,34 @@ export function createMockPayment(input: {
   request_id: string;
   resident_id: string;
 }) {
-  const request = getRequestById(input.request_id);
-  if (
-    !request ||
-    request.resident_id !== input.resident_id ||
-    request.status !== "accepted" ||
-    request.payment_status !== "unpaid"
-  ) {
-    return null;
-  }
-  const latest = getLatestPaymentForRequest(input.request_id);
-  if (latest && ["pending", "processing"].includes(latest.status)) {
-    return null;
-  }
-  const timestamp = nowIso();
-  const id = randomUUID();
-  const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
-  getSqliteDb()
-    .prepare(
+  const db = getSqliteDb();
+  return db.transaction(() => {
+    const request = getRequestById(input.request_id);
+    if (
+      !request ||
+      request.resident_id !== input.resident_id ||
+      request.status !== "accepted" ||
+      request.payment_status !== "unpaid"
+    ) {
+      return null;
+    }
+    const latest = getLatestPaymentForRequest(input.request_id);
+    if (latest && ["pending", "processing"].includes(latest.status)) {
+      return null;
+    }
+    const timestamp = nowIso();
+    const id = randomUUID();
+    const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+    db.prepare(
       `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
        VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
-    )
-    .run(id, input.request_id, input.resident_id, transactionId, input.amount, expiresAt, timestamp, timestamp);
-  getSqliteDb()
-    .prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
-    .run(randomUUID(), id, "payment_initiated", stringifyJson({ simulated: true }), timestamp);
-  return getLatestPaymentForRequest(input.request_id);
+    ).run(id, input.request_id, input.resident_id, transactionId, input.amount, expiresAt, timestamp, timestamp);
+    db.prepare(
+      "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(randomUUID(), id, "payment_initiated", stringifyJson({ simulated: true }), timestamp);
+    return getLatestPaymentForRequest(input.request_id);
+  })();
 }
 
 export function resolveMockPayment(input: {
@@ -567,27 +572,27 @@ export function resolveMockPayment(input: {
   resident_id: string;
   status: Extract<MockPaymentStatus, "paid" | "failed" | "cancelled">;
 }) {
-  const existing = paymentFromRow(
-    getSqliteDb().prepare("SELECT * FROM payments WHERE id = ? AND resident_id = ?").get(input.payment_id, input.resident_id) as Row | undefined,
-  );
-  if (!existing) return null;
-  if (existing.status === "paid" && input.status === "paid") return existing;
-  if (["failed", "cancelled", "expired", "refunded", "free"].includes(existing.status)) return existing;
-  if (existing.status !== "pending") return null;
-  const timestamp = nowIso();
-  if (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now()) {
-    getSqliteDb()
-      .prepare("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'")
-      .run(timestamp, input.payment_id);
-    return paymentFromRow({ ...existing, status: "expired" });
-  }
-  getSqliteDb()
-    .prepare("UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ?")
-    .run(input.status, input.status === "paid" ? timestamp : null, timestamp, input.payment_id);
-  getSqliteDb()
-    .prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
-    .run(randomUUID(), input.payment_id, `mock_payment_${input.status}`, stringifyJson({ simulated: true }), timestamp);
-  return getLatestPaymentForRequest(existing.request_id);
+  const db = getSqliteDb();
+  return db.transaction(() => {
+    const existing = paymentFromRow(
+      db.prepare("SELECT * FROM payments WHERE id = ? AND resident_id = ?").get(input.payment_id, input.resident_id) as Row | undefined,
+    );
+    if (!existing) return null;
+    if (existing.status === "paid" && input.status === "paid") return existing;
+    if (["failed", "cancelled", "expired", "refunded", "free"].includes(existing.status)) return existing;
+    if (existing.status !== "pending") return null;
+    const timestamp = nowIso();
+    if (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now()) {
+      db.prepare("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'")
+        .run(timestamp, input.payment_id);
+      return paymentFromRow({ ...existing, status: "expired" });
+    }
+    db.prepare("UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ? AND status = 'pending'")
+      .run(input.status, input.status === "paid" ? timestamp : null, timestamp, input.payment_id);
+    db.prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(randomUUID(), input.payment_id, `mock_payment_${input.status}`, stringifyJson({ simulated: true }), timestamp);
+    return getLatestPaymentForRequest(existing.request_id);
+  })();
 }
 
 export function cancelRequest(id: string, residentId: string) {
@@ -807,10 +812,144 @@ export function issueCertificateRecord(input: {
   return record;
 }
 
+export function persistIssuedCertificate(input: {
+  certificate_number: string;
+  certificate_record_id: string;
+  current_request_status: RequestStatus;
+  date_issued: string;
+  issued_at: string;
+  issuance_mode: CertificateRecord["issuance_mode"];
+  next_request_status: RequestStatus;
+  pdf_path: string;
+  pdf_sha256: string;
+  prepared_by: string;
+  request: CertificateRequest;
+  short_verification_code: string;
+  template_data: Json;
+  token_hash: string;
+  verification_expires_at: string;
+}) {
+  const db = getSqliteDb();
+  const persist = db.transaction(() => {
+    const active = db
+      .prepare(
+        "SELECT id FROM certificate_records WHERE request_id = ? AND status = 'issued'",
+      )
+      .get(input.request.id) as { id: string } | undefined;
+
+    if (active) {
+      throw new Error("CERTIFICATE_ALREADY_ISSUED");
+    }
+
+    const requestRow = db
+      .prepare("SELECT status, payment_status FROM certificate_requests WHERE id = ?")
+      .get(input.request.id) as
+      | { payment_status: string; status: string }
+      | undefined;
+
+    if (
+      !requestRow ||
+      requestRow.status !== input.current_request_status ||
+      !["paid", "free"].includes(requestRow.payment_status)
+    ) {
+      throw new Error("CERTIFICATE_REQUEST_NOT_ELIGIBLE");
+    }
+
+    const timestamp = nowIso();
+    db.prepare(
+      `INSERT INTO certificate_records (
+        id, request_id, certificate_type, resident_id, date_issued, prepared_by,
+        control_number, template_data, pdf_path, certificate_number, status,
+        issuance_mode, issued_at, issued_by, certificate_snapshot, pdf_sha256,
+        verification_expires_at, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      input.certificate_record_id,
+      input.request.id,
+      input.request.certificate_type,
+      input.request.resident_id,
+      input.date_issued,
+      input.prepared_by,
+      input.request.control_number,
+      stringifyJson(input.template_data),
+      input.pdf_path,
+      input.certificate_number,
+      input.issuance_mode,
+      input.issued_at,
+      input.prepared_by,
+      stringifyJson(input.template_data),
+      input.pdf_sha256,
+      input.verification_expires_at,
+      timestamp,
+    );
+
+    db.prepare(
+      `INSERT INTO certificate_verifications (
+        id, certificate_record_id, token_hash, short_verification_code, status,
+        valid_from, expires_at, revoked_at, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, 'valid', ?, ?, NULL, ?, ?)`,
+    ).run(
+      randomUUID(),
+      input.certificate_record_id,
+      input.token_hash,
+      input.short_verification_code,
+      input.issued_at,
+      input.verification_expires_at,
+      timestamp,
+      timestamp,
+    );
+
+    const requestUpdate = db
+      .prepare(
+        "UPDATE certificate_requests SET status = ?, updated_at = ? WHERE id = ? AND status = ?",
+      )
+      .run(
+        input.next_request_status,
+        timestamp,
+        input.request.id,
+        input.current_request_status,
+      );
+
+    if (requestUpdate.changes !== 1) {
+      throw new Error("CERTIFICATE_REQUEST_STATE_CHANGED");
+    }
+
+    const revokedRecord = db
+      .prepare(
+        "SELECT id FROM certificate_records WHERE request_id = ? AND status = 'revoked' ORDER BY issued_at DESC LIMIT 1",
+      )
+      .get(input.request.id) as { id: string } | undefined;
+
+    if (revokedRecord) {
+      db.prepare(
+        "UPDATE certificate_records SET replacement_record_id = ? WHERE id = ?",
+      ).run(input.certificate_record_id, revokedRecord.id);
+    }
+
+    return certificateRecordFromRow(
+      db.prepare("SELECT * FROM certificate_records WHERE id = ?").get(
+        input.certificate_record_id,
+      ) as Row | undefined,
+    );
+  });
+
+  return persist();
+}
+
 export function getCertificateRecordByRequestId(requestId: string) {
   return certificateRecordFromRow(
     getSqliteDb()
       .prepare("SELECT * FROM certificate_records WHERE request_id = ? ORDER BY issued_at DESC LIMIT 1")
+      .get(requestId) as Row | undefined,
+  );
+}
+
+export function getIssuedCertificateRecordByRequestId(requestId: string) {
+  return certificateRecordFromRow(
+    getSqliteDb()
+      .prepare(
+        "SELECT * FROM certificate_records WHERE request_id = ? AND status = 'issued' ORDER BY issued_at DESC LIMIT 1",
+      )
       .get(requestId) as Row | undefined,
   );
 }
