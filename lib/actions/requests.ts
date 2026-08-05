@@ -72,7 +72,7 @@ export async function createCertificateRequestAction(formData: FormData) {
       place_of_birth: parsed.data.place_of_birth || null,
       purpose: parsed.data.purpose,
       resident_id: profile.id,
-      sitio: parsed.data.sitio,
+      sitio: parsed.data.sitio ?? "",
       years_of_residency: years,
     });
 
@@ -106,16 +106,13 @@ export async function createCertificateRequestAction(formData: FormData) {
       years_of_residency: years,
     },
     common: {
-      address_sitio: parsed.data.sitio,
+      address_sitio: parsed.data.sitio ?? null,
       age: parsed.data.age,
       contact_number: parsed.data.contact_number,
       date_requested: new Date().toISOString(),
       full_name: parsed.data.full_name,
       purpose: parsed.data.purpose,
     },
-    placeholders: [
-      "TODO: Exact final certificate template positioning is pending client confirmation.",
-    ],
   };
 
   const { data, error } = await context.supabase!
@@ -248,7 +245,7 @@ export async function resubmitCertificateRequestAction(formData: FormData) {
       place_of_birth: parsed.data.place_of_birth || null,
       purpose: parsed.data.purpose,
       resident_id: profile.id,
-      sitio: parsed.data.sitio,
+      sitio: parsed.data.sitio ?? "",
       years_of_residency: years,
     });
 
@@ -278,16 +275,13 @@ export async function resubmitCertificateRequestAction(formData: FormData) {
       years_of_residency: years,
     },
     common: {
-      address_sitio: parsed.data.sitio,
+      address_sitio: parsed.data.sitio ?? null,
       age: parsed.data.age,
       contact_number: parsed.data.contact_number,
       date_requested: new Date().toISOString(),
       full_name: parsed.data.full_name,
       purpose: parsed.data.purpose,
     },
-    placeholders: [
-      "TODO: Rejected-request resubmission keeps the original request record for thesis demo simplicity.",
-    ],
   };
 
   const { error } = await context.supabase!

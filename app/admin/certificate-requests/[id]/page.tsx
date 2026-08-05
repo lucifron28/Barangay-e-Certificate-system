@@ -13,7 +13,9 @@ import {
   rejectRequestAction,
 } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
+import { getSubmittedInformation, usesSitio } from "@/lib/services/submitted-data";
 import { getAdminRequest } from "@/lib/services/certificate-data";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   certificateLabel,
   formatCurrency,
@@ -56,6 +58,9 @@ export default async function AdminRequestDetailsPage({
   }
 
   const schedule = request.pickup_schedules[0];
+  const submittedInformation = getSubmittedInformation(request);
+  const issuanceEligible = request.status === "accepted" &&
+    ["paid", "free"].includes(request.payment_status);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -85,12 +90,10 @@ export default async function AdminRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Age</dt>
             <dd className="font-medium">{request.resident?.age ?? "Not set"}</dd>
           </div>
-          <div>
+          {usesSitio(request.certificate_type) ? <div>
             <dt className="text-sm text-base-content/60">Address / Sitio</dt>
-            <dd className="font-medium">
-              {request.resident?.address_sitio ?? "Not set"}
-            </dd>
-          </div>
+            <dd className="font-medium">{request.resident?.address_sitio ?? "Not set"}</dd>
+          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Contact Number</dt>
             <dd className="font-medium">
@@ -105,16 +108,10 @@ export default async function AdminRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Date Requested</dt>
             <dd className="font-medium">{formatDate(request.date_requested)}</dd>
           </div>
-          <div>
+          {!isFullyOnlineDemo ? <div>
             <dt className="text-sm text-base-content/60">Pickup Schedule</dt>
-            <dd className="font-medium">
-              {schedule
-                ? `${formatDate(schedule.pickup_date)} at ${formatTime(
-                    schedule.pickup_time,
-                  )}`
-                : "Not scheduled"}
-            </dd>
-          </div>
+            <dd className="font-medium">{schedule ? `${formatDate(schedule.pickup_date)} at ${formatTime(schedule.pickup_time)}` : "Not scheduled"}</dd>
+          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Remarks</dt>
             <dd className="font-medium">{request.remarks ?? "None"}</dd>
@@ -132,10 +129,10 @@ export default async function AdminRequestDetailsPage({
         </dl>
 
         <div className="mt-6 rounded-lg bg-base-200 p-4">
-          <h2 className="font-semibold">Submitted JSON data</h2>
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs">
-            {JSON.stringify(request.submitted_data, null, 2)}
-          </pre>
+          <h2 className="font-semibold">Submitted Information</h2>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            {submittedInformation.map((field) => <div key={field.label}><dt className="text-sm text-base-content/60">{field.label}</dt><dd className="font-medium">{field.value}</dd></div>)}
+          </dl>
         </div>
       </section>
 
@@ -160,13 +157,7 @@ export default async function AdminRequestDetailsPage({
             >
               Accept Request
             </SubmitButton>
-            <Link
-              href={`/admin/pickup-schedules?request_id=${request.id}`}
-              className="btn btn-outline"
-            >
-              <CalendarPlus className="size-4" aria-hidden />
-              Set Pickup Schedule
-            </Link>
+            {!isFullyOnlineDemo ? <Link href={`/admin/pickup-schedules?request_id=${request.id}`} className="btn btn-outline"><CalendarPlus className="size-4" aria-hidden />Set Pickup Schedule</Link> : null}
           </div>
         </form>
 
@@ -190,21 +181,15 @@ export default async function AdminRequestDetailsPage({
             >
               Reject Request
             </SubmitButton>
-            <Link
-              href={`/admin/generate-certificate/${request.id}`}
-              className="btn btn-primary"
-            >
-              <Printer className="size-4" aria-hidden />
-              Generate Certificate
-            </Link>
+            {issuanceEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />Generate Certificate</Link> : <span className="text-sm text-base-content/60">{request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete demo payment before issuing."}</span>}
           </div>
         </form>
       </section>
 
       <section className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
-        <h2 className="font-bold">Claiming and payment actions</h2>
+        <h2 className="font-bold">{isFullyOnlineDemo ? "Online certificate actions" : "Claiming and payment actions"}</h2>
         <div className="mt-4 flex flex-wrap gap-2">
-          {request.status === "accepted" && schedule ? (
+          {!isFullyOnlineDemo && request.status === "accepted" && schedule ? (
             <form action={markRequestReadyAction}>
               <input type="hidden" name="request_id" value={request.id} />
               <button className="btn btn-accent" type="submit">
@@ -212,7 +197,7 @@ export default async function AdminRequestDetailsPage({
               </button>
             </form>
           ) : null}
-          {request.payment_status === "unpaid" ? (
+          {!isFullyOnlineDemo && request.payment_status === "unpaid" ? (
             <form action={markPaymentPaidAction}>
               <input type="hidden" name="request_id" value={request.id} />
               <button className="btn btn-warning" type="submit">
@@ -220,7 +205,7 @@ export default async function AdminRequestDetailsPage({
               </button>
             </form>
           ) : null}
-          {request.status === "ready_for_pickup" ? (
+          {!isFullyOnlineDemo && request.status === "ready_for_pickup" ? (
             <form action={markRequestDoneAction}>
               <input type="hidden" name="request_id" value={request.id} />
               <button className="btn btn-success" type="submit">

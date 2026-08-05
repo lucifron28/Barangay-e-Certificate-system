@@ -3,10 +3,12 @@
 import { requireResident } from "@/lib/auth/guards";
 import { redirectWithError, redirectWithMessage, logActivity } from "@/lib/actions/helpers";
 import { isSqliteProvider } from "@/lib/db/provider";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   createMockPayment,
   getLatestPaymentForRequest,
   getResidentRequestById,
+  listPaymentsForRequest,
   resolveMockPayment,
   updateRequestStatus,
 } from "@/lib/db/sqlite/queries";
@@ -19,7 +21,7 @@ export async function startMockPaymentAction(formData: FormData) {
   const context = await requireResident();
   const requestId = String(formData.get("request_id") ?? "");
   const path = paymentPath(requestId);
-  if (!requestId || context.setupMissing || !isSqliteProvider()) {
+  if (!requestId || context.setupMissing || !isSqliteProvider() || !isFullyOnlineDemo) {
     redirectWithError(path, "Mock payment is available only in local demo mode.");
   }
   const request = getResidentRequestById(requestId, context.profile.id);
@@ -52,5 +54,10 @@ export async function getResidentDemoPayment(requestId: string) {
   const context = await requireResident();
   if (context.setupMissing || !isSqliteProvider()) return { context, payment: null, request: null };
   const request = getResidentRequestById(requestId, context.profile.id);
-  return { context, payment: request ? getLatestPaymentForRequest(request.id) : null, request };
+  return {
+    context,
+    payment: request ? getLatestPaymentForRequest(request.id) : null,
+    payments: request ? listPaymentsForRequest(request.id) : [],
+    request,
+  };
 }

@@ -402,10 +402,6 @@ export function createCertificateRequest(input: {
       full_name: input.full_name,
       purpose: input.purpose,
     },
-    placeholders: [
-      // TODO: Final production certificate field placement still needs client sign-off.
-      "TODO: Exact final certificate template positioning is pending client confirmation.",
-    ],
   };
 
   getSqliteDb().transaction(() => {
@@ -507,11 +503,29 @@ export function updateRequestStatus(input: {
 }
 
 export function getLatestPaymentForRequest(requestId: string) {
-  return paymentFromRow(
+  const row = getSqliteDb()
+    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1")
+    .get(requestId) as Row | undefined;
+  if (
+    row &&
+    row.status === "pending" &&
+    row.expires_at &&
+    new Date(String(row.expires_at)).getTime() <= Date.now()
+  ) {
     getSqliteDb()
-      .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1")
-      .get(requestId) as Row | undefined,
-  );
+      .prepare("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'")
+      .run(nowIso(), row.id);
+    return paymentFromRow({ ...row, status: "expired" });
+  }
+  return paymentFromRow(row);
+}
+
+export function listPaymentsForRequest(requestId: string) {
+  return getSqliteDb()
+    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC")
+    .all(requestId)
+    .map((row) => paymentFromRow(row as Row))
+    .filter((payment): payment is Payment => Boolean(payment));
 }
 
 export function createMockPayment(input: {
@@ -519,15 +533,29 @@ export function createMockPayment(input: {
   request_id: string;
   resident_id: string;
 }) {
+  const request = getRequestById(input.request_id);
+  if (
+    !request ||
+    request.resident_id !== input.resident_id ||
+    request.status !== "accepted" ||
+    request.payment_status !== "unpaid"
+  ) {
+    return null;
+  }
+  const latest = getLatestPaymentForRequest(input.request_id);
+  if (latest && ["pending", "processing"].includes(latest.status)) {
+    return null;
+  }
   const timestamp = nowIso();
   const id = randomUUID();
   const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
   getSqliteDb()
     .prepare(
       `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', 'pending', NULL, NULL, ?, ?)`,
+       VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
     )
-    .run(id, input.request_id, input.resident_id, transactionId, input.amount, timestamp, timestamp);
+    .run(id, input.request_id, input.resident_id, transactionId, input.amount, expiresAt, timestamp, timestamp);
   getSqliteDb()
     .prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
     .run(randomUUID(), id, "payment_initiated", stringifyJson({ simulated: true }), timestamp);
@@ -542,8 +570,17 @@ export function resolveMockPayment(input: {
   const existing = paymentFromRow(
     getSqliteDb().prepare("SELECT * FROM payments WHERE id = ? AND resident_id = ?").get(input.payment_id, input.resident_id) as Row | undefined,
   );
-  if (!existing || existing.status !== "pending") return null;
+  if (!existing) return null;
+  if (existing.status === "paid" && input.status === "paid") return existing;
+  if (["failed", "cancelled", "expired", "refunded", "free"].includes(existing.status)) return existing;
+  if (existing.status !== "pending") return null;
   const timestamp = nowIso();
+  if (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now()) {
+    getSqliteDb()
+      .prepare("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'")
+      .run(timestamp, input.payment_id);
+    return paymentFromRow({ ...existing, status: "expired" });
+  }
   getSqliteDb()
     .prepare("UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ?")
     .run(input.status, input.status === "paid" ? timestamp : null, timestamp, input.payment_id);
@@ -596,9 +633,6 @@ export function resubmitRejectedRequest(input: {
       full_name: input.full_name,
       purpose: input.purpose,
     },
-    placeholders: [
-      "TODO: Rejected-request resubmission keeps the original request record for thesis demo simplicity.",
-    ],
   };
 
   getSqliteDb()

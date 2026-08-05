@@ -9,6 +9,7 @@ import {
   listPickupSchedules,
 } from "@/lib/services/certificate-data";
 import { OFFICE_HOURS_LABEL } from "@/lib/services/business-rules";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   certificateLabel,
   formatCurrency,
@@ -18,6 +19,17 @@ import {
 
 export default async function ResidentPickupSchedulePage() {
   const context = await requireResident();
+
+  if (isFullyOnlineDemo) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <h1 className="text-3xl font-bold">Online certificate delivery</h1>
+        <p className="text-base-content/70">
+          Fully online demo certificates are delivered as secure PDF downloads.
+        </p>
+      </div>
+    );
+  }
 
   if (context.setupMissing) {
     return <SetupRequired missingEnv={context.missingEnv} />;

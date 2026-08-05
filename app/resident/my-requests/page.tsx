@@ -14,6 +14,7 @@ import {
   formatDate,
   formatTime,
 } from "@/lib/utils/format";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 export default async function MyRequestsPage() {
   const context = await requireResident();
@@ -58,13 +59,13 @@ export default async function MyRequestsPage() {
                     { label: "Requested", value: formatDate(request.date_requested) },
                     { label: "Fee", value: formatCurrency(request.fee_amount) },
                     { label: "Purpose", value: request.purpose, fullWidth: true },
-                    {
+                    ...(isFullyOnlineDemo ? [] : [{
                       label: "Pickup schedule",
                       value: schedule
                         ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
                         : "Not scheduled",
                       fullWidth: true,
-                    },
+                    }]),
                     { label: "Payment", value: <PaymentBadge status={request.payment_status} /> },
                     { label: "Remarks", value: request.remarks ?? "None", fullWidth: true },
                   ]}
@@ -97,7 +98,7 @@ export default async function MyRequestsPage() {
                 <th>Purpose</th>
                 <th>Date Requested</th>
                 <th>Status</th>
-                <th>Pickup Schedule</th>
+                {!isFullyOnlineDemo ? <th>Pickup Schedule</th> : null}
                 <th>Fee</th>
                 <th>Payment</th>
                 <th>Remarks</th>
@@ -123,13 +124,13 @@ export default async function MyRequestsPage() {
                     <td>
                       <StatusBadge status={request.status} />
                     </td>
-                    <td>
+                    {!isFullyOnlineDemo ? <td>
                       {schedule
                         ? `${formatDate(schedule.pickup_date)} ${formatTime(
                             schedule.pickup_time,
                           )}`
                         : "Not scheduled"}
-                    </td>
+                    </td> : null}
                     <td>{formatCurrency(request.fee_amount)}</td>
                     <td>
                       <PaymentBadge status={request.payment_status} />

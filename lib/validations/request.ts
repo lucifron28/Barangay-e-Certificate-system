@@ -7,13 +7,24 @@ export const certificateRequestSchema = z.object({
   }),
   full_name: z.string().min(1, "Full name is required."),
   age: z.coerce.number().int().min(1, "Age is required."),
-  sitio: z.string().min(1, "Address or sitio is required."),
+  sitio: z.string().optional(),
   purpose: z.string().min(1, "Purpose is required."),
   contact_number: z.string().min(1, "Contact number is required."),
   birthdate: z.string().optional(),
   place_of_birth: z.string().optional(),
   years_of_residency: z.coerce.number().int().min(0).optional().or(z.literal("")),
 }).superRefine((data, context) => {
+  if (
+    ["barangay_clearance", "barangay_indigency", "barangay_residency"].includes(
+      data.certificate_type,
+    ) && !data.sitio?.trim()
+  ) {
+    context.addIssue({
+      code: "custom",
+      message: "Address or sitio is required for this certificate.",
+      path: ["sitio"],
+    });
+  }
   if (
     data.certificate_type === "barangay_certificate" &&
     !data.place_of_birth?.trim()

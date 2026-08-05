@@ -17,6 +17,8 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
+import { getSubmittedInformation } from "@/lib/services/submitted-data";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type RequestDetailsProps = {
   params: Promise<{ id: string }>;
@@ -75,6 +77,7 @@ export default async function ResidentRequestDetailsPage({
 
   const schedule = request.pickup_schedules[0];
   const submitted = submittedFields(request.submitted_data);
+  const submittedInformation = getSubmittedInformation(request);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -103,7 +106,7 @@ export default async function ResidentRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Date Requested</dt>
             <dd className="font-medium">{formatDate(request.date_requested)}</dd>
           </div>
-          <div>
+          {!isFullyOnlineDemo ? <div>
             <dt className="text-sm text-base-content/60">Pickup Schedule</dt>
             <dd className="font-medium">
               {schedule
@@ -112,7 +115,7 @@ export default async function ResidentRequestDetailsPage({
                   )}`
                 : "Not scheduled"}
             </dd>
-          </div>
+          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Remarks</dt>
             <dd className="font-medium">{request.remarks ?? "None"}</dd>
@@ -130,10 +133,10 @@ export default async function ResidentRequestDetailsPage({
         </dl>
 
         <div className="mt-6 rounded-lg bg-base-200 p-4">
-          <h2 className="font-semibold">Submitted data</h2>
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs">
-            {JSON.stringify(request.submitted_data, null, 2)}
-          </pre>
+          <h2 className="font-semibold">Submitted Information</h2>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            {submittedInformation.map((field) => <div key={field.label}><dt className="text-sm text-base-content/60">{field.label}</dt><dd className="font-medium">{field.value}</dd></div>)}
+          </dl>
         </div>
 
         {request.status === "pending" ? (

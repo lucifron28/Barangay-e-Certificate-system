@@ -47,6 +47,10 @@ import {
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
+import {
+  getCertificateDeliveryCopy,
+  isFullyOnlineDemo,
+} from "@/lib/services/issuance-mode";
 
 async function getAdminContextOrRedirect(path: string) {
   const context = await requireAdmin();
@@ -59,6 +63,7 @@ async function getAdminContextOrRedirect(path: string) {
 }
 
 function acceptedEmail(residentName: string, certificateType: string) {
+  const delivery = getCertificateDeliveryCopy();
   return {
     message: `Dear ${residentName},
 
@@ -66,7 +71,7 @@ Good day.
 
 Your request for ${certificateType} has been accepted by Barangay Bato. Your submitted information has been reviewed and your certificate request will now proceed for processing.
 
-Please wait for another email regarding the schedule or availability of your certificate for pickup.
+${delivery.emailDelivery}
 
 Thank you.
 
@@ -81,6 +86,9 @@ function rejectedEmail(
   certificateType: string,
   remarks: string,
 ) {
+  const followUp = isFullyOnlineDemo
+    ? "For further clarification, please contact Barangay Bato through the e-Certificate System."
+    : `For further clarification, please visit the Barangay Bato office during office hours, ${OFFICE_HOURS_LABEL}.`;
   return {
     message: `Dear ${residentName},
 
@@ -90,7 +98,7 @@ We regret to inform you that your request for ${certificateType} has been reject
 
 Reason/Remarks: ${remarks}
 
-For further clarification, please visit the Barangay Bato office during office hours, ${OFFICE_HOURS_LABEL}.
+${followUp}
 
 Thank you.
 
@@ -449,6 +457,12 @@ export async function markRequestReadyAction(formData: FormData) {
 }
 
 export async function markPaymentPaidAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online demo payments must be completed by the resident.",
+    );
+  }
   const parsed = markPaymentPaidSchema.safeParse({
     request_id: formData.get("request_id"),
   });
@@ -466,6 +480,13 @@ export async function markPaymentPaidAction(formData: FormData) {
 
   if (request.payment_status === "free") {
     redirectWithError("/admin/certificate-requests", "This certificate is free.");
+  }
+
+  if (request.status !== "accepted") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Only accepted requests can have office payment recorded.",
+    );
   }
 
   if (isSqliteProvider()) {
@@ -489,7 +510,7 @@ export async function markPaymentPaidAction(formData: FormData) {
     affectedRecordId: request.id,
     affectedTable: "certificate_requests",
     profile: context.profile,
-    remarks: "Payment status recorded during pickup/claiming.",
+    remarks: "Office payment recorded in hybrid workflow.",
     supabase: context.supabase,
   });
 

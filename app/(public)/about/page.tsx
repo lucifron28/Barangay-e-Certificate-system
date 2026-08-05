@@ -1,4 +1,5 @@
 import { CheckCircle2, FileText, Info, Landmark } from "lucide-react";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 const covered = [
   "Barangay Clearance",
@@ -16,8 +17,8 @@ export default function AboutPage() {
         <p className="mt-4 max-w-3xl text-lg text-base-content/75">
           The Barangay Bato e-Certificate System helps residents submit
           certificate requests online and helps the Barangay Secretary manage
-          reviews, pickup schedules, printable placeholders, records, reports,
-          and activity logs. This build is a thesis/demo implementation prepared
+          reviews, certificate issuance, records, reports, and activity logs.
+          This build is a thesis/demo implementation prepared
           for future Supabase deployment.
         </p>
 
@@ -44,12 +45,13 @@ export default function AboutPage() {
           </div>
           <div className="rounded-lg border border-base-300 bg-base-100 p-6">
             <Landmark className="mb-4 size-8 text-primary" aria-hidden />
-            <h2 className="font-bold">Physical office steps</h2>
+            <h2 className="font-bold">Delivery workflow</h2>
             <p className="mt-2 text-sm text-base-content/70">
-              Online payment is not included. Fees, official stamp, and claiming
-              are done at the barangay office. The electronic signature display
-              is visual-only for the thesis/demo and is not a legal digital
-              signature.
+              {isFullyOnlineDemo
+                ? "Accepted requests use a mock online payment, then a private PDF is issued for resident download with QR verification."
+                : "The hybrid workflow assigns pickup schedules and retains physical signing and stamping after printing."} The electronic
+              signature display is visual-only for the thesis/demo and is not a
+              legal digital signature.
             </p>
           </div>
         </div>

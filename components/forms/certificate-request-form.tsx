@@ -14,15 +14,16 @@ import type { Profile } from "@/types/database";
 
 type CertificateRequestFormProps = {
   profile: Profile;
-  today: string;
+  mode: "fully_online_demo" | "hybrid_physical_original";
 };
 
-export function CertificateRequestForm({ profile, today }: CertificateRequestFormProps) {
+export function CertificateRequestForm({ profile, mode }: CertificateRequestFormProps) {
   const [certificateType, setCertificateType] = useState<CertificateType>(
     "barangay_clearance",
   );
   const needsPlaceOfBirth = certificateType === "barangay_certificate";
   const needsResidencyFields = certificateType === "barangay_residency";
+  const needsSitio = certificateType !== "barangay_certificate";
 
   return (
     <form
@@ -48,12 +49,12 @@ export function CertificateRequestForm({ profile, today }: CertificateRequestFor
         </select>
       </label>
 
-      <label className="form-control">
+      {needsSitio ? <label className="form-control">
         <span className="label">
           <span className="label-text">Full Name</span>
         </span>
         <input className="input input-bordered" name="full_name" required defaultValue={profile.full_name} />
-      </label>
+      </label> : null}
       <label className="form-control">
         <span className="label">
           <span className="label-text">Age</span>
@@ -134,21 +135,15 @@ export function CertificateRequestForm({ profile, today }: CertificateRequestFor
         </span>
         <textarea className="textarea textarea-bordered min-h-28" name="purpose" required />
       </label>
-      <label className="form-control">
-        <span className="label">
-          <span className="label-text">Date Requested</span>
-        </span>
-        <input className="input input-bordered" name="date_requested" type="date" defaultValue={today} />
-      </label>
       <div className="rounded-lg border border-dashed border-base-300 bg-base-200 p-4 md:col-span-2">
         <p className="font-semibold">Request details</p>
         <p className="mt-1 text-sm text-base-content/70">
-          Only the fields required for the selected certificate are shown. Fees are displayed before online demo payment.
+          Only the fields required for the selected certificate are shown. The request timestamp is recorded by the server.
         </p>
       </div>
       <div className="alert alert-info md:col-span-2">
         <span>
-          Issued certificates are available as verified PDF downloads in this online demo.
+          {mode === "fully_online_demo" ? "Accepted requests can use mock payment and verified PDF delivery." : "Accepted requests follow the assigned hybrid delivery workflow."}
         </span>
       </div>
       <div className="flex flex-wrap gap-3 md:col-span-2">

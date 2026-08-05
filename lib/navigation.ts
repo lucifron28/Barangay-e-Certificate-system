@@ -10,8 +10,9 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
+import type { IssuanceMode } from "@/lib/services/issuance-mode";
 
-export const residentNavItems = [
+const residentNavItems = [
   {
     href: "/resident/dashboard",
     label: "Dashboard",
@@ -33,18 +34,19 @@ export const residentNavItems = [
     icon: FileText,
   },
   {
-    href: "/resident/pickup-schedule",
-    label: "Pickup Schedule",
-    icon: CalendarDays,
-  },
-  {
     href: "/resident/account",
     label: "Account",
     icon: UserRound,
   },
 ] as const;
 
-export const adminNavItems = [
+const residentPickupNavItem = {
+  href: "/resident/pickup-schedule",
+  label: "Pickup Schedule",
+  icon: CalendarDays,
+} as const;
+
+const adminNavItems = [
   {
     href: "/admin/dashboard",
     label: "Dashboard",
@@ -59,11 +61,6 @@ export const adminNavItems = [
     href: "/admin/resident-records",
     label: "Resident Records",
     icon: UsersRound,
-  },
-  {
-    href: "/admin/pickup-schedules",
-    label: "Pickup Schedules",
-    icon: CalendarDays,
   },
   {
     href: "/admin/reports",
@@ -86,6 +83,24 @@ export const adminNavItems = [
     icon: Settings,
   },
 ] as const;
+
+const adminPickupNavItem = {
+  href: "/admin/pickup-schedules",
+  label: "Pickup Schedules",
+  icon: CalendarDays,
+} as const;
+
+export function getResidentNavItems(mode: IssuanceMode) {
+  return mode === "hybrid_physical_original"
+    ? [...residentNavItems.slice(0, 4), residentPickupNavItem, ...residentNavItems.slice(4)]
+    : residentNavItems;
+}
+
+export function getAdminNavItems(mode: IssuanceMode) {
+  return mode === "hybrid_physical_original"
+    ? [...adminNavItems.slice(0, 3), adminPickupNavItem, ...adminNavItems.slice(3)]
+    : adminNavItems;
+}
 
 export const publicNavItems = [
   {

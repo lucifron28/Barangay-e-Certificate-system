@@ -9,6 +9,7 @@ import {
   PenLine,
   UserPlus,
 } from "lucide-react";
+import { getCertificateDeliveryCopy, isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 const certificateTypes = [
   "Barangay Clearance",
@@ -18,6 +19,7 @@ const certificateTypes = [
 ];
 
 export default function HomePage() {
+  const copy = getCertificateDeliveryCopy();
   return (
     <main>
       <section className="grid min-h-[calc(100vh-4rem)] items-center gap-10 px-6 py-10 lg:grid-cols-[1fr_0.9fr] lg:px-12 xl:px-20">
@@ -31,7 +33,7 @@ export default function HomePage() {
           <p className="mt-5 max-w-2xl text-lg text-base-content/75">
             A responsive web system for residents to request barangay
             certificates online and for the Barangay Secretary to review,
-            schedule, print, and monitor requests.
+            issue, and monitor requests.
           </p>
           <div className="mt-8 flex flex-wrap gap-3">
             <Link href="/login" className="btn btn-primary">
@@ -54,19 +56,16 @@ export default function HomePage() {
             </div>
             <div className="alert border-base-300 bg-base-100">
               <Banknote className="size-5" aria-hidden />
-              <span>Certificate fees are settled at the barangay office.</span>
+              <span>{isFullyOnlineDemo ? "Accepted requests use a mock online payment with no real funds transfer." : "Certificate fees follow the assigned office workflow."}</span>
             </div>
             <div className="alert border-base-300 bg-base-100">
               <PenLine className="size-5" aria-hidden />
-              <span>Signature and official stamp are applied physically.</span>
-            </div>
-            <div className="alert border-base-300 bg-base-100 sm:col-span-3">
-              <PenLine className="size-5" aria-hidden />
               <span>
-                Electronic signature display is a thesis/demo visual placeholder
+                Electronic signature display is a thesis/demo visual representation
                 only, not a legally verified digital signature.
               </span>
             </div>
+            {!isFullyOnlineDemo ? <div className="alert border-base-300 bg-base-100 sm:col-span-3"><PenLine className="size-5" aria-hidden /><span>Physical signing and official stamping remain part of the hybrid workflow.</span></div> : null}
           </div>
         </div>
 
@@ -108,8 +107,7 @@ export default function HomePage() {
             <div>
               <h2 className="text-3xl font-bold">Covered certificates</h2>
               <p className="mt-2 text-base-content/70">
-                Start online, then complete physical claiming at the barangay
-                office after review.
+                {copy.requestDescription}
               </p>
             </div>
             <Link href="/about" className="btn btn-ghost">
