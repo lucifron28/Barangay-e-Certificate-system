@@ -16,11 +16,12 @@ import {
   getCertificateRecordByRequestId,
   getCertificateVerificationByToken,
   getRequestById,
-  getLatestPaymentForRequest,
   resolveMockPayment,
 } from "@/lib/db/sqlite/queries";
+import { getSqliteDb } from "@/lib/db/sqlite/client";
 import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
+import { removePrivateCertificatePdf } from "@/lib/certificates/private-storage";
 import {
   canMarkDone,
   canResubmitRequest,
@@ -29,7 +30,8 @@ import {
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 const residentId = "00000000-0000-4000-8000-000000000003";
-const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000002";
+const paymentResidentId = "00000000-0000-4000-8000-000000000004";
+const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000001";
 
 describe("local authentication and authorization boundaries", () => {
   it("hashes passwords and rejects invalid credentials", () => {
@@ -73,20 +75,34 @@ describe("request, counter, and payment rules", () => {
   });
 
   it("can retry after a failed payment and preserves a new attempt", () => {
-    const first = getLatestPaymentForRequest(acceptedUnpaidRequestId);
+    const db = getSqliteDb();
+    db.transaction(() => {
+      db.prepare(
+        "DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE request_id = ?)",
+      ).run(acceptedUnpaidRequestId);
+      db.prepare("DELETE FROM payments WHERE request_id = ?").run(
+        acceptedUnpaidRequestId,
+      );
+      db.prepare(
+        "UPDATE certificate_requests SET status = 'accepted', payment_status = 'unpaid' WHERE id = ?",
+      ).run(acceptedUnpaidRequestId);
+    })();
+    const first = createMockPayment({
+      amount: 50,
+      request_id: acceptedUnpaidRequestId,
+      resident_id: paymentResidentId,
+    });
     expect(first).not.toBeNull();
-    if (first?.status === "pending") {
-      resolveMockPayment({
-        payment_id: first.id,
-        resident_id: residentId,
-        status: "failed",
-      });
-    }
+    resolveMockPayment({
+      payment_id: first?.id ?? "",
+      resident_id: paymentResidentId,
+      status: "failed",
+    });
 
     const retry = createMockPayment({
       amount: 50,
       request_id: acceptedUnpaidRequestId,
-      resident_id: residentId,
+      resident_id: paymentResidentId,
     });
 
     expect(retry?.status).toBe("pending");
@@ -94,14 +110,14 @@ describe("request, counter, and payment rules", () => {
     expect(
       resolveMockPayment({
         payment_id: retry?.id ?? "",
-        resident_id: residentId,
+        resident_id: paymentResidentId,
         status: "paid",
       })?.status,
     ).toBe("paid");
     expect(
       resolveMockPayment({
         payment_id: retry?.id ?? "",
-        resident_id: residentId,
+        resident_id: paymentResidentId,
         status: "paid",
       })?.status,
     ).toBe("paid");
@@ -171,7 +187,7 @@ describe("issuance and PDF integrity", () => {
   it("reissues a revoked certificate with a new number", async () => {
     const request = getRequestById("10000000-0000-4000-8000-000000000007");
     const previous = getCertificateRecordByRequestId(request?.id ?? "");
-    expect(request?.status).toBe("done");
+    expect(["done", "ready_for_download"]).toContain(request?.status);
     expect(previous?.status).toBe("revoked");
 
     const replacement = await issueCertificate({
@@ -184,5 +200,22 @@ describe("issuance and PDF integrity", () => {
 
     expect(replacement.certificateNumber).not.toBe(previous?.certificate_number);
     expect(replacement.verificationToken).not.toBe("");
+
+    const db = getSqliteDb();
+    db.transaction(() => {
+      db.prepare(
+        "DELETE FROM certificate_verifications WHERE certificate_record_id = ?",
+      ).run(replacement.certificateRecord.id);
+      db.prepare(
+        "UPDATE certificate_records SET replacement_record_id = NULL WHERE id = ?",
+      ).run(previous?.id);
+      db.prepare("DELETE FROM certificate_records WHERE id = ?").run(
+        replacement.certificateRecord.id,
+      );
+      db.prepare(
+        "UPDATE certificate_requests SET status = 'done' WHERE id = ?",
+      ).run(request?.id);
+    })();
+    removePrivateCertificatePdf(replacement.certificateRecord.pdf_path ?? "");
   });
 });

@@ -3,10 +3,11 @@ import { existsSync, readFileSync } from "node:fs";
 import {
   getRequestById,
   getCertificateRecordByRequestId,
-  getLatestPaymentForRequest,
+  createMockPayment,
   listPaymentsForRequest,
   resolveMockPayment,
 } from "@/lib/db/sqlite/queries";
+import { getSqliteDb } from "@/lib/db/sqlite/client";
 import { generateCertificatePdf, normalizePdfText } from "@/lib/certificates/pdf-generator";
 import {
   isCertificateIssuanceEligible,
@@ -38,7 +39,23 @@ describe("online request and payment workflow", () => {
   });
 
   it("preserves payment history and supports a failed-payment retry", () => {
-    const pending = getLatestPaymentForRequest("10000000-0000-4000-8000-000000000002");
+    const db = getSqliteDb();
+    db.transaction(() => {
+      db.prepare(
+        "DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE request_id = ?)",
+      ).run("10000000-0000-4000-8000-000000000002");
+      db.prepare("DELETE FROM payments WHERE request_id = ?").run(
+        "10000000-0000-4000-8000-000000000002",
+      );
+      db.prepare(
+        "UPDATE certificate_requests SET status = 'accepted', payment_status = 'unpaid' WHERE id = ?",
+      ).run("10000000-0000-4000-8000-000000000002");
+    })();
+    const pending = createMockPayment({
+      amount: 50,
+      request_id: "10000000-0000-4000-8000-000000000002",
+      resident_id: "00000000-0000-4000-8000-000000000003",
+    });
     expect(pending?.status).toBe("pending");
     const failed = resolveMockPayment({
       payment_id: pending?.id ?? "",
