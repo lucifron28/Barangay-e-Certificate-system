@@ -2,7 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { CertificateRequestForm } from "@/components/forms/certificate-request-form";
 import { getSubmittedInformation } from "@/lib/services/submitted-data";
-import { getCertificateFieldRequirements } from "@/lib/services/certificate-fields";
+import {
+  CERTIFICATE_FIELD_NAMES,
+  getCertificateFieldRequirements,
+  type CertificateFieldName,
+} from "@/lib/services/certificate-fields";
 import { certificateRequestSchema } from "@/lib/validations/request";
 import type { CertificateRequest, Json, Profile } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
@@ -95,16 +99,7 @@ const valuesFor: Record<CertificateType, Record<string, string | number>> = {
 
 describe("certificate request field requirements", () => {
   it("renders exactly the fields required by each certificate type", () => {
-    const allFieldNames = [
-      "full_name",
-      "age",
-      "sitio",
-      "contact_number",
-      "purpose",
-      "place_of_birth",
-      "birthdate",
-      "years_of_residency",
-    ];
+    const allFieldNames: readonly CertificateFieldName[] = CERTIFICATE_FIELD_NAMES;
 
     for (const certificateType of Object.keys(valuesFor) as CertificateType[]) {
       const expected = new Set(
