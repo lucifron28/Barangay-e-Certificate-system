@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
+import {
+  certificateStatusAlertClass,
+  certificateStatusBadgeClass,
+  CERTIFICATE_DISPLAY_STATUS_LABELS,
+  certificateStatusMessage,
+} from "@/lib/certificates/certificate-status";
 import { getCertificateVerificationByToken } from "@/lib/db/sqlite/queries";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { certificateLabel, formatDate, formatDateTime } from "@/lib/utils/format";
 
 export const metadata: Metadata = { robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 function maskName(value: string) {
   return value
@@ -29,7 +36,7 @@ function VerificationState({
         <h1 className="text-3xl font-bold">Certificate Verification</h1>
         <p className="text-base-content/70">Barangay Bato, Mauban, Quezon</p>
       </div>
-      <div className={`alert alert-${tone}`}>
+      <div className={`alert ${tone === "warning" ? "alert-warning" : "alert-error"}`}>
         <span>{status ?? "NOT FOUND"}</span>
       </div>
       {message ? <p className="text-sm text-base-content/70">{message}</p> : null}
@@ -66,21 +73,20 @@ export default async function VerifyCertificatePage({
     return <VerificationState />;
   }
 
-  const tone =
-    verification.status === "valid"
-      ? "success"
-      : verification.status === "expired"
-        ? "warning"
-        : "error";
-
   return (
-    <main className="mx-auto max-w-xl space-y-5 p-6">
+    <main className="mx-auto max-w-2xl space-y-5 p-6">
       <div>
         <h1 className="text-3xl font-bold">Certificate Verification</h1>
         <p className="text-base-content/70">Barangay Bato, Mauban, Quezon</p>
       </div>
-      <div className={`alert alert-${tone}`}>
-        <span>{verification.status.toUpperCase()}</span>
+      <div className={`alert ${certificateStatusAlertClass(verification.status)}`}>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide">Verification result</p>
+          <p className="font-semibold">{certificateStatusMessage(verification.status)}</p>
+        </div>
+        <span className={`badge badge-lg ${certificateStatusBadgeClass(verification.status)}`}>
+          {CERTIFICATE_DISPLAY_STATUS_LABELS[verification.status]}
+        </span>
       </div>
       <section className="rounded-lg border border-base-300 bg-base-100 p-5">
         <dl className="grid gap-3">
@@ -118,13 +124,20 @@ export default async function VerifyCertificatePage({
           </div>
         </dl>
       </section>
-      <p className="text-sm text-base-content/70">
-        {verification.status === "replaced"
-          ? "This certificate has been replaced. Use the latest certificate issued by Barangay Bato. "
-          : null}
+      <div className="rounded-lg border border-base-300 bg-base-100 p-5 text-sm text-base-content/70">
+        {verification.status === "replaced" ? (
+          <p className="mb-3 font-semibold text-base-content">
+            The QR link is no longer current. Ask the certificate holder or Barangay Bato office for the latest verification link.
+          </p>
+        ) : null}
+        {verification.status === "revoked" ? (
+          <p className="mb-3 font-semibold text-base-content">
+            Do not rely on this certificate for a new transaction. Contact the Barangay Bato office if clarification is needed.
+          </p>
+        ) : null}
         QR verification confirms issuance and status only. It does not prevent
         photocopying or prove that a printed copy is the only original.
-      </p>
+      </div>
     </main>
   );
 }
