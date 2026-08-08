@@ -131,6 +131,37 @@ describe("request, counter, and payment rules", () => {
   it("does not resolve an unknown verification token", () => {
     expect(getCertificateVerificationByToken("invalid-token-for-test")).toBeNull();
   });
+
+  it("requires a successful payment record and an admin issuer before issuance", async () => {
+    const db = getSqliteDb();
+    const paidRequestId = "10000000-0000-4000-8000-000000000003";
+    db.transaction(() => {
+      db.prepare(
+        "DELETE FROM payment_events WHERE payment_id IN (SELECT id FROM payments WHERE request_id = ?)",
+      ).run(paidRequestId);
+      db.prepare("DELETE FROM payments WHERE request_id = ?").run(paidRequestId);
+    })();
+
+    await expect(
+      issueCertificate({
+        dateIssued: new Date().toISOString().slice(0, 10),
+        preparedBy: "Demo Main Admin",
+        preparedById: adminId,
+        request: getRequestById(paidRequestId)!,
+        settings: { barangayCaptainName: "Authorized Barangay Official" },
+      }),
+    ).rejects.toMatchObject({ code: "PAYMENT_NOT_SETTLED" });
+
+    await expect(
+      issueCertificate({
+        dateIssued: new Date().toISOString().slice(0, 10),
+        preparedBy: "Juan Demo Resident",
+        preparedById: residentId,
+        request: getRequestById("10000000-0000-4000-8000-000000000004")!,
+        settings: { barangayCaptainName: "Authorized Barangay Official" },
+      }),
+    ).rejects.toMatchObject({ code: "INVALID_ISSUER" });
+  });
 });
 
 describe("issuance and PDF integrity", () => {
