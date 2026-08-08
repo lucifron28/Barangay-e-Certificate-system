@@ -6,6 +6,10 @@ import { useState } from "react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { createCertificateRequestAction } from "@/lib/actions/requests";
 import {
+  getCertificateFieldRequirements,
+  type CertificateFieldName,
+} from "@/lib/services/certificate-fields";
+import {
   CERTIFICATE_TYPE_LABELS,
   CERTIFICATE_TYPES,
   type CertificateType,
@@ -15,15 +19,21 @@ import type { Profile } from "@/types/database";
 type CertificateRequestFormProps = {
   profile: Profile;
   mode: "fully_online_demo" | "hybrid_physical_original";
+  initialCertificateType?: CertificateType;
 };
 
-export function CertificateRequestForm({ profile, mode }: CertificateRequestFormProps) {
+export function CertificateRequestForm({
+  initialCertificateType = "barangay_clearance",
+  mode,
+  profile,
+}: CertificateRequestFormProps) {
   const [certificateType, setCertificateType] = useState<CertificateType>(
-    "barangay_clearance",
+    initialCertificateType,
   );
-  const needsPlaceOfBirth = certificateType === "barangay_certificate";
-  const needsResidencyFields = certificateType === "barangay_residency";
-  const needsSitio = certificateType !== "barangay_certificate";
+  const visibleFields = new Set<CertificateFieldName>(
+    getCertificateFieldRequirements(certificateType).map(({ name }) => name),
+  );
+  const hasField = (name: CertificateFieldName) => visibleFields.has(name);
 
   return (
     <form
@@ -49,13 +59,13 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
         </select>
       </label>
 
-      {needsSitio ? <label className="form-control">
+      {hasField("full_name") ? <label className="form-control">
         <span className="label">
           <span className="label-text">Full Name</span>
         </span>
         <input className="input input-bordered" name="full_name" required defaultValue={profile.full_name} />
       </label> : null}
-      <label className="form-control">
+      {hasField("age") ? <label className="form-control">
         <span className="label">
           <span className="label-text">Age</span>
         </span>
@@ -67,8 +77,8 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
           required
           defaultValue={profile.age ?? ""}
         />
-      </label>
-      <label className="form-control">
+      </label> : null}
+      {hasField("sitio") ? <label className="form-control">
         <span className="label">
           <span className="label-text">Sitio</span>
         </span>
@@ -78,8 +88,8 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
           required
           defaultValue={profile.address_sitio ?? ""}
         />
-      </label>
-      <label className="form-control">
+      </label> : null}
+      {hasField("contact_number") ? <label className="form-control">
         <span className="label">
           <span className="label-text">Contact Number</span>
         </span>
@@ -89,9 +99,9 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
           required
           defaultValue={profile.contact_number ?? ""}
         />
-      </label>
+      </label> : null}
 
-      {needsPlaceOfBirth ? (
+      {hasField("place_of_birth") ? (
         <label className="form-control md:col-span-2">
           <span className="label">
             <span className="label-text">Place of Birth</span>
@@ -100,9 +110,9 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
         </label>
       ) : null}
 
-      {needsResidencyFields ? (
+      {hasField("birthdate") || hasField("years_of_residency") ? (
         <>
-          <label className="form-control">
+          {hasField("birthdate") ? <label className="form-control">
             <span className="label">
               <span className="label-text">Birthdate</span>
             </span>
@@ -113,8 +123,8 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
               required
               defaultValue={profile.date_of_birth ?? ""}
             />
-          </label>
-          <label className="form-control">
+          </label> : null}
+          {hasField("years_of_residency") ? <label className="form-control">
             <span className="label">
               <span className="label-text">Years of Residency</span>
             </span>
@@ -125,16 +135,16 @@ export function CertificateRequestForm({ profile, mode }: CertificateRequestForm
               type="number"
               required
             />
-          </label>
+          </label> : null}
         </>
       ) : null}
 
-      <label className="form-control md:col-span-2">
+      {hasField("purpose") ? <label className="form-control md:col-span-2">
         <span className="label">
           <span className="label-text">Purpose</span>
         </span>
         <textarea className="textarea textarea-bordered min-h-28" name="purpose" required />
-      </label>
+      </label> : null}
       <div className="rounded-lg border border-dashed border-base-300 bg-base-200 p-4 md:col-span-2">
         <p className="font-semibold">Request details</p>
         <p className="mt-1 text-sm text-base-content/70">

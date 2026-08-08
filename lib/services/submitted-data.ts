@@ -1,5 +1,9 @@
 import type { CertificateRequest, Json } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
+import {
+  certificateHasField,
+  getCertificateFieldRequirements,
+} from "@/lib/services/certificate-fields";
 
 type SubmittedData = {
   certificate_specific?: {
@@ -39,22 +43,22 @@ export function getSubmittedInformation(request: Pick<CertificateRequest, "certi
   const specific = data.certificate_specific ?? {};
   const fields: SubmittedInformation[] = [];
 
-  add(fields, "Full name", common.full_name);
-  add(fields, "Age", common.age);
-  if (usesSitio(request.certificate_type)) add(fields, "Sitio", common.address_sitio);
-  add(fields, "Contact number", common.contact_number);
-
-  if (request.certificate_type === "barangay_certificate") {
-    add(fields, "Place of birth", specific.place_of_birth);
+  for (const requirement of getCertificateFieldRequirements(request.certificate_type)) {
+    const value = {
+      age: common.age,
+      birthdate: specific.birthdate,
+      contact_number: common.contact_number,
+      full_name: common.full_name,
+      place_of_birth: specific.place_of_birth,
+      purpose: common.purpose,
+      sitio: common.address_sitio,
+      years_of_residency: specific.years_of_residency,
+    }[requirement.name];
+    add(fields, requirement.label, value);
   }
-  if (request.certificate_type === "barangay_residency") {
-    add(fields, "Birthdate", specific.birthdate);
-    add(fields, "Years of residency", specific.years_of_residency);
-  }
-  add(fields, "Purpose", common.purpose);
   return fields;
 }
 
 export function usesSitio(certificateType: CertificateType) {
-  return certificateType !== "barangay_certificate";
+  return certificateHasField(certificateType, "sitio");
 }

@@ -17,7 +17,8 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
-import { getSubmittedInformation, usesSitio } from "@/lib/services/submitted-data";
+import { getSubmittedInformation } from "@/lib/services/submitted-data";
+import { certificateHasField } from "@/lib/services/certificate-fields";
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type RequestDetailsProps = {
@@ -180,7 +181,7 @@ export default async function ResidentRequestDetailsPage({
               required
             />
           </label>
-          {usesSitio(request.certificate_type) ? (
+          {certificateHasField(request.certificate_type, "sitio") ? (
             <label className="form-control">
               <span className="label-text">Sitio</span>
               <input

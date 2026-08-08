@@ -72,7 +72,7 @@ export async function createCertificateRequestAction(formData: FormData) {
       place_of_birth: parsed.data.place_of_birth || null,
       purpose: parsed.data.purpose,
       resident_id: profile.id,
-      sitio: parsed.data.sitio ?? "",
+      sitio: parsed.data.sitio || null,
       years_of_residency: years,
     });
 
@@ -106,7 +106,7 @@ export async function createCertificateRequestAction(formData: FormData) {
       years_of_residency: years,
     },
     common: {
-      address_sitio: parsed.data.sitio ?? null,
+      address_sitio: parsed.data.sitio || null,
       age: parsed.data.age,
       contact_number: parsed.data.contact_number,
       date_requested: new Date().toISOString(),
@@ -245,7 +245,7 @@ export async function resubmitCertificateRequestAction(formData: FormData) {
       place_of_birth: parsed.data.place_of_birth || null,
       purpose: parsed.data.purpose,
       resident_id: profile.id,
-      sitio: parsed.data.sitio ?? "",
+      sitio: parsed.data.sitio || null,
       years_of_residency: years,
     });
 
@@ -275,7 +275,7 @@ export async function resubmitCertificateRequestAction(formData: FormData) {
       years_of_residency: years,
     },
     common: {
-      address_sitio: parsed.data.sitio ?? null,
+      address_sitio: parsed.data.sitio || null,
       age: parsed.data.age,
       contact_number: parsed.data.contact_number,
       date_requested: new Date().toISOString(),

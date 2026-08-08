@@ -250,7 +250,7 @@ function bodyParagraphs(request: CertificateRequestWithResident) {
         salutation: "Sa kinauukulan:",
         title: "PAGPAPATUNAY",
         paragraphs: [
-          `Pinatutunayan ng tanggapang ito na si ${data.name}, ${data.age} taong gulang, ay lehitimong naninirahan sa ${data.address}, Barangay Bato, Mauban, Quezon.`,
+          `Pinatutunayan ng tanggapang ito na si ${data.name}, ${data.age} taong gulang, ay lehitimong naninirahan sa ${data.locality}.`,
           `Ang talaang ito ay inihanda batay sa kahilingang isinumite sa sistema. Detalye ng kapanganakan: ${data.birthDetails}.`,
           `Ipinagkaloob ang pagpapatunay na ito para sa layuning ${data.purpose}.`,
         ],

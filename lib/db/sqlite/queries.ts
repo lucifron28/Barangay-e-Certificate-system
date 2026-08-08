@@ -384,7 +384,7 @@ export function createCertificateRequest(input: {
   place_of_birth?: string | null;
   purpose: string;
   resident_id: string;
-  sitio: string;
+  sitio?: string | null;
   years_of_residency?: number | null;
 }) {
   const id = randomUUID();
@@ -399,7 +399,7 @@ export function createCertificateRequest(input: {
       years_of_residency: input.years_of_residency ?? null,
     },
     common: {
-      address_sitio: input.sitio,
+      address_sitio: input.sitio || null,
       age: input.age,
       contact_number: input.contact_number,
       date_requested: dateRequested,
@@ -616,7 +616,7 @@ export function resubmitRejectedRequest(input: {
   place_of_birth?: string | null;
   purpose: string;
   resident_id: string;
-  sitio: string;
+  sitio?: string | null;
   years_of_residency?: number | null;
 }) {
   const existing = getResidentRequestById(input.id, input.resident_id);
@@ -631,7 +631,7 @@ export function resubmitRejectedRequest(input: {
       years_of_residency: input.years_of_residency ?? null,
     },
     common: {
-      address_sitio: input.sitio,
+      address_sitio: input.sitio || null,
       age: input.age,
       contact_number: input.contact_number,
       date_requested: nowIso(),

@@ -1,4 +1,5 @@
 import { formatDate } from "@/lib/utils/format";
+import { certificateHasField } from "@/lib/services/certificate-fields";
 import type { CertificateRequest, Json, Profile } from "@/types/database";
 
 export type CertificateRequestWithResident = CertificateRequest & {
@@ -30,6 +31,7 @@ export type CertificateTemplateData = {
   controlNumber: string;
   dateIssued: string;
   name: string;
+  locality: string;
   purpose: string;
   requestNumber: string;
   yearsOfResidency: string;
@@ -53,11 +55,15 @@ export function getCertificateTemplateData(
 ): CertificateTemplateData {
   const submittedData = asSubmittedData(request.submitted_data);
   const resident = request.resident;
+  const locality = "Barangay Bato, Mauban, Quezon";
+  const address = certificateHasField(request.certificate_type, "sitio")
+    ? fieldOrLine(
+        submittedData.common?.address_sitio ?? resident?.address_sitio,
+      )
+    : "Barangay Bato";
 
   return {
-    address: fieldOrLine(
-      submittedData.common?.address_sitio ?? resident?.address_sitio,
-    ),
+    address,
     age: fieldOrLine(submittedData.common?.age ?? resident?.age),
     birthDetails: fieldOrLine(
       submittedData.certificate_specific?.place_of_birth,
@@ -68,6 +74,7 @@ export function getCertificateTemplateData(
     controlNumber: request.control_number ?? "Pending",
     dateIssued: formatDate(dateIssued),
     name: fieldOrLine(submittedData.common?.full_name ?? resident?.full_name),
+    locality,
     purpose: fieldOrLine(submittedData.common?.purpose ?? request.purpose),
     requestNumber: request.request_number,
     yearsOfResidency: fieldOrLine(
