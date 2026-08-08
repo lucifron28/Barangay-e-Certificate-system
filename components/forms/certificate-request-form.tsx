@@ -14,6 +14,7 @@ import {
   CERTIFICATE_TYPES,
   type CertificateType,
 } from "@/types/enums";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
 import type { Profile } from "@/types/database";
 
 type CertificateRequestFormProps = {
@@ -143,7 +144,12 @@ export function CertificateRequestForm({
         <span className="label">
           <span className="label-text">Purpose</span>
         </span>
-        <textarea className="textarea textarea-bordered min-h-28" name="purpose" required />
+        <textarea
+          className="textarea textarea-bordered min-h-28"
+          name="purpose"
+          maxLength={CERTIFICATE_PURPOSE_MAX_LENGTH}
+          required
+        />
       </label> : null}
       <div className="rounded-lg border border-dashed border-base-300 bg-base-200 p-4 md:col-span-2">
         <p className="font-semibold">Request details</p>

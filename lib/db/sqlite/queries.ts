@@ -6,6 +6,9 @@ import {
   getCertificateFee,
   getDefaultPaymentStatus,
 } from "@/lib/services/business-rules";
+import { isVerificationExpired } from "@/lib/certificates/certificate-status";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
+import type { CertificateDownloadResult } from "@/lib/certificates/certificate-download";
 import type {
   CertificateRecord,
   CertificateRequest,
@@ -403,8 +406,12 @@ export function createCertificateRequest(input: {
   sitio?: string | null;
   years_of_residency?: number | null;
 }) {
+  if (input.purpose.trim().length > CERTIFICATE_PURPOSE_MAX_LENGTH) {
+    return null;
+  }
   const id = randomUUID();
   const timestamp = nowIso();
+  const purpose = input.purpose.trim();
   const feeAmount = getCertificateFee(input.certificate_type);
   const paymentStatus = getDefaultPaymentStatus(input.certificate_type);
   const dateRequested = timestamp;
@@ -420,7 +427,7 @@ export function createCertificateRequest(input: {
       contact_number: input.contact_number,
       date_requested: dateRequested,
       full_name: input.full_name,
-      purpose: input.purpose,
+      purpose,
     },
   };
 
@@ -444,7 +451,7 @@ export function createCertificateRequest(input: {
       requestNumber,
       input.resident_id,
       input.certificate_type,
-      input.purpose,
+      purpose,
       stringifyJson(submittedData),
       controlNumber,
       feeAmount,
@@ -653,6 +660,9 @@ export function resubmitRejectedRequest(input: {
   sitio?: string | null;
   years_of_residency?: number | null;
 }) {
+  if (input.purpose.trim().length > CERTIFICATE_PURPOSE_MAX_LENGTH) {
+    return null;
+  }
   const existing = getResidentRequestById(input.id, input.resident_id);
   if (!existing || existing.status !== "rejected") {
     return null;
@@ -670,7 +680,7 @@ export function resubmitRejectedRequest(input: {
       contact_number: input.contact_number,
       date_requested: nowIso(),
       full_name: input.full_name,
-      purpose: input.purpose,
+      purpose: input.purpose.trim(),
     },
   };
 
@@ -682,7 +692,7 @@ export function resubmitRejectedRequest(input: {
        WHERE id = ? AND resident_id = ?`,
     )
     .run(
-      input.purpose,
+      input.purpose.trim(),
       stringifyJson(submittedData),
       nowIso(),
       nowIso(),
@@ -791,6 +801,7 @@ export function persistIssuedCertificate(input: {
   template_data: Json;
   token_hash: string;
   verification_expires_at: string;
+  verification_status: "expired" | "valid";
 }) {
   const db = getSqliteDb();
   const persist = db.transaction(() => {
@@ -873,12 +884,13 @@ export function persistIssuedCertificate(input: {
       `INSERT INTO certificate_verifications (
         id, certificate_record_id, token_hash, short_verification_code, status,
         valid_from, expires_at, revoked_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'valid', ?, ?, NULL, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
     ).run(
       randomUUID(),
       input.certificate_record_id,
       input.token_hash,
       input.short_verification_code,
+      input.verification_status,
       input.issued_at,
       input.verification_expires_at,
       timestamp,
@@ -985,7 +997,11 @@ export function listResidentCertificateRecords(residentId: string) {
   ).all(residentId).map((row) => certificateRecordFromRow(row as Row)).filter((row): row is CertificateRecord => Boolean(row));
 }
 
-export function createCertificateDownloadLog(certificateRecordId: string, userId: string, result: string) {
+export function createCertificateDownloadLog(
+  certificateRecordId: string,
+  userId: string,
+  result: CertificateDownloadResult,
+) {
   getSqliteDb().prepare(
     "INSERT INTO certificate_download_logs (id, certificate_record_id, user_id, result, downloaded_at) VALUES (?, ?, ?, ?, ?)",
   ).run(randomUUID(), certificateRecordId, userId, result, nowIso());
@@ -1032,7 +1048,7 @@ export function getCertificateVerificationByToken(token: string) {
       : fallback;
   const expiresAt = String(row.expires_at);
   const revoked = row.revoked_at !== null || row.certificate_status === "revoked";
-  const expired = new Date(expiresAt).getTime() < Date.now();
+  const expired = row.status === "expired" || isVerificationExpired(expiresAt);
   const replacementRecordId = asText(row.replacement_record_id);
   return {
     certificateNumber: snapshotText("certificate_number", String(row.certificate_number)),

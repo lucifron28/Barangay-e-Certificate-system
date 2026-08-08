@@ -18,6 +18,7 @@ coverage/
 data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
+data/*verification-samples.json
 data/certificates/
 data/certificates-test/
 data/.local-demo-session-secret

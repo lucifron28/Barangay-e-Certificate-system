@@ -2,7 +2,7 @@
 
 This runbook is for the local SQLite thesis demonstration. It uses synthetic
 accounts and sample records only. The default demo mode is
-`fully_online_demo`.
+`fully_online_demo`; its payment is simulated and transfers no actual funds.
 
 ## Before the Demonstration
 
@@ -62,8 +62,9 @@ accounts and sample records only. The default demo mode is
 3. Open the expired URL and show `EXPIRED`.
 4. Open the revoked URL and show `REVOKED` and the replacement information when
    available.
-5. Scan the valid QR code using a phone. This manual scan must be tested before
-   the defense; an agent cannot physically operate the phone.
+5. Scan the valid QR code using a phone only after a human has tested the
+   reachable LAN URL. This is a manual demonstration step; repository checks
+   must not be described as a physical phone scan.
 
 ## Administration Demonstration
 
@@ -90,6 +91,9 @@ into the default fully-online defense flow.
 ## What to Explain
 
 Explain that this is a thesis prototype using local SQLite, hashed demo
-passwords, mock payment, private local certificate PDFs, three-day QR
-verification, and a visual signature placeholder. Explain the production and
-legal limitations in `docs/security-and-legal-limitations.md`.
+passwords, simulated payment, private local certificate PDFs, a 72-hour QR
+verification window measured from issuance, and a visual signature placeholder.
+Explain that expired/revoked certificates remain visible for status evidence but
+cannot be downloaded, and that the QR result does not prevent photocopying.
+Explain the production and legal limitations in
+`docs/security-and-legal-limitations.md`.

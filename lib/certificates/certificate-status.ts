@@ -9,6 +9,15 @@ export const CERTIFICATE_DISPLAY_STATUS_LABELS = {
 
 export type CertificateDisplayStatus = keyof typeof CERTIFICATE_DISPLAY_STATUS_LABELS;
 
+export function isVerificationExpired(
+  expiresAt: string,
+  now: Date | number = new Date(),
+) {
+  const expiryTime = new Date(expiresAt).getTime();
+  const nowTime = now instanceof Date ? now.getTime() : now;
+  return Number.isNaN(expiryTime) || nowTime >= expiryTime;
+}
+
 export function getCertificateDisplayStatus(
   record: Pick<
     CertificateRecord,
@@ -21,7 +30,7 @@ export function getCertificateDisplayStatus(
   if (
     record.status === "expired" ||
     !record.verification_expires_at ||
-    new Date(record.verification_expires_at).getTime() <= now
+    isVerificationExpired(record.verification_expires_at, now)
   ) {
     return "expired";
   }
@@ -59,7 +68,7 @@ export function certificateStatusMessage(status: CertificateDisplayStatus) {
     case "valid":
       return "This certificate is currently within its verification window.";
     case "expired":
-      return "This certificate was issued, but its three-day verification window has ended.";
+      return "This certificate was issued, but its 72-hour verification window has ended.";
     case "replaced":
       return "This certificate has been replaced. Use the latest certificate issued by Barangay Bato.";
     case "revoked":

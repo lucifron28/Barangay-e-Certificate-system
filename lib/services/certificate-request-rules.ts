@@ -1,0 +1,1 @@
+export const CERTIFICATE_PURPOSE_MAX_LENGTH = 200;

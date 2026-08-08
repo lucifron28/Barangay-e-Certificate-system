@@ -20,6 +20,7 @@ import {
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
 import { env } from "@/lib/env";
 import {
+  canMarkReady,
   canMarkDone,
   canRejectRequest,
   canScheduleRequest,
@@ -48,6 +49,10 @@ import {
   getCertificateDeliveryCopy,
   isFullyOnlineDemo,
 } from "@/lib/services/issuance-mode";
+import {
+  CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
+  isCertificateIssuanceConfigured,
+} from "@/lib/services/certificate-lifecycle";
 
 async function getAdminContextOrRedirect(path: string) {
   const context = await requireAdmin();
@@ -446,10 +451,13 @@ export async function markRequestReadyAction(formData: FormData) {
   const context = await getAdminContextOrRedirect("/admin/certificate-requests");
   const request = await getAdminRequest(parsed.data.request_id, context.supabase);
 
-  if (!request || !request.pickup_schedules.length) {
+  if (
+    !request ||
+    !canMarkReady(request.status, request.pickup_schedules.length > 0)
+  ) {
     redirectWithError(
       "/admin/certificate-requests",
-      "A pickup schedule is required before marking ready for pickup.",
+      "Only accepted requests with a pickup schedule can be marked ready for pickup.",
     );
   }
 
@@ -616,50 +624,26 @@ export async function saveCertificateRecordAction(formData: FormData) {
     redirectWithError("/admin/certificate-requests", "Request not found.");
   }
 
-  const templateData: Json = {
-    generated_at: new Date().toISOString(),
-    request_number: request.request_number,
-    signature_notice:
-      "The displayed signer is a visual thesis/demo representation, not a cryptographic digital signature.",
-  };
+  if (!isCertificateIssuanceConfigured()) {
+    redirectWithError(path, CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE);
+  }
 
-  let issuedCertificate: Awaited<ReturnType<typeof issueCertificate>> | null = null;
+  let issuedCertificate: Awaited<ReturnType<typeof issueCertificate>>;
 
-  if (isSqliteProvider()) {
-    const settings = await getSystemSettings(context.supabase);
-    try {
-      issuedCertificate = await issueCertificate({
-        dateIssued: parsed.data.date_issued,
-        preparedBy: context.profile.full_name,
-        preparedById: context.profile.id,
-        request,
-        settings,
-      });
-    } catch (error) {
-      if (error instanceof CertificateIssuanceError) {
-        redirectWithError(path, error.message);
-      }
-      redirectWithError(path, "Certificate issuance could not be completed.");
+  const settings = await getSystemSettings(context.supabase);
+  try {
+    issuedCertificate = await issueCertificate({
+      dateIssued: parsed.data.date_issued,
+      preparedBy: context.profile.full_name,
+      preparedById: context.profile.id,
+      request,
+      settings,
+    });
+  } catch (error) {
+    if (error instanceof CertificateIssuanceError) {
+      redirectWithError(path, error.message);
     }
-  } else {
-    const { error } = await context.supabase!.from("certificate_records").upsert(
-      {
-        certificate_type: request.certificate_type,
-        control_number: request.control_number,
-        date_issued: parsed.data.date_issued,
-        prepared_by: context.profile.id,
-        request_id: request.id,
-        resident_id: request.resident_id,
-        template_data: templateData,
-      },
-      {
-        onConflict: "request_id",
-      },
-    );
-
-    if (error) {
-      redirectWithError(path, "Unable to save certificate record.");
-    }
+    redirectWithError(path, "Certificate issuance could not be completed.");
   }
 
   await logActivity({
@@ -667,9 +651,7 @@ export async function saveCertificateRecordAction(formData: FormData) {
     affectedRecordId: request.id,
     affectedTable: "certificate_records",
     profile: context.profile,
-    remarks: issuedCertificate
-      ? `Issued ${issuedCertificate.certificateNumber} with QR verification metadata.`
-      : "Printable certificate record saved.",
+    remarks: `Issued ${issuedCertificate.certificateNumber} with QR verification metadata.`,
     supabase: context.supabase,
   });
 

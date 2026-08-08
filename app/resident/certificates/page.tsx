@@ -7,10 +7,17 @@ import {
   getCertificateDisplayStatus,
 } from "@/lib/certificates/certificate-status";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
+import {
+  CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
+  isCertificateIssuanceConfigured,
+} from "@/lib/services/certificate-lifecycle";
 
 export default async function ResidentCertificatesPage() {
   const context = await requireResident();
   if (context.setupMissing) return null;
+  if (!isCertificateIssuanceConfigured()) {
+    return <div className="alert alert-warning">{CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE}</div>;
+  }
   const records = listResidentCertificateRecords(context.profile.id);
   return (
     <div className="space-y-6">

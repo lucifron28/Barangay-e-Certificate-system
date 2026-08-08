@@ -17,7 +17,7 @@ export function getCertificateDeliveryCopy(mode: IssuanceMode = issuanceMode) {
     return {
       requestDescription: "Submit online, complete the demo payment when accepted, and download your verified certificate PDF.",
       dashboardDescription: "Track reviews, demo payments, verified PDF certificates, and QR status.",
-      issuedDescription: "Issued certificates are available as secure PDF downloads for three days.",
+      issuedDescription: "Issued certificates are available as secure PDF downloads for 72 hours from issuance.",
       emailDelivery: "Your certificate is ready as a secure PDF download in the Barangay Bato e-Certificate System.",
     } as const;
   }

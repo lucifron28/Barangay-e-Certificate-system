@@ -1,11 +1,11 @@
 # Barangay Bato e-Certificate System
 
 Responsive web-based thesis/demo MVP for Barangay Bato, Mauban, Quezon. The
-system lets residents register, request certificates, complete a mock online
-payment, download secure certificate PDFs, and verify QR status. Main Admin and
-Barangay Secretary users can review, approve, reject, issue, revoke, reissue,
-monitor records, export reports, and review activity logs. A separate hybrid
-mode preserves the original pickup workflow.
+system lets residents register, request certificates, use simulated payment in
+the fully-online demo path, download secure certificate PDFs, and verify QR
+status. Main Admin and Barangay Secretary users can review, approve, reject,
+issue, revoke, reissue, monitor records, export reports, and review activity
+logs. A separate hybrid mode preserves the original office pickup workflow.
 
 ## Tech Stack
 
@@ -66,17 +66,16 @@ Confirmed setup choices:
 
 ## Existing Repo Status Before Latest Changes
 
-The existing repo already contained a working Next.js App Router MVP with public
-pages, resident/admin layouts, Supabase SSR utilities, Tailwind CSS v4, daisyUI,
-basic certificate requests, printable certificate previews, a protected
-certificate PDF route, reports, activity logs, and README documentation.
+At the beginning of this final-defense remediation pass, the existing repo
+already contained the working Next.js App Router MVP, SQLite thesis/demo mode,
+Supabase SSR utilities, Tailwind CSS v4, daisyUI, certificate issuance and
+verification, reports, activity logs, and defense documentation.
 
-This update preserved that structure and upgraded it rather than recreating the
-project. Major gaps before this pass were: no SQLite local demo mode, old
-`admin` role only, no `main_admin`/`barangay_secretary` split, no `cancelled`
-status, no payment status placeholder, old `BC-YYYY-0001` clearance control
-number wording, no custom Barangay Bato theme, limited client-clarified
-certificate fields, and report Excel export not implemented.
+This update preserved that structure and upgraded it incrementally. The final
+pass focused on deterministic demo verification samples, one shared expiry
+rule, issue-date preview binding, bounded PDF body layout, download outcome
+auditing, storage isolation, hybrid state-transition enforcement, and a
+fail-closed Supabase deployment boundary.
 
 ## Users And Roles
 
@@ -140,8 +139,12 @@ admin-side permissions, but both role values are stored separately.
 - Printable HTML certificate templates and immutable private PDFs based on the
   provided official PDF references.
 - Certificate numbers, SHA-256 PDF integrity checks, QR verification tokens,
-  three-day verification expiry, revocation, linked reissue, and resident-only
-  PDF downloads.
+  exactly 72-hour verification expiry from actual issuance, revocation, linked
+  reissue, resident-only PDF downloads, and audited download denials.
+- Long resident names, addresses, and maximum-length purposes are bounded by a
+  server-side PDF layout guard and the request purpose limit.
+- Hybrid ready-for-pickup transitions use the shared accepted-plus-schedule
+  rule in the server action.
 - Printable reports, report PDF download, and Excel export.
 - Admin request details show payment attempts and notification delivery attempts.
 - Supabase migration/RLS updates prepared, including payment, counter, and
@@ -163,7 +166,9 @@ admin-side permissions, but both role values are stored separately.
   missing.
 - Supabase production certificate issue, private delivery, and public
   verification remain a documented boundary and are not live-validated. The
-  public verification route refuses to read SQLite when Supabase mode is set.
+  public verification route and certificate pages refuse to read SQLite when
+  Supabase mode is set, and certificate saving fails closed rather than doing a
+  partial record-only upsert.
 - Browser-level and physical-phone QR rehearsal still require manual defense
   testing.
 
@@ -178,6 +183,8 @@ admin-side permissions, but both role values are stored separately.
 - Production storage strategy for template assets, signature images, generated
   PDFs, or archives.
 - Whether generated PDF records should persist file paths in Supabase Storage.
+- Supabase payment-provider and certificate-issuer implementation after a real
+  project, storage bucket, and operational policy are confirmed.
 
 Every placeholder is marked with TODO comments in the code where it affects
 implementation.
@@ -196,8 +203,10 @@ These files are not inside `app/`, are not publicly exposed, and are not assumed
 to be fillable PDF forms. If any file contains real sample resident data, do not
 use that data in seeds, screenshots, public demos, or tests. Current generation
 uses clean printable HTML templates and server-generated PDFs based on the
-provided layouts. Final production handling may move approved template assets to
-Supabase Storage later.
+provided layouts. Exact positioning and print fidelity still require a final
+human print comparison against the private originals; this pass does not claim
+that comparison was performed. Final production handling may move approved
+template assets to Supabase Storage later.
 
 ## Defense Demo Reset
 
@@ -347,9 +356,10 @@ and role checks.
 6. Apply `database/migrations/20260805000100_online_certificate_lifecycle.sql`.
 7. Apply `database/migrations/20260805000200_online_payment_and_counter_parity.sql`.
 8. Apply `database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`.
-9. Create the Main Admin and Barangay Secretary accounts, then promote them with
+9. Apply `database/migrations/20260808000100_final_defense_supabase_boundary.sql`.
+10. Create the Main Admin and Barangay Secretary accounts, then promote them with
    the documented seed SQL.
-10. Restart the app and verify role-based redirects and RLS behavior.
+11. Restart the app and verify role-based redirects and RLS behavior.
 
 See [`docs/supabase-thesis-boundary.md`](docs/supabase-thesis-boundary.md) for
 the exact SQLite-versus-Supabase thesis boundary and the remaining live-project
@@ -363,8 +373,9 @@ confirmed as the Barangay Bato project, so no live migrations were applied.
 
 When the correct project is connected, confirm the project ref first, apply the
 local migration files through MCP or the SQL editor, then run Supabase security
-and performance advisors. The local SQLite lifecycle is tested; the Supabase
-workflow is schema preparation and is not claimed as live-validated.
+and performance advisors. The final boundary migration must be included. The
+local SQLite lifecycle is tested; the Supabase workflow is schema preparation
+and is not claimed as live-validated.
 Additional notes are in `docs/supabase-mcp.md`.
 
 ## Supabase RLS Policy Overview
@@ -380,6 +391,11 @@ Prepared Supabase RLS policies cover:
   mark paid, or mark done.
 - Main Admin and Barangay Secretary can manage requests, schedules, records,
   reports, logs, notifications, and settings.
+- Both admin-side roles can read `system_settings`, but only `main_admin` can
+  insert, update, or delete settings.
+- Resident payment-row creation is not exposed until a trusted provider path is
+  implemented; the permissive legacy resident payment-insert policy is removed
+  by the final forward migration.
 - Admin-side users can view resident records but resident-profile editing is not
   enabled.
 - Activity logs and certificate records are admin-side only. QR verification is
@@ -425,7 +441,11 @@ Implemented email event templates:
   protected by resident ownership checks. The current PDF output is suitable
   for thesis/demo use; final production typography and print approval remain
   pending.
-- QR tokens are random, stored only as hashes, and expire after three days.
+- QR tokens are random, stored only as hashes, and expire exactly 72 hours from
+  the actual issuance timestamp. Expired and revoked certificates remain
+  visible as status records but cannot be downloaded.
+- Certificate download successes and denials are audited without storing raw QR
+  tokens or private file paths.
 - Reports can be printed, downloaded as PDF, and exported as Excel using
   `exceljs`.
 - Final barangay monthly report formatting is still pending client confirmation.
@@ -472,19 +492,19 @@ npm run build
 | Certificate Requests | Implemented | Uses confirmed client fields, fees, and payment status |
 | Request Cancellation | Implemented | Pending requests only |
 | Rejected Resubmission | Implemented | Same request record moves back to pending |
-| Certificate Generation | Implemented / Print QA Pending | Immutable HTML/PDF issue, official-layout references, QR verification, revocation and reissue |
-| PDF Download | Implemented | Resident-owned certificate and report PDF routes |
+| Certificate Generation | Implemented / Print QA Pending | Immutable HTML/PDF issue, bounded body layout, official-layout references, QR verification, revocation and reissue |
+| PDF Download | Implemented / Audited | Resident-owned certificate/report routes; expiry, revocation, ownership, artifact, and integrity denials are logged |
 | Pickup Scheduling | Implemented | Admin-assigned; office hours enforced |
 | Fees | Implemented | PHP 50 or Free; online payment excluded |
-| Payment Status | Implemented for Demo / Production Pending | Mock payment attempts and history; no financial data is handled |
+| Payment Status | Implemented for Demo / Production Pending | Simulated payment attempts and history; no financial data is handled |
 | Admin Lifecycle Views | Implemented | Payment attempts and notification delivery attempts are visible per request |
 | Email Notifications | Placeholder / Partial | Templates implemented; real sending pending keys |
 | Reports | Implemented / Format Pending | Print/PDF/Excel demo format implemented |
 | Activity Logs | Implemented | Major lifecycle actions and downloads logged |
 | QR Verification | Implemented | Hashed tokens, expiry, revoked status, masked public view |
 | Revocation / Reissue | Implemented | Revocation reason, audit trail, linked replacement certificate |
-| Automated Checks | Implemented | 39 Vitest tests plus GitHub Actions CI |
-| Supabase RLS | Schema Prepared / Not Connected | Boundary migration added; apply and validate only on the confirmed project |
+| Automated Checks | Implemented | 53 Vitest tests plus GitHub Actions CI |
+| Supabase RLS | Schema Prepared / Not Connected | Forward boundary migration adds strict settings/payment policies and atomic counters |
 
 The table deliberately distinguishes a completed SQLite thesis demo from
 Supabase schema preparation. No claim is made that the full lifecycle is
@@ -499,8 +519,9 @@ production-ready on Supabase before a real project is connected and validated.
   print QA against official templates.
 - Signature handling is a consistent visual line/name placeholder and is not a
   legally verified digital signature.
-- Payment behavior is a mock online-demo workflow and must be replaced before
-  real deployment.
+- Payment behavior is simulated in the fully-online demo workflow; hybrid mode
+  records office payment only. Neither path transfers real funds, and a real
+  provider must be approved before production deployment.
 - The final authorized official display name still requires client approval.
 - Report exports use demo formatting until the official monthly report layout is
   provided.
@@ -511,10 +532,12 @@ production-ready on Supabase before a real project is connected and validated.
 
 1. Confirm the real Supabase project and apply migrations through MCP or SQL
    Editor, then run Supabase security/RLS advisors.
-2. Confirm the authorized official name and signature image.
-3. Perform print QA against the provided certificate PDFs.
-4. Replace mock online payment behavior with an approved production provider, or
+2. Implement and test the reviewed Supabase certificate issuer, private storage,
+   and public verification service before enabling that provider.
+3. Confirm the authorized official name and signature image.
+4. Perform human print QA against the private provided certificate PDFs.
+5. Replace simulated payment behavior with an approved production provider, or
    remove it before deployment.
-5. Replace the demo report format with the official monthly barangay report
+6. Replace the demo report format with the official monthly barangay report
    format.
-6. Rehearse the complete runbook, including a physical phone QR scan over LAN.
+7. Rehearse the complete runbook, including a physical phone QR scan over LAN.

@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
+import {
+  CertificatePdfLayoutError,
+  generateCertificatePdf,
+} from "@/lib/certificates/pdf-generator";
 import { createCertificateSnapshot } from "@/lib/certificates/snapshot";
 import {
   removePrivateCertificatePdf,
@@ -19,10 +22,11 @@ import {
 import { sha256Hex } from "@/lib/security/document-hash";
 import { env } from "@/lib/env";
 import { issuanceMode } from "@/lib/services/issuance-mode";
+import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import type { RequestWithResident } from "@/lib/db/sqlite/queries";
 import type { CertificateRecord, Json } from "@/types/database";
 
-const VERIFICATION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+export const VERIFICATION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
 
 export type CertificateIssuanceResult = {
   certificateNumber: string;
@@ -41,6 +45,7 @@ export class CertificateIssuanceError extends Error {
       | "INVALID_ISSUER"
       | "NOT_ELIGIBLE"
       | "PAYMENT_NOT_SETTLED"
+      | "LAYOUT_OVERFLOW"
       | "PERSISTENCE_FAILED",
     message: string,
     options?: ErrorOptions,
@@ -113,6 +118,8 @@ function mapPersistenceError(error: unknown) {
 
 export async function issueCertificate(input: {
   dateIssued: string;
+  /** Internal fixture clock only; never accept this from a request or form. */
+  now?: Date;
   preparedBy: string;
   preparedById: string;
   request: RequestWithResident;
@@ -157,10 +164,15 @@ export async function issueCertificate(input: {
   }
 
   const dateIssued = getOfficialIssueDate(input.dateIssued);
-  const issuedAt = new Date().toISOString();
+  const issuanceClock = input.now ?? new Date();
+  if (Number.isNaN(issuanceClock.getTime())) {
+    throw new CertificateIssuanceError("NOT_ELIGIBLE", "The issue time is invalid.");
+  }
+  const issuedAt = issuanceClock.toISOString();
   const expiresAt = new Date(
-    new Date(issuedAt).getTime() + VERIFICATION_LIFETIME_MS,
+    issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
+  const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
   const certificateNumber = allocateCertificateNumber();
   const certificateRecordId = randomUUID();
   const verificationToken = generateVerificationToken();
@@ -223,6 +235,7 @@ export async function issueCertificate(input: {
       certificate_snapshot: snapshot,
       token_hash: tokenHash,
       verification_expires_at: expiresAt,
+      verification_status: verificationStatus,
     });
 
     if (!certificateRecord) {
@@ -248,6 +261,12 @@ export async function issueCertificate(input: {
 
     if (error instanceof CertificateIssuanceError) {
       throw error;
+    }
+
+    if (error instanceof CertificatePdfLayoutError) {
+      throw new CertificateIssuanceError("LAYOUT_OVERFLOW", error.message, {
+        cause: error,
+      });
     }
 
     const mappedError = mapPersistenceError(error);

@@ -15,7 +15,10 @@ Supabase MCP connection was available during this phase.
 - Supabase certificate lifecycle issuance and public QR verification are not
   claimed as live-validated. The public verification route returns a clear
   unavailable state instead of reading a local SQLite database in Supabase
-  mode.
+  mode, and the admin certificate-save action fails closed instead of creating
+  a partial `certificate_records` row.
+- Certificate download pages also fail closed in Supabase mode instead of
+  reading local certificate records. This prevents provider mixing.
 - Supabase secret/service-role credentials remain server-only.
 
 ## Migration order
@@ -27,6 +30,7 @@ Apply these files to the confirmed project in filename order:
 3. `database/migrations/20260805000100_online_certificate_lifecycle.sql`
 4. `database/migrations/20260805000200_online_payment_and_counter_parity.sql`
 5. `database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`
+6. `database/migrations/20260808000100_final_defense_supabase_boundary.sql`
 
 The Supabase CLI was not installed in the local environment, so the final
 migration filename was created in the repository with the existing migration
@@ -45,6 +49,14 @@ CLI's migration and advisor commands before applying it.
   return only masked, non-sensitive issuance status.
 - Trigger-only number generators and profile protection functions are not
   granted as authenticated API functions.
+- System settings are readable by admin-side roles, but only `main_admin` can
+  insert, update, or delete settings.
+- Request, clearance-control, and certificate number allocation uses the
+  private atomic `document_counters` allocator with a yearly key; the old
+  row-count approach is not used by the final wrappers.
+- Resident payment creation is not exposed until a trusted provider/service
+  path is approved. The old resident payment-insert policy is removed by the
+  final forward migration.
 - No `service_role`/secret key is placed in a browser bundle.
 
 ## Required connection work later
@@ -53,7 +65,8 @@ CLI's migration and advisor commands before applying it.
    migration workflow.
 2. Run Supabase security advisors and RLS tests against a real project.
 3. Implement and test Supabase repositories for payment events, immutable
-   certificate snapshots, private PDF delivery, and public verification.
+   certificate snapshots, private PDF delivery, and public verification. Keep
+   the existing fail-closed certificate boundary until this work is complete.
 4. Move official template/signature assets to a private Supabase Storage bucket
    only after privacy and retention rules are approved.
 5. Re-run the thesis workflow against Supabase before calling it a deployment

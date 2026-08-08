@@ -6,6 +6,7 @@ const vitestBin = process.platform === "win32" ? ".\\node_modules\\.bin\\vitest.
 const env = {
   ...process.env,
   CERTIFICATE_STORAGE_DIRECTORY: "data/certificates-test",
+  DEMO_VERIFICATION_SAMPLES_PATH: "data/test-verification-samples.json",
   SQLITE_DATABASE_URL: "file:./data/test.sqlite",
 };
 

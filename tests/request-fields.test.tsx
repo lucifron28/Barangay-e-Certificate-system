@@ -8,6 +8,7 @@ import {
   type CertificateFieldName,
 } from "@/lib/services/certificate-fields";
 import { certificateRequestSchema } from "@/lib/validations/request";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
 import type { CertificateRequest, Json, Profile } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
 
@@ -161,5 +162,16 @@ describe("certificate request field requirements", () => {
       { label: "Place of birth", value: "Mauban, Quezon" },
       { label: "Purpose", value: "Scholarship requirement" },
     ]);
+  });
+
+  it("rejects a purpose longer than the supported PDF layout limit", () => {
+    const result = certificateRequestSchema.safeParse({
+      ...valuesFor.barangay_clearance,
+      purpose: "x".repeat(CERTIFICATE_PURPOSE_MAX_LENGTH + 1),
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues[0]?.message).toContain("characters or fewer");
   });
 });

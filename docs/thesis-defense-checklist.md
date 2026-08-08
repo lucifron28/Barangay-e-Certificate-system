@@ -44,7 +44,8 @@
 - [ ] `npm run demo:reset` passes and prints valid, expired, and revoked URLs.
 - [ ] `npm run lint` passes.
 - [ ] `npm run typecheck` passes.
-- [ ] `npm test` passes with 8 test files and 39 tests.
+- [ ] `npm test` passes with all current Vitest tests (currently 13 files / 53
+      tests).
 - [ ] `npm run build` passes.
 - [ ] Production `npm run start` smoke test passes.
 - [ ] QR code was scanned with the phone before presentation day.

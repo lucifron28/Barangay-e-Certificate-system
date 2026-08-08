@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getCertificateFieldRequirements } from "@/lib/services/certificate-fields";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
 import { CERTIFICATE_TYPES } from "@/types/enums";
 
 export const certificateRequestSchema = z.object({
@@ -9,7 +10,14 @@ export const certificateRequestSchema = z.object({
   full_name: z.string().min(1, "Full name is required."),
   age: z.coerce.number().int().min(1, "Age is required."),
   sitio: z.string().optional(),
-  purpose: z.string().min(1, "Purpose is required."),
+  purpose: z
+    .string()
+    .trim()
+    .min(1, "Purpose is required.")
+    .max(
+      CERTIFICATE_PURPOSE_MAX_LENGTH,
+      `Purpose must be ${CERTIFICATE_PURPOSE_MAX_LENGTH} characters or fewer.`,
+    ),
   contact_number: z.string().min(1, "Contact number is required."),
   birthdate: z.string().optional(),
   place_of_birth: z.string().optional(),
