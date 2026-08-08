@@ -15,6 +15,10 @@ import {
 import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
 import { isSqliteProvider } from "@/lib/db/provider";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
+import {
+  CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
+  isCertificateIssuanceConfigured,
+} from "@/lib/services/certificate-lifecycle";
 import { toInputDate } from "@/lib/utils/format";
 
 type GenerateCertificatePageProps = {
@@ -50,7 +54,9 @@ export default async function GenerateCertificatePage({
   const hasActiveCertificate = certificateRecord?.status === "issued";
   const isReissue = certificateRecord?.status === "revoked";
   const eligibleForIssuance = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
-  const canPreview = hasActiveCertificate || eligibleForIssuance || isReissue;
+  const canPreview =
+    isCertificateIssuanceConfigured() &&
+    (hasActiveCertificate || eligibleForIssuance || isReissue);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -124,6 +130,12 @@ export default async function GenerateCertificatePage({
           <label className="form-control max-w-xl"><span className="label"><span className="label-text">Revocation reason</span></span><textarea className="textarea textarea-bordered" name="reason" minLength={3} required /></label>
           <SubmitButton className="btn btn-error" pendingText="Revoking...">Revoke certificate</SubmitButton>
         </form>
+      ) : !isCertificateIssuanceConfigured() ? (
+        <div className="no-print alert alert-warning">
+          {CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE} The SQLite thesis/demo
+          issuance pipeline must be replaced with a reviewed Supabase service
+          before this workflow is enabled there.
+        </div>
       ) : !canPreview ? (
         <div className="no-print alert alert-warning">
           Certificate issuance is unavailable until the request is accepted and

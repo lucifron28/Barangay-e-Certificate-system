@@ -8,11 +8,18 @@ import {
   CERTIFICATE_DISPLAY_STATUS_LABELS,
   getCertificateDisplayStatus,
 } from "@/lib/certificates/certificate-status";
+import {
+  CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
+  isCertificateIssuanceConfigured,
+} from "@/lib/services/certificate-lifecycle";
 
 export default async function ResidentCertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const context = await requireResident();
   const { id } = await params;
   if (context.setupMissing) return null;
+  if (!isCertificateIssuanceConfigured()) {
+    return <div className="alert alert-warning">{CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE}</div>;
+  }
   const record = getCertificateRecordById(id);
   if (!record || record.resident_id !== context.profile.id) redirect("/resident/certificates");
   const displayStatus = getCertificateDisplayStatus(record);
