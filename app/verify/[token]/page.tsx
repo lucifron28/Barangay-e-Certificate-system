@@ -119,6 +119,9 @@ export default async function VerifyCertificatePage({
         </dl>
       </section>
       <p className="text-sm text-base-content/70">
+        {verification.status === "replaced"
+          ? "This certificate has been replaced. Use the latest certificate issued by Barangay Bato. "
+          : null}
         QR verification confirms issuance and status only. It does not prevent
         photocopying or prove that a printed copy is the only original.
       </p>

@@ -9,6 +9,7 @@ import {
 import type {
   CertificateRecord,
   CertificateRequest,
+  CertificateSnapshot,
   Json,
   Payment,
   PickupSchedule,
@@ -154,7 +155,7 @@ function certificateRecordFromRow(row: Row | undefined): CertificateRecord | nul
 
   return {
     certificate_number: asText(row.certificate_number),
-    certificate_snapshot: parseJson(row.certificate_snapshot),
+    certificate_snapshot: parseJson(row.certificate_snapshot) as CertificateSnapshot,
     certificate_type: String(row.certificate_type) as CertificateType,
     control_number: asText(row.control_number),
     created_at: String(row.created_at),
@@ -532,6 +533,16 @@ export function listPaymentsForRequest(requestId: string) {
     .filter((payment): payment is Payment => Boolean(payment));
 }
 
+export function hasSuccessfulPayment(requestId: string, residentId: string) {
+  return Boolean(
+    getSqliteDb()
+      .prepare(
+        "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' LIMIT 1",
+      )
+      .get(requestId, residentId),
+  );
+}
+
 export function createMockPayment(input: {
   amount: number;
   request_id: string;
@@ -752,6 +763,7 @@ export function persistIssuedCertificate(input: {
   pdf_sha256: string;
   prepared_by: string;
   request: CertificateRequest;
+  certificate_snapshot: CertificateSnapshot;
   short_verification_code: string;
   template_data: Json;
   token_hash: string;
@@ -770,17 +782,40 @@ export function persistIssuedCertificate(input: {
     }
 
     const requestRow = db
-      .prepare("SELECT status, payment_status FROM certificate_requests WHERE id = ?")
+      .prepare(
+        "SELECT resident_id, status, payment_status FROM certificate_requests WHERE id = ?",
+      )
       .get(input.request.id) as
-      | { payment_status: string; status: string }
+      | { payment_status: string; resident_id: string; status: string }
       | undefined;
 
+    if (!requestRow) {
+      throw new Error("CERTIFICATE_REQUEST_MISSING");
+    }
+
     if (
-      !requestRow ||
       requestRow.status !== input.current_request_status ||
       !["paid", "free"].includes(requestRow.payment_status)
     ) {
       throw new Error("CERTIFICATE_REQUEST_NOT_ELIGIBLE");
+    }
+
+    const issuer = db
+      .prepare("SELECT role FROM profiles WHERE id = ?")
+      .get(input.prepared_by) as { role: string } | undefined;
+    if (!issuer || !["main_admin", "barangay_secretary"].includes(issuer.role)) {
+      throw new Error("CERTIFICATE_ISSUER_NOT_AUTHORIZED");
+    }
+
+    if (requestRow.payment_status === "paid") {
+      const successfulPayment = db
+        .prepare(
+          "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' LIMIT 1",
+        )
+        .get(input.request.id, input.request.resident_id);
+      if (!successfulPayment) {
+        throw new Error("CERTIFICATE_PAYMENT_NOT_SETTLED");
+      }
     }
 
     const timestamp = nowIso();
@@ -805,7 +840,7 @@ export function persistIssuedCertificate(input: {
       input.issuance_mode,
       input.issued_at,
       input.prepared_by,
-      stringifyJson(input.template_data),
+      stringifyJson(input.certificate_snapshot),
       input.pdf_sha256,
       input.verification_expires_at,
       timestamp,
@@ -893,30 +928,37 @@ export function revokeCertificateRecord(input: {
   reason: string;
   revokedBy: string;
 }) {
-  const timestamp = nowIso();
-  const result = getSqliteDb()
-    .prepare(
-      `UPDATE certificate_records
-       SET status = 'revoked', revoked_at = ?, revoked_by = ?, revocation_reason = ?
-       WHERE id = ? AND status = 'issued'`,
-    )
-    .run(timestamp, input.revokedBy, input.reason, input.id);
+  const db = getSqliteDb();
+  return db.transaction(() => {
+    const timestamp = nowIso();
+    const result = db
+      .prepare(
+        `UPDATE certificate_records
+         SET status = 'revoked', revoked_at = ?, revoked_by = ?, revocation_reason = ?
+         WHERE id = ? AND status = 'issued'`,
+      )
+      .run(timestamp, input.revokedBy, input.reason, input.id);
 
-  if (result.changes === 0) return false;
+    if (result.changes === 0) return false;
 
-  getSqliteDb()
-    .prepare(
-      `UPDATE certificate_verifications
-       SET status = 'revoked', revoked_at = ?
-       WHERE certificate_record_id = ?`,
-    )
-    .run(timestamp, input.id);
-  return true;
+    const verificationResult = db
+      .prepare(
+        `UPDATE certificate_verifications
+         SET status = 'revoked', revoked_at = ?, updated_at = ?
+         WHERE certificate_record_id = ?`,
+      )
+      .run(timestamp, timestamp, input.id);
+    if (verificationResult.changes !== 1) {
+      throw new Error("CERTIFICATE_VERIFICATION_STATE_FAILED");
+    }
+
+    return true;
+  })();
 }
 
 export function listResidentCertificateRecords(residentId: string) {
   return getSqliteDb().prepare(
-    "SELECT * FROM certificate_records WHERE resident_id = ? ORDER BY issued_at DESC",
+    "SELECT * FROM certificate_records WHERE resident_id = ? AND status <> 'draft' ORDER BY issued_at DESC",
   ).all(residentId).map((row) => certificateRecordFromRow(row as Row)).filter((row): row is CertificateRecord => Boolean(row));
 }
 
@@ -950,25 +992,41 @@ export function getCertificateVerificationByToken(token: string) {
   const tokenHash = createHash("sha256").update(token).digest("hex");
   const row = getSqliteDb().prepare(
     `SELECT v.*, c.certificate_number, c.certificate_type, c.date_issued, c.status AS certificate_status,
-            c.pdf_sha256, p.full_name
+            c.pdf_sha256, c.certificate_snapshot, c.replacement_record_id
      FROM certificate_verifications v
-     JOIN certificate_records c ON c.id = v.certificate_record_id
-     JOIN profiles p ON p.id = c.resident_id
-     WHERE v.token_hash = ?`,
+      JOIN certificate_records c ON c.id = v.certificate_record_id
+      WHERE v.token_hash = ?`,
   ).get(tokenHash) as Row | undefined;
   if (!row) return null;
+  const rawSnapshot = parseJson(row.certificate_snapshot);
+  const snapshot =
+    rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot)
+      ? (rawSnapshot as Record<string, unknown>)
+      : {};
+  const snapshotText = (key: string, fallback: string) =>
+    typeof snapshot[key] === "string" && snapshot[key]
+      ? String(snapshot[key])
+      : fallback;
   const expiresAt = String(row.expires_at);
   const revoked = row.revoked_at !== null || row.certificate_status === "revoked";
   const expired = new Date(expiresAt).getTime() < Date.now();
+  const replacementRecordId = asText(row.replacement_record_id);
   return {
-    certificateNumber: String(row.certificate_number),
-    certificateType: String(row.certificate_type) as CertificateType,
-    dateIssued: String(row.date_issued),
+    certificateNumber: snapshotText("certificate_number", String(row.certificate_number)),
+    certificateType: snapshotText("certificate_type", String(row.certificate_type)) as CertificateType,
+    dateIssued: snapshotText("date_issued", String(row.date_issued)),
     expiresAt,
-    fullName: String(row.full_name),
+    fullName: snapshotText("holder_full_name", "Unavailable"),
     pdfSha256: asText(row.pdf_sha256),
+    replacementRecordId,
     shortCode: String(row.short_verification_code),
-    status: revoked ? "revoked" : expired ? "expired" : "valid",
+    status: replacementRecordId
+      ? "replaced"
+      : revoked
+        ? "revoked"
+        : expired
+          ? "expired"
+          : "valid",
   } as const;
 }
 

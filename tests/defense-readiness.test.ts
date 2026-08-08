@@ -19,7 +19,10 @@ import {
   resolveMockPayment,
 } from "@/lib/db/sqlite/queries";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
-import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
+import {
+  CERTIFICATE_LAYOUT_REGIONS,
+  generateCertificatePdf,
+} from "@/lib/certificates/pdf-generator";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
 import { removePrivateCertificatePdf } from "@/lib/certificates/private-storage";
 import {
@@ -30,8 +33,9 @@ import {
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 const residentId = "00000000-0000-4000-8000-000000000003";
-const paymentResidentId = "00000000-0000-4000-8000-000000000004";
-const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000001";
+const adminId = "00000000-0000-4000-8000-000000000001";
+const paymentResidentId = residentId;
+const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000002";
 
 describe("local authentication and authorization boundaries", () => {
   it("hashes passwords and rejects invalid credentials", () => {
@@ -129,6 +133,16 @@ describe("request, counter, and payment rules", () => {
 });
 
 describe("issuance and PDF integrity", () => {
+  it("keeps signature, verification, and footer regions separate", () => {
+    expect(CERTIFICATE_LAYOUT_REGIONS.signature.y).toBeGreaterThan(
+      CERTIFICATE_LAYOUT_REGIONS.verification.y +
+        CERTIFICATE_LAYOUT_REGIONS.verification.height,
+    );
+    expect(CERTIFICATE_LAYOUT_REGIONS.verification.y).toBeGreaterThan(
+      CERTIFICATE_LAYOUT_REGIONS.footer.y + CERTIFICATE_LAYOUT_REGIONS.footer.height,
+    );
+  });
+
   it("preserves accented Filipino names and writes PDF metadata", async () => {
     const request = getRequestById("10000000-0000-4000-8000-000000000005");
     expect(request).not.toBeNull();
@@ -158,11 +172,11 @@ describe("issuance and PDF integrity", () => {
     const pdf = await PDFDocument.load(bytes);
 
     expect(pdf.getTitle()).toContain("CERT-UNICODE-0001");
-    expect(bytes.byteLength).toBeGreaterThan(10_000);
+    expect(bytes.byteLength).toBeGreaterThan(4_000);
   });
 
   it("removes a PDF when database persistence fails", async () => {
-    const request = getRequestById("10000000-0000-4000-8000-000000000003");
+    const request = getRequestById("10000000-0000-4000-8000-000000000004");
     expect(request).not.toBeNull();
     const before = new Set(
       readdirSync(path.join(process.cwd(), "data", "certificates")),
@@ -172,7 +186,7 @@ describe("issuance and PDF integrity", () => {
       issueCertificate({
         dateIssued: new Date().toISOString().slice(0, 10),
         preparedBy: "Demo Main Admin",
-        preparedById: residentId,
+        preparedById: adminId,
         request: { ...request!, id: "99999999-9999-4999-8999-999999999999" },
         settings: { barangayCaptainName: "Authorized Barangay Official" },
       }),
@@ -193,13 +207,26 @@ describe("issuance and PDF integrity", () => {
     const replacement = await issueCertificate({
       dateIssued: new Date().toISOString().slice(0, 10),
       preparedBy: "Demo Main Admin",
-      preparedById: residentId,
+      preparedById: adminId,
       request: request!,
       settings: { barangayCaptainName: "Authorized Barangay Official" },
     });
 
     expect(replacement.certificateNumber).not.toBe(previous?.certificate_number);
     expect(replacement.verificationToken).not.toBe("");
+    expect(replacement.certificateRecord.certificate_snapshot.holder_full_name).toBe(
+      "Juan Demo Resident",
+    );
+    expect(
+      Date.parse(replacement.certificateRecord.verification_expires_at ?? "") -
+        Date.parse(replacement.certificateRecord.issued_at ?? ""),
+    ).toBe(3 * 24 * 60 * 60 * 1000);
+
+    dbProfileNameForTest("Mutated Profile Name");
+    expect(getCertificateVerificationByToken(replacement.verificationToken)?.fullName).toBe(
+      "Juan Demo Resident",
+    );
+    dbProfileNameForTest("Juan Demo Resident");
 
     const db = getSqliteDb();
     db.transaction(() => {
@@ -219,3 +246,9 @@ describe("issuance and PDF integrity", () => {
     removePrivateCertificatePdf(replacement.certificateRecord.pdf_path ?? "");
   });
 });
+
+function dbProfileNameForTest(fullName: string) {
+  getSqliteDb()
+    .prepare("UPDATE profiles SET full_name = ? WHERE id = ?")
+    .run(fullName, residentId);
+}

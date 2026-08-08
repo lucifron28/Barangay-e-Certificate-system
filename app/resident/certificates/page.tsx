@@ -1,6 +1,11 @@
 import Link from "next/link";
 import { requireResident } from "@/lib/auth/guards";
 import { listResidentCertificateRecords } from "@/lib/db/sqlite/queries";
+import {
+  certificateStatusBadgeClass,
+  CERTIFICATE_DISPLAY_STATUS_LABELS,
+  getCertificateDisplayStatus,
+} from "@/lib/certificates/certificate-status";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
 
 export default async function ResidentCertificatesPage() {
@@ -26,6 +31,9 @@ export default async function ResidentCertificatesPage() {
                     {record.certificate_number} - issued {formatDate(record.date_issued)}
                   </p>
                 </div>
+                <span className={`badge ${certificateStatusBadgeClass(getCertificateDisplayStatus(record))}`}>
+                  {CERTIFICATE_DISPLAY_STATUS_LABELS[getCertificateDisplayStatus(record)]}
+                </span>
                 <Link className="btn btn-primary btn-sm" href={`/resident/certificates/${record.id}`}>
                   View certificate
                 </Link>

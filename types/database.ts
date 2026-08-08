@@ -53,6 +53,28 @@ export type CertificateRequest = {
   updated_at: string;
 };
 
+export type CertificateSnapshot = {
+  certificate_number: string;
+  request_number: string;
+  control_number: string | null;
+  certificate_type: CertificateType;
+  purpose: string;
+  date_issued: string;
+  issued_at: string;
+  verification_expires_at: string;
+  issuance_mode: "fully_online_demo" | "hybrid_physical_original";
+  holder_full_name: string;
+  holder_age: number | null;
+  holder_address_sitio: string | null;
+  holder_contact_number: string | null;
+  holder_birthdate: string | null;
+  holder_place_of_birth: string | null;
+  holder_years_of_residency: number | null;
+  prepared_by_display_name: string;
+  authorized_official_display_name: string;
+  signature_representation_type: "visual_name_placeholder";
+};
+
 export type PickupSchedule = {
   id: string;
   request_id: string;
@@ -79,7 +101,7 @@ export type CertificateRecord = {
   issuance_mode: "fully_online_demo" | "hybrid_physical_original";
   issued_at: string | null;
   issued_by: string | null;
-  certificate_snapshot: Json;
+  certificate_snapshot: CertificateSnapshot;
   pdf_sha256: string | null;
   verification_expires_at: string | null;
   revoked_at: string | null;

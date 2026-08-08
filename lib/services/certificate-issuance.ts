@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
+import { createCertificateSnapshot } from "@/lib/certificates/snapshot";
 import {
   removePrivateCertificatePdf,
   savePrivateCertificatePdf,
@@ -10,6 +11,8 @@ import {
   allocateCertificateNumber,
   getCertificateRecordByRequestId,
   getIssuedCertificateRecordByRequestId,
+  getProfileById,
+  hasSuccessfulPayment,
   generateVerificationToken,
   persistIssuedCertificate,
 } from "@/lib/db/sqlite/queries";
@@ -35,7 +38,9 @@ export class CertificateIssuanceError extends Error {
   constructor(
     public readonly code:
       | "ALREADY_ISSUED"
+      | "INVALID_ISSUER"
       | "NOT_ELIGIBLE"
+      | "PAYMENT_NOT_SETTLED"
       | "PERSISTENCE_FAILED",
     message: string,
     options?: ErrorOptions,
@@ -49,16 +54,61 @@ export function isCertificateIssuanceEligible(request: Pick<RequestWithResident,
   return request.status === "accepted" && ["paid", "free"].includes(request.payment_status);
 }
 
-function getIssuedAt(dateIssued: string) {
-  const issuedAt = new Date(`${dateIssued}T00:00:00.000Z`);
-  if (Number.isNaN(issuedAt.getTime())) {
+function getOfficialIssueDate(dateIssued: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dateIssued)) {
     throw new CertificateIssuanceError("NOT_ELIGIBLE", "The issue date is invalid.");
   }
-  return issuedAt.toISOString();
+  const parsed = new Date(`${dateIssued}T00:00:00.000Z`);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.toISOString().slice(0, 10) !== dateIssued
+  ) {
+    throw new CertificateIssuanceError("NOT_ELIGIBLE", "The issue date is invalid.");
+  }
+  return dateIssued;
 }
 
 function getShortVerificationCode() {
   return `BB-${randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+function mapPersistenceError(error: unknown) {
+  if (!(error instanceof Error)) return null;
+  switch (error.message) {
+    case "CERTIFICATE_ALREADY_ISSUED":
+      return new CertificateIssuanceError(
+        "ALREADY_ISSUED",
+        "A certificate is already issued for this request.",
+        { cause: error },
+      );
+    case "CERTIFICATE_ISSUER_NOT_AUTHORIZED":
+      return new CertificateIssuanceError(
+        "INVALID_ISSUER",
+        "Only Main Admin or Barangay Secretary accounts can issue certificates.",
+        { cause: error },
+      );
+    case "CERTIFICATE_PAYMENT_NOT_SETTLED":
+      return new CertificateIssuanceError(
+        "PAYMENT_NOT_SETTLED",
+        "A successful payment record is required before issuing this certificate.",
+        { cause: error },
+      );
+    case "CERTIFICATE_REQUEST_NOT_ELIGIBLE":
+    case "CERTIFICATE_REQUEST_STATE_CHANGED":
+      return new CertificateIssuanceError(
+        "NOT_ELIGIBLE",
+        "The request is no longer eligible for certificate issuance.",
+        { cause: error },
+      );
+    case "CERTIFICATE_REQUEST_MISSING":
+      return new CertificateIssuanceError(
+        "PERSISTENCE_FAILED",
+        "The certificate request could not be found while saving the certificate.",
+        { cause: error },
+      );
+    default:
+      return null;
+  }
 }
 
 export async function issueCertificate(input: {
@@ -69,6 +119,21 @@ export async function issueCertificate(input: {
   settings: { barangayCaptainName: string };
 }) {
   const { request } = input;
+
+  const issuer = getProfileById(input.preparedById);
+  if (!issuer || !["main_admin", "barangay_secretary"].includes(issuer.role)) {
+    throw new CertificateIssuanceError(
+      "INVALID_ISSUER",
+      "Only Main Admin or Barangay Secretary accounts can issue certificates.",
+    );
+  }
+
+  if (request.payment_status === "paid" && !hasSuccessfulPayment(request.id, request.resident_id)) {
+    throw new CertificateIssuanceError(
+      "PAYMENT_NOT_SETTLED",
+      "A successful payment record is required before issuing this certificate.",
+    );
+  }
 
   const previousRecord = getCertificateRecordByRequestId(request.id);
   const isReissue = previousRecord?.status === "revoked";
@@ -91,7 +156,8 @@ export async function issueCertificate(input: {
     );
   }
 
-  const issuedAt = getIssuedAt(input.dateIssued);
+  const dateIssued = getOfficialIssueDate(input.dateIssued);
+  const issuedAt = new Date().toISOString();
   const expiresAt = new Date(
     new Date(issuedAt).getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
@@ -101,7 +167,18 @@ export async function issueCertificate(input: {
   const shortVerificationCode = getShortVerificationCode();
   const tokenHash = createHash("sha256").update(verificationToken).digest("hex");
   const verificationUrl = `${env.appUrl.replace(/\/$/, "")}/verify/${verificationToken}`;
+  const snapshot = createCertificateSnapshot({
+    authorizedOfficialName: input.settings.barangayCaptainName,
+    certificateNumber,
+    dateIssued,
+    issuedAt,
+    issuanceMode: issuanceMode,
+    preparedBy: input.preparedBy,
+    request,
+    verificationExpiresAt: expiresAt,
+  });
   const templateData: Json = {
+    certificate_snapshot_version: 1,
     certificate_number: certificateNumber,
     generated_at: new Date().toISOString(),
     request_number: request.request_number,
@@ -114,9 +191,10 @@ export async function issueCertificate(input: {
     const pdfBytes = await generateCertificatePdf({
       barangayCaptainName: input.settings.barangayCaptainName,
       certificateNumber,
-      dateIssued: issuedAt,
+      dateIssued,
       preparedBy: input.preparedBy,
       request,
+      snapshot,
       verificationCode: shortVerificationCode,
       verificationExpiresAt: expiresAt,
       verificationUrl,
@@ -127,7 +205,7 @@ export async function issueCertificate(input: {
       certificate_number: certificateNumber,
       certificate_record_id: certificateRecordId,
       current_request_status: request.status,
-      date_issued: input.dateIssued,
+      date_issued: dateIssued,
       issued_at: issuedAt,
       issuance_mode: issuanceMode,
       next_request_status:
@@ -142,6 +220,7 @@ export async function issueCertificate(input: {
       request,
       short_verification_code: shortVerificationCode,
       template_data: templateData,
+      certificate_snapshot: snapshot,
       token_hash: tokenHash,
       verification_expires_at: expiresAt,
     });
@@ -169,6 +248,11 @@ export async function issueCertificate(input: {
 
     if (error instanceof CertificateIssuanceError) {
       throw error;
+    }
+
+    const mappedError = mapPersistenceError(error);
+    if (mappedError) {
+      throw mappedError;
     }
 
     throw new CertificateIssuanceError(
