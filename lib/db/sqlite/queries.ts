@@ -8,6 +8,7 @@ import {
 } from "@/lib/services/business-rules";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
+import type { CertificateDownloadResult } from "@/lib/certificates/certificate-download";
 import type {
   CertificateRecord,
   CertificateRequest,
@@ -996,7 +997,11 @@ export function listResidentCertificateRecords(residentId: string) {
   ).all(residentId).map((row) => certificateRecordFromRow(row as Row)).filter((row): row is CertificateRecord => Boolean(row));
 }
 
-export function createCertificateDownloadLog(certificateRecordId: string, userId: string, result: string) {
+export function createCertificateDownloadLog(
+  certificateRecordId: string,
+  userId: string,
+  result: CertificateDownloadResult,
+) {
   getSqliteDb().prepare(
     "INSERT INTO certificate_download_logs (id, certificate_record_id, user_id, result, downloaded_at) VALUES (?, ?, ?, ?, ?)",
   ).run(randomUUID(), certificateRecordId, userId, result, nowIso());

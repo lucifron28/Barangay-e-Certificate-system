@@ -9,7 +9,7 @@ import { requireResident } from "@/lib/auth/guards";
 import { logActivity } from "@/lib/actions/helpers";
 import { isSqliteProvider } from "@/lib/db/provider";
 import { sha256Hex } from "@/lib/security/document-hash";
-import { isVerificationExpired } from "@/lib/certificates/certificate-status";
+import { getCertificateDownloadDenial } from "@/lib/certificates/certificate-download";
 
 export const runtime = "nodejs";
 
@@ -20,14 +20,33 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!isSqliteProvider()) return new Response("Certificate delivery is not configured.", { status: 503 });
 
   const record = getCertificateRecordById(id);
-  const expired = !record?.verification_expires_at || isVerificationExpired(record.verification_expires_at);
-  if (!record || record.resident_id !== context.profile.id || record.status !== "issued" || expired || !record.pdf_path || !record.pdf_sha256 || !existsSync(record.pdf_path)) {
+  const artifactExists = Boolean(record?.pdf_path && existsSync(record.pdf_path));
+  const denial = getCertificateDownloadDenial({
+    artifactExists,
+    record,
+    residentId: context.profile.id,
+  });
+  if (denial) {
+    if (record) createCertificateDownloadLog(record.id, context.profile.id, denial);
+    return new Response("Certificate unavailable", { status: 404, headers: { "Cache-Control": "no-store" } });
+  }
+
+  if (!record || !record.pdf_path || !record.pdf_sha256) {
+    if (record) createCertificateDownloadLog(record.id, context.profile.id, "denied_missing_artifact");
     return new Response("Certificate unavailable", { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
   const bytes = readFileSync(record.pdf_path);
-  if (sha256Hex(bytes) !== record.pdf_sha256) {
-    return new Response("Certificate integrity check failed", { status: 409, headers: { "Cache-Control": "no-store" } });
+  const integrityDenial = getCertificateDownloadDenial({
+    artifactExists,
+    integrityChecked: true,
+    integrityValid: sha256Hex(bytes) === record.pdf_sha256,
+    record,
+    residentId: context.profile.id,
+  });
+  if (integrityDenial) {
+    createCertificateDownloadLog(record.id, context.profile.id, integrityDenial);
+    return new Response("Certificate unavailable", { status: 404, headers: { "Cache-Control": "no-store" } });
   }
 
   createCertificateDownloadLog(record.id, context.profile.id, "downloaded");
