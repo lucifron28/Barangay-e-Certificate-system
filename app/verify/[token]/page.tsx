@@ -5,6 +5,7 @@ import {
   CERTIFICATE_DISPLAY_STATUS_LABELS,
   certificateStatusMessage,
 } from "@/lib/certificates/certificate-status";
+import { isSqliteProvider } from "@/lib/db/provider";
 import { getCertificateVerificationByToken } from "@/lib/db/sqlite/queries";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { certificateLabel, formatDate, formatDateTime } from "@/lib/utils/format";
@@ -27,7 +28,7 @@ function VerificationState({
   status,
 }: {
   message?: string;
-  status?: "NOT FOUND" | "TOO MANY REQUESTS";
+  status?: "NOT FOUND" | "NOT AVAILABLE" | "TOO MANY REQUESTS";
   tone?: "error" | "warning";
 }) {
   return (
@@ -57,6 +58,16 @@ export default async function VerifyCertificatePage({
       <VerificationState
         message="Too many verification attempts. Please try again shortly."
         status="TOO MANY REQUESTS"
+        tone="warning"
+      />
+    );
+  }
+
+  if (!isSqliteProvider()) {
+    return (
+      <VerificationState
+        message="Public certificate verification is not connected to the Supabase deployment boundary yet. Use the SQLite thesis demo or connect the approved verification service before enabling this route."
+        status="NOT AVAILABLE"
         tone="warning"
       />
     );
