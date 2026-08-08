@@ -11,6 +11,10 @@ import {
 import QRCode from "qrcode";
 import { certificateLabel } from "@/lib/utils/format";
 import {
+  certificateTemplateSalutation,
+  certificateTemplateTitle,
+} from "@/lib/certificates/template-copy";
+import {
   getCertificateTemplateData,
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
@@ -231,8 +235,8 @@ function bodyParagraphs(
   switch (request.certificate_type) {
     case "barangay_clearance":
       return {
-        salutation: "To whom it may concern:",
-        title: "CERTIFICATION OF BARANGAY CLEARANCE",
+        salutation: certificateTemplateSalutation(request.certificate_type),
+        title: certificateTemplateTitle(request.certificate_type),
         paragraphs: [
           `This is to certify that ${data.name}, ${data.age} years old, resident of ${data.address}, Barangay Bato, Mauban, Quezon, is personally known to be a person with good moral character and has no derogatory record in this office.`,
           `This certification is issued upon request of the interested party in connection with ${data.purpose}.`,
@@ -245,8 +249,8 @@ function bodyParagraphs(
       };
     case "barangay_certificate":
       return {
-        salutation: "Sa kinauukulan:",
-        title: "PAGPAPATUNAY",
+        salutation: certificateTemplateSalutation(request.certificate_type),
+        title: certificateTemplateTitle(request.certificate_type),
         paragraphs: [
           `Pinatutunayan ng tanggapang ito na si ${data.name}, ${data.age} taong gulang, ay lehitimong naninirahan sa ${data.locality}.`,
           `Ang talaang ito ay inihanda batay sa kahilingang isinumite sa sistema. Detalye ng kapanganakan: ${data.birthDetails}.`,
@@ -256,8 +260,8 @@ function bodyParagraphs(
       };
     case "barangay_indigency":
       return {
-        salutation: "To whom it may concern:",
-        title: "CERTIFICATION OF THE BARANGAY OF INDIGENCY",
+        salutation: certificateTemplateSalutation(request.certificate_type),
+        title: certificateTemplateTitle(request.certificate_type),
         paragraphs: [
           `This certifies that ${data.name}, ${data.age} years old, is a bona fide resident of ${data.address}, Barangay Bato, Mauban, Quezon.`,
           `The above-named person belongs to an indigent family of the barangay and needs this certification for ${data.purpose}.`,
@@ -267,8 +271,8 @@ function bodyParagraphs(
       };
     case "barangay_residency":
       return {
-        salutation: "To whom it may concern:",
-        title: "CERTIFICATION OF THE BARANGAY OF RESIDENCY",
+        salutation: certificateTemplateSalutation(request.certificate_type),
+        title: certificateTemplateTitle(request.certificate_type),
         paragraphs: [
           `This certifies that ${data.name}, ${data.age} years old, born on ${data.birthday}, is a bona fide resident of ${data.address}, Barangay Bato, Mauban, Quezon.`,
           `This document is issued as supporting proof of residency and authenticity showing that the applicant has been residing in the barangay for ${data.yearsOfResidency} year(s) prior to the application.`,

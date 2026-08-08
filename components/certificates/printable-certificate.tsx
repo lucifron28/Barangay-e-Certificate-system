@@ -1,5 +1,9 @@
 import { certificateLabel } from "@/lib/utils/format";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
+import {
+  certificateTemplateSalutation,
+  certificateTemplateTitle,
+} from "@/lib/certificates/template-copy";
 import type { CertificateRequestWithResident } from "@/lib/certificates/template-data";
 import type { CertificateRequest, CertificateSnapshot } from "@/types/database";
 
@@ -89,9 +93,11 @@ function ClearanceBody({
   return (
     <>
       <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        Certification of Barangay Clearance
+        {certificateTemplateTitle(request.certificate_type)}
       </h2>
-      <p className="mt-10 text-lg font-semibold">To whom it may concern:</p>
+      <p className="mt-10 text-lg font-semibold">
+        {certificateTemplateSalutation(request.certificate_type)}
+      </p>
       <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
         <p>
           This is to certify that <strong>{name}</strong>, <strong>{age}</strong>{" "}
@@ -139,9 +145,11 @@ function BarangayCertificateBody({
   return (
     <>
       <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        Pagpapatunay
+        {certificateTemplateTitle(request.certificate_type)}
       </h2>
-      <p className="mt-10 text-lg font-semibold">Sa kinauukulan:</p>
+      <p className="mt-10 text-lg font-semibold">
+        {certificateTemplateSalutation(request.certificate_type)}
+      </p>
       <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
         <p>
           Pinatutunayan ng tanggapang ito na si <strong>{name}</strong>,{" "}
@@ -181,9 +189,11 @@ function IndigencyBody({
   return (
     <>
       <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        Certification of the Barangay of Indigency
+        {certificateTemplateTitle(request.certificate_type)}
       </h2>
-      <p className="mt-10 text-lg font-semibold">To whom it may concern:</p>
+      <p className="mt-10 text-lg font-semibold">
+        {certificateTemplateSalutation(request.certificate_type)}
+      </p>
       <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
         <p>
           This certifies that <strong>{name}</strong>, <strong>{age}</strong>{" "}
@@ -227,9 +237,11 @@ function ResidencyBody({
   return (
     <>
       <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        Certification of the Barangay of Residency
+        {certificateTemplateTitle(request.certificate_type)}
       </h2>
-      <p className="mt-10 text-lg font-semibold">To whom it may concern:</p>
+      <p className="mt-10 text-lg font-semibold">
+        {certificateTemplateSalutation(request.certificate_type)}
+      </p>
       <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
         <p>
           This certifies that <strong>{name}</strong>, <strong>{age}</strong>{" "}
