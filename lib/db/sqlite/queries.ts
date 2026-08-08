@@ -11,6 +11,7 @@ import type {
   CertificateRequest,
   CertificateSnapshot,
   Json,
+  NotificationLog,
   Payment,
   PickupSchedule,
   Profile,
@@ -194,6 +195,20 @@ function paymentFromRow(row: Row | undefined): Payment | null {
     resident_id: String(row.resident_id),
     status: String(row.status) as MockPaymentStatus,
     updated_at: String(row.updated_at),
+  };
+}
+
+function notificationLogFromRow(row: Row | undefined): NotificationLog | null {
+  if (!row) return null;
+  return {
+    created_at: String(row.created_at),
+    id: String(row.id),
+    message: String(row.message),
+    provider_response: parseJson(row.provider_response),
+    recipient_email: String(row.recipient_email),
+    request_id: asText(row.request_id),
+    status: String(row.status),
+    subject: String(row.subject),
   };
 }
 
@@ -531,6 +546,14 @@ export function listPaymentsForRequest(requestId: string) {
     .all(requestId)
     .map((row) => paymentFromRow(row as Row))
     .filter((payment): payment is Payment => Boolean(payment));
+}
+
+export function listNotificationLogsForRequest(requestId: string) {
+  return getSqliteDb()
+    .prepare("SELECT * FROM notification_logs WHERE request_id = ? ORDER BY created_at DESC")
+    .all(requestId)
+    .map((row) => notificationLogFromRow(row as Row))
+    .filter((log): log is NotificationLog => Boolean(log));
 }
 
 export function hasSuccessfulPayment(requestId: string, residentId: string) {
