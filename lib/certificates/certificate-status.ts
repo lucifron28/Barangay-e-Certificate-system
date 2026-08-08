@@ -40,3 +40,29 @@ export function certificateStatusBadgeClass(status: CertificateDisplayStatus) {
       return "badge-error";
   }
 }
+
+export function certificateStatusAlertClass(status: CertificateDisplayStatus) {
+  switch (status) {
+    case "valid":
+      return "alert-success";
+    case "expired":
+      return "alert-warning";
+    case "replaced":
+      return "alert-info";
+    case "revoked":
+      return "alert-error";
+  }
+}
+
+export function certificateStatusMessage(status: CertificateDisplayStatus) {
+  switch (status) {
+    case "valid":
+      return "This certificate is currently within its verification window.";
+    case "expired":
+      return "This certificate was issued, but its three-day verification window has ended.";
+    case "replaced":
+      return "This certificate has been replaced. Use the latest certificate issued by Barangay Bato.";
+    case "revoked":
+      return "This certificate was revoked by an authorized admin-side user.";
+  }
+}

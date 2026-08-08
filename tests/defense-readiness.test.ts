@@ -33,10 +33,9 @@ import {
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 const residentId = "00000000-0000-4000-8000-000000000003";
-const residentTwoId = "00000000-0000-4000-8000-000000000004";
 const adminId = "00000000-0000-4000-8000-000000000001";
-const paymentResidentId = residentTwoId;
-const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000001";
+const paymentResidentId = residentId;
+const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000002";
 
 describe("local authentication and authorization boundaries", () => {
   it("hashes passwords and rejects invalid credentials", () => {
