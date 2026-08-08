@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarPlus, Printer } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Mail, Printer, WalletCards } from "lucide-react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PaymentBadge } from "@/components/ui/payment-badge";
@@ -16,7 +16,11 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { getSubmittedInformation, usesSitio } from "@/lib/services/submitted-data";
 import { getAdminRequest } from "@/lib/services/certificate-data";
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
-import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
+import {
+  getCertificateRecordByRequestId,
+  listNotificationLogsForRequest,
+  listPaymentsForRequest,
+} from "@/lib/db/sqlite/queries";
 import { isSqliteProvider } from "@/lib/db/provider";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import {
@@ -65,6 +69,10 @@ export default async function AdminRequestDetailsPage({
   const certificateRecord = isSqliteProvider()
     ? getCertificateRecordByRequestId(request.id)
     : null;
+  const paymentAttempts = isSqliteProvider() ? listPaymentsForRequest(request.id) : [];
+  const notificationLogs = isSqliteProvider()
+    ? listNotificationLogsForRequest(request.id)
+    : [];
   const hasActiveCertificate = certificateRecord?.status === "issued";
   const issuanceEligible = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
   const reissueEligible = certificateRecord?.status === "revoked";
@@ -140,6 +148,75 @@ export default async function AdminRequestDetailsPage({
           <dl className="mt-3 grid gap-3 sm:grid-cols-2">
             {submittedInformation.map((field) => <div key={field.label}><dt className="text-sm text-base-content/60">{field.label}</dt><dd className="font-medium">{field.value}</dd></div>)}
           </dl>
+        </div>
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <div className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h2 className="flex items-center gap-2 font-bold">
+                <WalletCards className="size-4" aria-hidden />
+                Payment attempts
+              </h2>
+              <p className="mt-1 text-sm text-base-content/70">
+                {isFullyOnlineDemo
+                  ? "Demo payment history for this request. No actual funds are transferred."
+                  : "Recorded office payment history for this request."}
+              </p>
+            </div>
+            <PaymentBadge status={request.payment_status} />
+          </div>
+          {paymentAttempts.length ? (
+            <div className="mt-4 divide-y divide-base-300">
+              {paymentAttempts.map((payment) => (
+                <div key={payment.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{payment.provider_transaction_id}</p>
+                    <p className="text-xs text-base-content/60">
+                      {formatCurrency(payment.amount)} · {formatDate(payment.created_at)}
+                    </p>
+                  </div>
+                  <span className={`badge badge-sm ${paymentAttemptBadgeClass[payment.status] ?? "badge-ghost"}`}>
+                    {payment.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-base-content/60">No payment attempts recorded.</p>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
+          <div>
+            <h2 className="flex items-center gap-2 font-bold">
+              <Mail className="size-4" aria-hidden />
+              Notification history
+            </h2>
+            <p className="mt-1 text-sm text-base-content/70">
+              Email attempts are recorded even when the optional provider is not configured.
+            </p>
+          </div>
+          {notificationLogs.length ? (
+            <div className="mt-4 divide-y divide-base-300">
+              {notificationLogs.map((notification) => (
+                <div key={notification.id} className="grid gap-2 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-start">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{notification.subject}</p>
+                    <p className="truncate text-xs text-base-content/60">
+                      {notification.recipient_email} · {formatDate(notification.created_at)}
+                    </p>
+                  </div>
+                  <span className={`badge badge-sm ${notificationBadgeClass[notification.status] ?? "badge-ghost"}`}>
+                    {notification.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-base-content/60">No notification attempts recorded.</p>
+          )}
         </div>
       </section>
 
@@ -225,3 +302,20 @@ export default async function AdminRequestDetailsPage({
     </div>
   );
 }
+
+const paymentAttemptBadgeClass: Record<string, string> = {
+  cancelled: "badge-ghost",
+  expired: "badge-warning",
+  failed: "badge-error",
+  free: "badge-info",
+  paid: "badge-success",
+  pending: "badge-warning",
+  processing: "badge-info",
+  refunded: "badge-error",
+};
+
+const notificationBadgeClass: Record<string, string> = {
+  failed: "badge-error",
+  sent: "badge-success",
+  skipped: "badge-warning",
+};
