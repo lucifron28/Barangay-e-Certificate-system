@@ -24,7 +24,7 @@ mode preserves the original pickup workflow.
 
 ## Version Notes
 
-Official documentation and npm registry versions were checked on August 5, 2026
+Official documentation and npm registry versions were checked on August 8, 2026
 before this update. Sources used include the official Next.js installation docs,
 Tailwind CSS PostCSS install docs, daisyUI install/theme docs, Supabase SSR/RLS
 docs, SQLite docs, better-sqlite3, pdf-lib, and ExcelJS docs.
@@ -38,10 +38,9 @@ docs, SQLite docs, better-sqlite3, pdf-lib, and ExcelJS docs.
 | Tailwind CSS | `4.3.0` |
 | `@tailwindcss/postcss` | `4.3.0` |
 | daisyUI | `5.5.19` |
+| PostCSS | `8.5.25` |
 | `@supabase/supabase-js` | `2.105.4` |
 | `@supabase/ssr` | `0.10.3` |
-| `@pdf-lib/fontkit` | `1.1.1` |
-| `@fontsource/noto-sans` | `5.3.0` |
 | `better-sqlite3` | `12.9.0` |
 | `exceljs` | `4.4.0` |
 | `pdf-lib` | `1.17.1` |
@@ -144,6 +143,7 @@ admin-side permissions, but both role values are stored separately.
   three-day verification expiry, revocation, linked reissue, and resident-only
   PDF downloads.
 - Printable reports, report PDF download, and Excel export.
+- Admin request details show payment attempts and notification delivery attempts.
 - Supabase migration/RLS updates prepared, including payment, counter, and
   certificate verification parity tables.
 - Main Admin-only signer display settings, audited by admin activity logs, with
@@ -161,14 +161,15 @@ admin-side permissions, but both role values are stored separately.
   placeholders; exact production positioning still needs final print approval.
 - Email sending is wired for Resend-style API use but safely skips when keys are
   missing.
-- Supabase production certificate issue, verification, private delivery, and
-  revocation routes remain prepared but are not connected to a live project.
+- Supabase production certificate issue, private delivery, and public
+  verification remain a documented boundary and are not live-validated. The
+  public verification route refuses to read SQLite when Supabase mode is set.
 - Browser-level and physical-phone QR rehearsal still require manual defense
   testing.
 
 ## Placeholders / Pending Client Confirmation
 
-- Exact final certificate template positioning.
+- Exact final certificate template positioning and print approval.
 - Final authorized-official display name and any approved signature asset. The
   current demo intentionally uses the same visual signature line in HTML/PDF.
 - Whether payment recording should remain part of final production scope.
@@ -211,7 +212,9 @@ and skipped notification examples.
 The defense sequence is documented in
 [`docs/thesis-defense-runbook.md`](docs/thesis-defense-runbook.md), with the
 equipment checklist in
-[`docs/thesis-defense-checklist.md`](docs/thesis-defense-checklist.md).
+[`docs/thesis-defense-checklist.md`](docs/thesis-defense-checklist.md). The
+automated final gate is documented in
+[`docs/final-defense-readiness.md`](docs/final-defense-readiness.md).
 
 ## Environment Variables
 
@@ -324,6 +327,10 @@ SQLite and Supabase migrations model the same application concepts:
 - `system_settings`: Barangay Captain display name, office hours, and future
   fee/theme settings.
 
+The `payments`, `payment_events`, and `document_counters` tables are included
+in the local schema and prepared Supabase migrations. Local SQLite is the only
+mode with the complete issuance/payment/verification workflow validated.
+
 Helper logic exists for request number generation, BCL control number generation,
 fees, payment defaults, cancellation, scheduling, done rules, activity logging,
 and role checks.
@@ -413,10 +420,11 @@ Implemented email event templates:
 
 - Certificate previews are print-friendly HTML based on the provided PDF
   references.
-- Final certificate PDFs are generated server-side with `pdf-lib`, saved outside
-  public assets, use embedded Noto Sans Latin-ext fonts for common Filipino
-  names, SHA-256 checked before release, and protected by resident ownership
-  checks.
+- Final certificate PDFs are generated server-side with `pdf-lib` standard
+  fonts, saved outside public assets, SHA-256 checked before release, and
+  protected by resident ownership checks. The current PDF output is suitable
+  for thesis/demo use; final production typography and print approval remain
+  pending.
 - QR tokens are random, stored only as hashes, and expire after three days.
 - Reports can be printed, downloaded as PDF, and exported as Excel using
   `exceljs`.
@@ -464,18 +472,19 @@ npm run build
 | Certificate Requests | Implemented | Uses confirmed client fields, fees, and payment status |
 | Request Cancellation | Implemented | Pending requests only |
 | Rejected Resubmission | Implemented | Same request record moves back to pending |
-| Certificate Generation | Implemented / Print QA Pending | Immutable HTML/PDF issue, embedded Unicode font, QR verification, revocation and reissue |
+| Certificate Generation | Implemented / Print QA Pending | Immutable HTML/PDF issue, official-layout references, QR verification, revocation and reissue |
 | PDF Download | Implemented | Resident-owned certificate and report PDF routes |
 | Pickup Scheduling | Implemented | Admin-assigned; office hours enforced |
 | Fees | Implemented | PHP 50 or Free; online payment excluded |
 | Payment Status | Implemented for Demo / Production Pending | Mock payment attempts and history; no financial data is handled |
+| Admin Lifecycle Views | Implemented | Payment attempts and notification delivery attempts are visible per request |
 | Email Notifications | Placeholder / Partial | Templates implemented; real sending pending keys |
 | Reports | Implemented / Format Pending | Print/PDF/Excel demo format implemented |
 | Activity Logs | Implemented | Major lifecycle actions and downloads logged |
 | QR Verification | Implemented | Hashed tokens, expiry, revoked status, masked public view |
 | Revocation / Reissue | Implemented | Revocation reason, audit trail, linked replacement certificate |
-| Automated Checks | Implemented | Vitest business rules and GitHub Actions CI |
-| Supabase RLS | Schema Prepared / Not Connected | Migration generated; apply and validate only on the confirmed project |
+| Automated Checks | Implemented | 39 Vitest tests plus GitHub Actions CI |
+| Supabase RLS | Schema Prepared / Not Connected | Boundary migration added; apply and validate only on the confirmed project |
 
 The table deliberately distinguishes a completed SQLite thesis demo from
 Supabase schema preparation. No claim is made that the full lifecycle is
@@ -484,10 +493,10 @@ production-ready on Supabase before a real project is connected and validated.
 ## Known Limitations
 
 - Live Supabase schema was not changed because the correct project was not
-  confirmed.
+  confirmed; the Supabase CLI was also not installed locally.
 - Local demo auth is not production auth.
-- Exact certificate positioning still needs final print QA against official
-  templates.
+- Exact certificate positioning and standard-font typography still need final
+  print QA against official templates.
 - Signature handling is a consistent visual line/name placeholder and is not a
   legally verified digital signature.
 - Payment behavior is a mock online-demo workflow and must be replaced before
@@ -501,7 +510,7 @@ production-ready on Supabase before a real project is connected and validated.
 ## Next Development Steps
 
 1. Confirm the real Supabase project and apply migrations through MCP or SQL
-   Editor.
+   Editor, then run Supabase security/RLS advisors.
 2. Confirm the authorized official name and signature image.
 3. Perform print QA against the provided certificate PDFs.
 4. Replace mock online payment behavior with an approved production provider, or
