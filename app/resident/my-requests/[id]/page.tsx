@@ -19,6 +19,7 @@ import {
 import type { Json } from "@/types/database";
 import { getSubmittedInformation } from "@/lib/services/submitted-data";
 import { certificateHasField } from "@/lib/services/certificate-fields";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type RequestDetailsProps = {
@@ -214,6 +215,7 @@ export default async function ResidentRequestDetailsPage({
             <textarea
               className="textarea textarea-bordered"
               name="purpose"
+              maxLength={CERTIFICATE_PURPOSE_MAX_LENGTH}
               defaultValue={submitted.common?.purpose ?? request.purpose}
               required
             />

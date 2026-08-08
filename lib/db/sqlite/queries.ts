@@ -7,6 +7,7 @@ import {
   getDefaultPaymentStatus,
 } from "@/lib/services/business-rules";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
+import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
 import type {
   CertificateRecord,
   CertificateRequest,
@@ -404,8 +405,12 @@ export function createCertificateRequest(input: {
   sitio?: string | null;
   years_of_residency?: number | null;
 }) {
+  if (input.purpose.trim().length > CERTIFICATE_PURPOSE_MAX_LENGTH) {
+    return null;
+  }
   const id = randomUUID();
   const timestamp = nowIso();
+  const purpose = input.purpose.trim();
   const feeAmount = getCertificateFee(input.certificate_type);
   const paymentStatus = getDefaultPaymentStatus(input.certificate_type);
   const dateRequested = timestamp;
@@ -421,7 +426,7 @@ export function createCertificateRequest(input: {
       contact_number: input.contact_number,
       date_requested: dateRequested,
       full_name: input.full_name,
-      purpose: input.purpose,
+      purpose,
     },
   };
 
@@ -445,7 +450,7 @@ export function createCertificateRequest(input: {
       requestNumber,
       input.resident_id,
       input.certificate_type,
-      input.purpose,
+      purpose,
       stringifyJson(submittedData),
       controlNumber,
       feeAmount,
@@ -654,6 +659,9 @@ export function resubmitRejectedRequest(input: {
   sitio?: string | null;
   years_of_residency?: number | null;
 }) {
+  if (input.purpose.trim().length > CERTIFICATE_PURPOSE_MAX_LENGTH) {
+    return null;
+  }
   const existing = getResidentRequestById(input.id, input.resident_id);
   if (!existing || existing.status !== "rejected") {
     return null;
@@ -671,7 +679,7 @@ export function resubmitRejectedRequest(input: {
       contact_number: input.contact_number,
       date_requested: nowIso(),
       full_name: input.full_name,
-      purpose: input.purpose,
+      purpose: input.purpose.trim(),
     },
   };
 
@@ -683,7 +691,7 @@ export function resubmitRejectedRequest(input: {
        WHERE id = ? AND resident_id = ?`,
     )
     .run(
-      input.purpose,
+      input.purpose.trim(),
       stringifyJson(submittedData),
       nowIso(),
       nowIso(),

@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createHash, randomBytes, randomUUID } from "node:crypto";
-import { generateCertificatePdf } from "@/lib/certificates/pdf-generator";
+import {
+  CertificatePdfLayoutError,
+  generateCertificatePdf,
+} from "@/lib/certificates/pdf-generator";
 import { createCertificateSnapshot } from "@/lib/certificates/snapshot";
 import {
   removePrivateCertificatePdf,
@@ -42,6 +45,7 @@ export class CertificateIssuanceError extends Error {
       | "INVALID_ISSUER"
       | "NOT_ELIGIBLE"
       | "PAYMENT_NOT_SETTLED"
+      | "LAYOUT_OVERFLOW"
       | "PERSISTENCE_FAILED",
     message: string,
     options?: ErrorOptions,
@@ -257,6 +261,12 @@ export async function issueCertificate(input: {
 
     if (error instanceof CertificateIssuanceError) {
       throw error;
+    }
+
+    if (error instanceof CertificatePdfLayoutError) {
+      throw new CertificateIssuanceError("LAYOUT_OVERFLOW", error.message, {
+        cause: error,
+      });
     }
 
     const mappedError = mapPersistenceError(error);

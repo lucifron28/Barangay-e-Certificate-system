@@ -33,6 +33,13 @@ export const CERTIFICATE_LAYOUT_REGIONS = {
   verification: { height: 68, width: 228, x: 330, y: 72 },
 } as const;
 
+export class CertificatePdfLayoutError extends Error {
+  constructor(message = "Certificate content exceeds the printable body area.") {
+    super(message);
+    this.name = "CertificatePdfLayoutError";
+  }
+}
+
 type PdfFonts = {
   bold: PDFFont;
   regular: PDFFont;
@@ -126,12 +133,38 @@ function drawText(
   });
 }
 
+function splitLongWord(word: string, font: PDFFont, size: number, maxWidth: number) {
+  const lines: string[] = [];
+  let current = "";
+
+  for (const character of word) {
+    const next = `${current}${character}`;
+    if (current && font.widthOfTextAtSize(next, size) > maxWidth) {
+      lines.push(current);
+      current = character;
+    } else {
+      current = next;
+    }
+  }
+
+  if (current) lines.push(current);
+  return lines;
+}
+
 function wrapText(text: string, font: PDFFont, size: number, maxWidth: number) {
   const words = safePdfText(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = "";
 
   for (const word of words) {
+    if (font.widthOfTextAtSize(word, size) > maxWidth) {
+      if (current) {
+        lines.push(current);
+        current = "";
+      }
+      lines.push(...splitLongWord(word, font, size, maxWidth));
+      continue;
+    }
     const next = current ? `${current} ${word}` : word;
     if (font.widthOfTextAtSize(next, size) <= maxWidth || !current) {
       current = next;
@@ -147,6 +180,51 @@ function wrapText(text: string, font: PDFFont, size: number, maxWidth: number) {
 
   return lines;
 }
+
+export type CertificateBodyLayout = {
+  bodyFontSize: number;
+  bodyLineHeight: number;
+  endY: number;
+  issueFontSize: number;
+  issueLineHeight: number;
+  metaFontSize: number;
+  metaLineHeight: number;
+  paragraphGap: number;
+  issueGap: number;
+};
+
+const BODY_LAYOUT_OPTIONS = [
+  {
+    bodyFontSize: 12.5,
+    bodyLineHeight: 18,
+    issueFontSize: 12,
+    issueLineHeight: 18,
+    metaFontSize: 9.5,
+    metaLineHeight: 15,
+    paragraphGap: 16,
+    issueGap: 20,
+  },
+  {
+    bodyFontSize: 11.5,
+    bodyLineHeight: 15,
+    issueFontSize: 10.5,
+    issueLineHeight: 15,
+    metaFontSize: 8.5,
+    metaLineHeight: 12,
+    paragraphGap: 12,
+    issueGap: 14,
+  },
+  {
+    bodyFontSize: 10.5,
+    bodyLineHeight: 13,
+    issueFontSize: 9.5,
+    issueLineHeight: 13,
+    metaFontSize: 8,
+    metaLineHeight: 10,
+    paragraphGap: 9,
+    issueGap: 10,
+  },
+] as const;
 
 function drawWrappedText({
   font,
@@ -283,6 +361,62 @@ function bodyParagraphs(
   }
 }
 
+function getIssueText(
+  request: CertificateRequestWithResident,
+  dateIssued: string,
+  snapshot?: CertificateSnapshot,
+) {
+  return `Issued this ${getCertificateTemplateData(request, dateIssued, snapshot).dateIssued} at Barangay Bato, Mauban, Quezon.`;
+}
+
+function selectBodyLayout(
+  fonts: PdfFonts,
+  template: ReturnType<typeof bodyParagraphs>,
+  issueText: string,
+): CertificateBodyLayout {
+  const maxWidth = LETTER_WIDTH - MARGIN * 2;
+
+  for (const option of BODY_LAYOUT_OPTIONS) {
+    let y = 540 - 35;
+    for (const paragraph of template.paragraphs) {
+      y -= wrapText(paragraph, fonts.serif, option.bodyFontSize, maxWidth).length * option.bodyLineHeight;
+      y -= option.paragraphGap;
+    }
+
+    y -= 4;
+    y -= template.meta.length * option.metaLineHeight;
+    y -= option.issueGap;
+    const endY = y - wrapText(issueText, fonts.serif, option.issueFontSize, maxWidth).length * option.issueLineHeight;
+
+    if (endY >= CERTIFICATE_LAYOUT_REGIONS.bodyBottom) {
+      return { ...option, endY };
+    }
+  }
+
+  throw new CertificatePdfLayoutError(
+    "Certificate details are too long for the printable body area. Shorten the resident name, address, or purpose and try again.",
+  );
+}
+
+export async function calculateCertificateBodyLayout(input: {
+  dateIssued?: string;
+  request: CertificateRequestWithResident;
+  snapshot?: CertificateSnapshot;
+}) {
+  const pdfDoc = await PDFDocument.create();
+  const fonts: PdfFonts = {
+    bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
+    regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
+    serif: await pdfDoc.embedFont(StandardFonts.Helvetica),
+  };
+  const effectiveDateIssued = input.snapshot?.date_issued ?? input.dateIssued ?? new Date().toISOString();
+  return selectBodyLayout(
+    fonts,
+    bodyParagraphs(input.request, input.snapshot),
+    getIssueText(input.request, effectiveDateIssued, input.snapshot),
+  );
+}
+
 export async function generateCertificatePdf({
   barangayCaptainName = "Authorized Barangay Official",
   certificateNumber,
@@ -331,6 +465,11 @@ export async function generateCertificatePdf({
     snapshot?.authorized_official_display_name ?? barangayCaptainName;
   const effectiveVerificationExpiresAt =
     snapshot?.verification_expires_at ?? verificationExpiresAt;
+  const layout = selectBodyLayout(
+    fonts,
+    template,
+    getIssueText(request, effectiveDateIssued, snapshot),
+  );
 
   drawWatermark(page, fonts);
   drawHeader(page, fonts);
@@ -351,10 +490,10 @@ export async function generateCertificatePdf({
   for (const paragraph of template.paragraphs) {
     y = drawWrappedText({
       font: fonts.serif,
-      lineHeight: 18,
+      lineHeight: layout.bodyLineHeight,
       maxWidth: LETTER_WIDTH - MARGIN * 2,
       page,
-      size: 12.5,
+      size: layout.bodyFontSize,
       text: paragraph,
       x: MARGIN,
       y,
@@ -366,22 +505,25 @@ export async function generateCertificatePdf({
   for (const item of template.meta) {
     drawText(page, item, MARGIN, y, {
       font: fonts.regular,
-      size: 9.5,
+      size: layout.metaFontSize,
     });
-    y -= 15;
+    y -= layout.metaLineHeight;
   }
 
-  y -= 20;
-  drawWrappedText({
+  y -= layout.issueGap;
+  const issueEndY = drawWrappedText({
     font: fonts.serif,
-    lineHeight: 18,
+    lineHeight: layout.issueLineHeight,
     maxWidth: LETTER_WIDTH - MARGIN * 2,
     page,
-    size: 12,
-    text: `Issued this ${getCertificateTemplateData(request, effectiveDateIssued, snapshot).dateIssued} at Barangay Bato, Mauban, Quezon.`,
+    size: layout.issueFontSize,
+    text: getIssueText(request, effectiveDateIssued, snapshot),
     x: MARGIN,
     y,
   });
+  if (issueEndY < CERTIFICATE_LAYOUT_REGIONS.bodyBottom) {
+    throw new CertificatePdfLayoutError();
+  }
 
   const signatureY = CERTIFICATE_LAYOUT_REGIONS.signature.y + 42;
   page.drawLine({
