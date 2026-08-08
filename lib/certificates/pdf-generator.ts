@@ -2,24 +2,32 @@ import "server-only";
 
 import {
   PDFDocument,
+  StandardFonts,
   rgb,
   type PDFFont,
   type PDFPage,
   type RGB,
 } from "pdf-lib";
-import fontkit from "@pdf-lib/fontkit";
 import QRCode from "qrcode";
-import { readFileSync } from "node:fs";
-import path from "node:path";
 import { certificateLabel } from "@/lib/utils/format";
 import {
   getCertificateTemplateData,
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
+import type { CertificateSnapshot } from "@/types/database";
 
 const LETTER_WIDTH = 612;
 const LETTER_HEIGHT = 792;
 const MARGIN = 54;
+
+// Keep the lower-page regions independent so the signature, QR block, and disclaimer never share the same coordinates.
+export const CERTIFICATE_LAYOUT_REGIONS = {
+  bodyBottom: 226,
+  footer: { height: 38, width: LETTER_WIDTH - MARGIN * 2, x: MARGIN, y: 23 },
+  qr: { size: 56, x: 490, y: 78 },
+  signature: { height: 66, width: LETTER_WIDTH - MARGIN * 2, x: MARGIN, y: 145 },
+  verification: { height: 68, width: 228, x: 330, y: 72 },
+} as const;
 
 type PdfFonts = {
   bold: PDFFont;
@@ -55,19 +63,6 @@ function formatPdfDateTime(value: string | undefined) {
     timeStyle: "short",
     timeZone: "Asia/Manila",
   }).format(date);
-}
-
-function readBundledFont(fileName: string) {
-  return readFileSync(
-    path.join(
-      process.cwd(),
-      "node_modules",
-      "@fontsource",
-      "noto-sans",
-      "files",
-      fileName,
-    ),
-  );
 }
 
 function centerText(
@@ -227,8 +222,11 @@ function drawHeader(page: PDFPage, fonts: PdfFonts) {
   centerText(page, "Office of the Punong Barangay", 660, fonts.regular, 11);
 }
 
-function bodyParagraphs(request: CertificateRequestWithResident) {
-  const data = getCertificateTemplateData(request);
+function bodyParagraphs(
+  request: CertificateRequestWithResident,
+  snapshot?: CertificateSnapshot,
+) {
+  const data = getCertificateTemplateData(request, snapshot?.date_issued, snapshot);
 
   switch (request.certificate_type) {
     case "barangay_clearance":
@@ -290,6 +288,7 @@ export async function generateCertificatePdf({
   verificationUrl,
   preparedBy,
   request,
+  snapshot,
 }: {
   barangayCaptainName?: string;
   certificateNumber?: string;
@@ -299,34 +298,41 @@ export async function generateCertificatePdf({
   verificationUrl?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
+  snapshot?: CertificateSnapshot;
 }) {
   const pdfDoc = await PDFDocument.create();
+  const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
+  const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
   pdfDoc.setTitle(
-    `${certificateLabel(request.certificate_type)} - ${certificateNumber ?? "Preview"}`,
+    `${certificateLabel(request.certificate_type)} - ${effectiveCertificateNumber ?? "Preview"}`,
   );
   pdfDoc.setSubject("Barangay Bato e-Certificate System thesis/demo certificate");
   pdfDoc.setKeywords([
     "Barangay Bato",
     "e-Certificate",
-    certificateNumber ?? "preview",
+    effectiveCertificateNumber ?? "preview",
     verificationCode ?? "verification-preview",
+    snapshot?.issued_at ?? "issued-at-preview",
+    snapshot?.verification_expires_at ?? "verification-expiry-preview",
   ]);
-  pdfDoc.registerFontkit(fontkit);
   const page = pdfDoc.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
-  const regularFont = readBundledFont("noto-sans-latin-ext-400-normal.woff");
-  const boldFont = readBundledFont("noto-sans-latin-ext-700-normal.woff");
   const fonts: PdfFonts = {
-    bold: await pdfDoc.embedFont(boldFont),
-    regular: await pdfDoc.embedFont(regularFont),
-    serif: await pdfDoc.embedFont(regularFont),
+    bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
+    regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
+    serif: await pdfDoc.embedFont(StandardFonts.Helvetica),
   };
-  const template = bodyParagraphs(request);
+  const template = bodyParagraphs(request, snapshot);
+  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
+  const effectiveCaptainName =
+    snapshot?.authorized_official_display_name ?? barangayCaptainName;
+  const effectiveVerificationExpiresAt =
+    snapshot?.verification_expires_at ?? verificationExpiresAt;
 
   drawWatermark(page, fonts);
   drawHeader(page, fonts);
   centerText(page, certificateLabel(request.certificate_type), 622, fonts.regular, 8);
   centerText(page, template.title, 584, fonts.bold, 16);
-  drawText(page, `Certificate No.: ${certificateNumber ?? "Pending issuance"}`, MARGIN, 646, {
+  drawText(page, `Certificate No.: ${effectiveCertificateNumber ?? "Pending issuance"}`, MARGIN, 646, {
     font: fonts.regular,
     size: 9,
   });
@@ -368,12 +374,12 @@ export async function generateCertificatePdf({
     maxWidth: LETTER_WIDTH - MARGIN * 2,
     page,
     size: 12,
-    text: `Issued this ${getCertificateTemplateData(request, dateIssued).dateIssued} at Barangay Bato, Mauban, Quezon.`,
+    text: `Issued this ${getCertificateTemplateData(request, effectiveDateIssued, snapshot).dateIssued} at Barangay Bato, Mauban, Quezon.`,
     x: MARGIN,
     y,
   });
 
-  const signatureY = 160;
+  const signatureY = CERTIFICATE_LAYOUT_REGIONS.signature.y + 42;
   page.drawLine({
     start: { x: 80, y: signatureY },
     end: { x: 250, y: signatureY },
@@ -382,7 +388,7 @@ export async function generateCertificatePdf({
   });
   centerTextAt(
     page,
-    safePdfText(preparedBy).toUpperCase(),
+    safePdfText(effectivePreparedBy).toUpperCase(),
     165,
     signatureY - 18,
     fonts.bold,
@@ -398,7 +404,7 @@ export async function generateCertificatePdf({
   });
   centerTextAt(
     page,
-    safePdfText(barangayCaptainName).toUpperCase(),
+    safePdfText(effectiveCaptainName).toUpperCase(),
     446,
     signatureY - 18,
     fonts.bold,
@@ -414,46 +420,64 @@ export async function generateCertificatePdf({
   );
 
   page.drawRectangle({
-    x: MARGIN,
-    y: 72,
-    width: LETTER_WIDTH - MARGIN * 2,
-    height: 34,
+    x: CERTIFICATE_LAYOUT_REGIONS.footer.x,
+    y: CERTIFICATE_LAYOUT_REGIONS.footer.y,
+    width: CERTIFICATE_LAYOUT_REGIONS.footer.width,
+    height: CERTIFICATE_LAYOUT_REGIONS.footer.height,
     borderColor: rgb(0.45, 0.45, 0.45),
     borderWidth: 0.6,
   });
   centerText(
     page,
     "THESIS DEMO - NOT FOR OFFICIAL USE",
-    91,
+    CERTIFICATE_LAYOUT_REGIONS.footer.y + 26,
     fonts.regular,
     8,
   );
 
+  page.drawRectangle({
+    color: rgb(1, 1, 1),
+    x: CERTIFICATE_LAYOUT_REGIONS.verification.x,
+    y: CERTIFICATE_LAYOUT_REGIONS.verification.y,
+    width: CERTIFICATE_LAYOUT_REGIONS.verification.width,
+    height: CERTIFICATE_LAYOUT_REGIONS.verification.height,
+    borderColor: rgb(0.45, 0.45, 0.45),
+    borderWidth: 0.6,
+  });
+  drawText(page, "QR VERIFICATION", 342, 128, { font: fonts.bold, size: 7.5 });
   drawText(
     page,
-    `Verification expires: ${formatPdfDateTime(verificationExpiresAt)}`,
-    365,
-    91,
-    { font: fonts.regular, size: 7.5 },
+    `Expires: ${formatPdfDateTime(effectiveVerificationExpiresAt)}`,
+    342,
+    113,
+    { font: fonts.regular, size: 7 },
   );
+  drawText(page, `Code: ${verificationCode ?? "Unavailable"}`, 342, 98, {
+    font: fonts.regular,
+    size: 7,
+  });
 
   if (verificationUrl) {
     const dataUrl = await QRCode.toDataURL(verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 160 });
     const png = await pdfDoc.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
-    page.drawImage(png, { x: 460, y: 112, width: 72, height: 72 });
-    drawText(page, "Scan to verify", 454, 101, { font: fonts.regular, size: 7 });
-    drawText(page, `Code: ${verificationCode ?? "Unavailable"}`, 365, 78, {
-      font: fonts.regular,
-      size: 7.5,
+    page.drawImage(png, {
+      x: CERTIFICATE_LAYOUT_REGIONS.qr.x,
+      y: CERTIFICATE_LAYOUT_REGIONS.qr.y,
+      width: CERTIFICATE_LAYOUT_REGIONS.qr.size,
+      height: CERTIFICATE_LAYOUT_REGIONS.qr.size,
     });
+    drawText(page, "Scan to verify", 489, 67, { font: fonts.regular, size: 7 });
   }
-  centerText(
+  drawWrappedText({
+    font: fonts.regular,
+    lineHeight: 7,
+    maxWidth: LETTER_WIDTH - MARGIN * 2 - 12,
     page,
-    "QR verification confirms issuance and status only. It does not prevent photocopying or prove that a printed copy is the only original.",
-    57,
-    fonts.regular,
-    6.5,
-  );
+    size: 6.2,
+    text: "QR verification confirms issuance and status only. It does not prevent photocopying or prove that a printed copy is the only original.",
+    x: MARGIN + 6,
+    y: CERTIFICATE_LAYOUT_REGIONS.footer.y + 14,
+  });
 
   // TODO: Exact positioning should be compared against final approved production prints.
   return pdfDoc.save();

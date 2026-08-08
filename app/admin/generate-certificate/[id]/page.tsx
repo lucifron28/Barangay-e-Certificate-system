@@ -47,7 +47,9 @@ export default async function GenerateCertificatePage({
 
   const certificateRecord = isSqliteProvider() ? getCertificateRecordByRequestId(request.id) : null;
   const hasActiveCertificate = certificateRecord?.status === "issued";
+  const isReissue = certificateRecord?.status === "revoked";
   const eligibleForIssuance = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
+  const canPreview = hasActiveCertificate || eligibleForIssuance || isReissue;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -68,8 +70,8 @@ export default async function GenerateCertificatePage({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <PrintButton />
-          {certificateRecord?.status === "issued" ? (
+          {hasActiveCertificate ? <PrintButton /> : null}
+          {hasActiveCertificate ? (
             <Link
               href={`/admin/generate-certificate/${id}/pdf`}
               className="btn btn-outline"
@@ -92,11 +94,17 @@ export default async function GenerateCertificatePage({
         </div>
       </div>
 
-      <PrintableCertificate
-        barangayCaptainName={settings.barangayCaptainName}
-        preparedBy={context.profile.full_name}
-        request={request}
-      />
+      {canPreview ? (
+        <PrintableCertificate
+          barangayCaptainName={settings.barangayCaptainName}
+          certificateNumber={hasActiveCertificate ? certificateRecord?.certificate_number ?? undefined : undefined}
+          dateIssued={hasActiveCertificate ? certificateRecord?.date_issued : undefined}
+          draft={!hasActiveCertificate}
+          preparedBy={context.profile.full_name}
+          request={request}
+          snapshot={hasActiveCertificate ? certificateRecord?.certificate_snapshot : undefined}
+        />
+      ) : null}
 
       {certificateRecord?.status === "issued" ? (
         <form action={revokeCertificateRecordAction} className="no-print space-y-3 rounded-lg border border-error/30 bg-base-100 p-5 shadow-sm">
