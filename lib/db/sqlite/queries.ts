@@ -524,7 +524,7 @@ export function updateRequestStatus(input: {
 
 export function getLatestPaymentForRequest(requestId: string) {
   const row = getSqliteDb()
-    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1")
+    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1")
     .get(requestId) as Row | undefined;
   if (
     row &&
@@ -542,7 +542,7 @@ export function getLatestPaymentForRequest(requestId: string) {
 
 export function listPaymentsForRequest(requestId: string) {
   return getSqliteDb()
-    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC")
+    .prepare("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC, rowid DESC")
     .all(requestId)
     .map((row) => paymentFromRow(row as Row))
     .filter((payment): payment is Payment => Boolean(payment));
