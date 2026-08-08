@@ -182,7 +182,9 @@ function clearDatabaseFiles() {
     const target = `${dbPath}${suffix}`;
     if (existsSync(target)) rmSync(target, { force: true });
   }
-  const certificateDirectory = path.join(root, "data", "certificates");
+  const certificateDirectory = process.env.CERTIFICATE_STORAGE_DIRECTORY
+    ? path.resolve(root, process.env.CERTIFICATE_STORAGE_DIRECTORY)
+    : path.join(root, "data", "certificates");
   if (existsSync(certificateDirectory)) rmSync(certificateDirectory, { force: true, recursive: true });
   mkdirSync(path.dirname(dbPath), { recursive: true });
 }

@@ -19,6 +19,7 @@ data/*.sqlite
 data/*.sqlite-shm
 data/*.sqlite-wal
 data/certificates/
+data/certificates-test/
 data/.local-demo-session-secret
 docs/client-assets/certificate-templates/original/
 .tmp-template-images/

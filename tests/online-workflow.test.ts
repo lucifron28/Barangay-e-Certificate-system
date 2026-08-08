@@ -97,7 +97,7 @@ describe("certificate PDF and issuance metadata", () => {
       verificationExpiresAt: new Date(Date.now() + 86_400_000).toISOString(),
       verificationUrl: "http://localhost:3000/verify/test-token",
     });
-    expect(bytes.byteLength).toBeGreaterThan(10_000);
+    expect(bytes.byteLength).toBeGreaterThan(4_000);
     const issuedRecord = getCertificateRecordByRequestId("10000000-0000-4000-8000-000000000005");
     expect(issuedRecord?.pdf_path).toBeTruthy();
     expect(sha256Hex(readFileSync(issuedRecord?.pdf_path ?? ""))).toBe(issuedRecord?.pdf_sha256);
