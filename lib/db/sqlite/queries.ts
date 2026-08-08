@@ -791,6 +791,7 @@ export function persistIssuedCertificate(input: {
   template_data: Json;
   token_hash: string;
   verification_expires_at: string;
+  verification_status: "expired" | "valid";
 }) {
   const db = getSqliteDb();
   const persist = db.transaction(() => {
@@ -873,12 +874,13 @@ export function persistIssuedCertificate(input: {
       `INSERT INTO certificate_verifications (
         id, certificate_record_id, token_hash, short_verification_code, status,
         valid_from, expires_at, revoked_at, created_at, updated_at
-      ) VALUES (?, ?, ?, ?, 'valid', ?, ?, NULL, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
     ).run(
       randomUUID(),
       input.certificate_record_id,
       input.token_hash,
       input.short_verification_code,
+      input.verification_status,
       input.issued_at,
       input.verification_expires_at,
       timestamp,

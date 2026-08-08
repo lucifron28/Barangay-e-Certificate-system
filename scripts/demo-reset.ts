@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { existsSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
@@ -272,26 +272,31 @@ async function main() {
 
   const settings = { barangayCaptainName: "Authorized Barangay Official" };
   const issuedSamples: Array<{ label: string; token: string; certificateNumber: string }> = [];
-  const issueSample = async (requestId: string, label: string, issueDate: string, preparedBy: Profile) => {
+  const issueSample = async (
+    requestId: string,
+    label: string,
+    issueDate: string,
+    preparedBy: Profile,
+    now: Date,
+  ) => {
     const request = getRequestById(requestId);
     if (!request) throw new Error(`Missing seed request ${requestId}`);
-    const result = await issueCertificate({ dateIssued: issueDate, preparedBy: preparedBy.full_name, preparedById: preparedBy.id, request, settings });
+    const result = await issueCertificate({ dateIssued: issueDate, now, preparedBy: preparedBy.full_name, preparedById: preparedBy.id, request, settings });
     issuedSamples.push({ label, token: result.verificationToken, certificateNumber: result.certificateNumber });
     return result;
   };
 
-  const valid = await issueSample(requestIds[4], "VALID", dateOnly(dateOffset(-1)), admin);
+  const valid = await issueSample(requestIds[4], "VALID", dateOnly(dateOffset(-1)), admin, new Date(Date.now() - 24 * 60 * 60 * 1000));
   createCertificateDownloadLog(valid.certificateRecord.id, residentId, "downloaded");
   updateRequestStatus({ id: requestIds[4], status: "done", dateReleased: timestamp });
   insertActivity(db, { action: "Certificate issued", recordId: requestIds[4], remarks: `Seeded ${valid.certificateNumber}.`, userId: adminId, role: "main_admin", createdAt: timestamp });
   insertActivity(db, { action: "Certificate downloaded", recordId: requestIds[4], remarks: "Seeded successful resident download.", userId: residentId, role: "resident", createdAt: timestamp });
 
-  const expired = await issueSample(requestIds[5], "EXPIRED", dateOnly(dateOffset(-10)), secretary);
-  db.prepare("UPDATE certificate_verifications SET status = 'expired', updated_at = ? WHERE certificate_record_id = ?").run(timestamp, expired.certificateRecord.id);
+  const expired = await issueSample(requestIds[5], "EXPIRED", dateOnly(dateOffset(-10)), secretary, new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
   updateRequestStatus({ id: requestIds[5], status: "done", dateReleased: timestamp });
   insertActivity(db, { action: "Certificate issued", recordId: requestIds[5], remarks: `Seeded expired verification ${expired.certificateNumber}.`, userId: secretaryId, role: "barangay_secretary", createdAt: timestamp });
 
-  const revoked = await issueSample(requestIds[6], "REVOKED", dateOnly(dateOffset(-2)), admin);
+  const revoked = await issueSample(requestIds[6], "REVOKED", dateOnly(dateOffset(-2)), admin, new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
   revokeCertificateRecord({ id: revoked.certificateRecord.id, reason: "Seeded replacement demonstration.", revokedBy: adminId });
   updateRequestStatus({ id: requestIds[6], status: "done", dateReleased: timestamp });
   insertActivity(db, { action: "Certificate revoked", recordId: requestIds[6], remarks: "Seeded revoked verification.", userId: adminId, role: "main_admin", createdAt: timestamp });
@@ -307,6 +312,11 @@ async function main() {
   process.stdout.write(`Demo password: ${password}\n`);
   for (const sample of issuedSamples) {
     process.stdout.write(`${sample.label}: ${sample.certificateNumber} ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/verify/${sample.token}\n`);
+  }
+  if (process.env.DEMO_VERIFICATION_SAMPLES_PATH) {
+    const samplesPath = path.resolve(root, process.env.DEMO_VERIFICATION_SAMPLES_PATH);
+    mkdirSync(path.dirname(samplesPath), { recursive: true });
+    writeFileSync(samplesPath, JSON.stringify(issuedSamples, null, 2));
   }
 }
 

@@ -22,7 +22,7 @@ import { issuanceMode } from "@/lib/services/issuance-mode";
 import type { RequestWithResident } from "@/lib/db/sqlite/queries";
 import type { CertificateRecord, Json } from "@/types/database";
 
-const VERIFICATION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
+export const VERIFICATION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
 
 export type CertificateIssuanceResult = {
   certificateNumber: string;
@@ -113,6 +113,8 @@ function mapPersistenceError(error: unknown) {
 
 export async function issueCertificate(input: {
   dateIssued: string;
+  /** Internal fixture clock only; never accept this from a request or form. */
+  now?: Date;
   preparedBy: string;
   preparedById: string;
   request: RequestWithResident;
@@ -157,10 +159,16 @@ export async function issueCertificate(input: {
   }
 
   const dateIssued = getOfficialIssueDate(input.dateIssued);
-  const issuedAt = new Date().toISOString();
+  const issuanceClock = input.now ?? new Date();
+  if (Number.isNaN(issuanceClock.getTime())) {
+    throw new CertificateIssuanceError("NOT_ELIGIBLE", "The issue time is invalid.");
+  }
+  const issuedAt = issuanceClock.toISOString();
   const expiresAt = new Date(
-    new Date(issuedAt).getTime() + VERIFICATION_LIFETIME_MS,
+    issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
+  const verificationStatus =
+    new Date(expiresAt).getTime() <= Date.now() ? "expired" : "valid";
   const certificateNumber = allocateCertificateNumber();
   const certificateRecordId = randomUUID();
   const verificationToken = generateVerificationToken();
@@ -223,6 +231,7 @@ export async function issueCertificate(input: {
       certificate_snapshot: snapshot,
       token_hash: tokenHash,
       verification_expires_at: expiresAt,
+      verification_status: verificationStatus,
     });
 
     if (!certificateRecord) {
