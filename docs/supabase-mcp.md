@@ -1,8 +1,9 @@
 # Supabase MCP Notes
 
-Supabase MCP tools are available in this Codex session. The connected projects
-were inspected on May 11, 2026, but no project was clearly identified as the
-Barangay Bato e-Certificate System, so no live migrations were applied.
+A prior Supabase MCP inspection recorded the projects below on May 11, 2026.
+No project was clearly identified as the Barangay Bato e-Certificate System,
+so no live migrations were applied. The current repository remains safe to run
+without Supabase credentials.
 
 Detected projects:
 
@@ -29,6 +30,12 @@ For the current thesis workflow, also apply
 verification timestamps, and the related RLS policies. The application
 certificate/payment lifecycle has been validated against SQLite only; do not
 describe this migration as live Supabase workflow validation.
+
+Finally review
+`database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`.
+It keeps resident profile updates owner-only, removes trigger-only helpers from
+the authenticated API surface, protects lifecycle tables, and documents that
+public verification is not exposed through the Data API in the thesis boundary.
 
 Storage is not required for local demo mode. Supabase Storage may be added later
 for approved template assets, signature images, generated PDFs, or long-term

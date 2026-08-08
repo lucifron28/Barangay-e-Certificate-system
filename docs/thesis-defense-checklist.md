@@ -41,9 +41,13 @@
 ## Quality Gates
 
 - [ ] `npm ci` passes.
+- [ ] `npm run demo:reset` passes and prints valid, expired, and revoked URLs.
 - [ ] `npm run lint` passes.
 - [ ] `npm run typecheck` passes.
-- [ ] `npm run test` passes.
+- [ ] `npm test` passes with 8 test files and 39 tests.
 - [ ] `npm run build` passes.
 - [ ] Production `npm run start` smoke test passes.
 - [ ] QR code was scanned with the phone before presentation day.
+
+The automated command sequence and manual smoke order are also recorded in
+[`docs/final-defense-readiness.md`](final-defense-readiness.md).
