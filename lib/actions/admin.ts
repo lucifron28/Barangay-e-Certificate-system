@@ -20,6 +20,7 @@ import {
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
 import { env } from "@/lib/env";
 import {
+  canMarkReady,
   canMarkDone,
   canRejectRequest,
   canScheduleRequest,
@@ -446,10 +447,13 @@ export async function markRequestReadyAction(formData: FormData) {
   const context = await getAdminContextOrRedirect("/admin/certificate-requests");
   const request = await getAdminRequest(parsed.data.request_id, context.supabase);
 
-  if (!request || !request.pickup_schedules.length) {
+  if (
+    !request ||
+    !canMarkReady(request.status, request.pickup_schedules.length > 0)
+  ) {
     redirectWithError(
       "/admin/certificate-requests",
-      "A pickup schedule is required before marking ready for pickup.",
+      "Only accepted requests with a pickup schedule can be marked ready for pickup.",
     );
   }
 

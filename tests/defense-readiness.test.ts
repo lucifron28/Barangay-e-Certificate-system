@@ -28,6 +28,7 @@ import {
   removePrivateCertificatePdf,
 } from "@/lib/certificates/private-storage";
 import {
+  canMarkReady,
   canMarkDone,
   canResubmitRequest,
   canScheduleRequest,
@@ -76,6 +77,13 @@ describe("request, counter, and payment rules", () => {
     expect(canResubmitRequest("accepted")).toBe(false);
     expect(canScheduleRequest("accepted")).toBe(true);
     expect(canScheduleRequest("pending")).toBe(false);
+    expect(canMarkReady("accepted", true)).toBe(true);
+    expect(canMarkReady("accepted", false)).toBe(false);
+    expect(canMarkReady("pending", true)).toBe(false);
+    expect(canMarkReady("rejected", true)).toBe(false);
+    expect(canMarkReady("cancelled", true)).toBe(false);
+    expect(canMarkReady("ready_for_pickup", true)).toBe(false);
+    expect(canMarkReady("done", true)).toBe(false);
     expect(canMarkDone("ready_for_pickup")).toBe(true);
     expect(canMarkDone("ready_for_download")).toBe(false);
   });
