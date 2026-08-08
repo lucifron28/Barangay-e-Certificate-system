@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import path from "node:path";
 import {
   createCertificateRequest,
   createMockPayment,
@@ -70,6 +71,9 @@ describe("isolated thesis certificate workflow", () => {
       });
       recordIds.push(issued.certificateRecord.id);
       if (issued.certificateRecord.pdf_path) pdfPaths.push(issued.certificateRecord.pdf_path);
+      expect(issued.certificateRecord.pdf_path).toContain(
+        path.join("data", "certificates-test"),
+      );
 
       expect(issued.certificateNumber).toMatch(/^CERT-\d{4}-\d{4}$/);
       expect(getCertificateVerificationByToken(issued.verificationToken)).toMatchObject({

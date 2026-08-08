@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
-import path from "node:path";
 import { PDFDocument } from "pdf-lib";
 import {
   authenticateLocalUser,
@@ -24,7 +23,10 @@ import {
   generateCertificatePdf,
 } from "@/lib/certificates/pdf-generator";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
-import { removePrivateCertificatePdf } from "@/lib/certificates/private-storage";
+import {
+  getPrivateCertificateStorageDirectory,
+  removePrivateCertificatePdf,
+} from "@/lib/certificates/private-storage";
 import {
   canMarkDone,
   canResubmitRequest,
@@ -210,7 +212,7 @@ describe("issuance and PDF integrity", () => {
     const request = getRequestById("10000000-0000-4000-8000-000000000004");
     expect(request).not.toBeNull();
     const before = new Set(
-      readdirSync(path.join(process.cwd(), "data", "certificates")),
+      readdirSync(getPrivateCertificateStorageDirectory()),
     );
 
     await expect(
@@ -224,7 +226,7 @@ describe("issuance and PDF integrity", () => {
     ).rejects.toMatchObject({ code: "PERSISTENCE_FAILED" });
 
     const after = new Set(
-      readdirSync(path.join(process.cwd(), "data", "certificates")),
+      readdirSync(getPrivateCertificateStorageDirectory()),
     );
     expect([...after].filter((file) => !before.has(file))).toEqual([]);
   });

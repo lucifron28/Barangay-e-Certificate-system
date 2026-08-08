@@ -3,7 +3,7 @@ import "server-only";
 import { mkdirSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-function certificateStorageDirectory() {
+export function getPrivateCertificateStorageDirectory() {
   const configuredDirectory = process.env.CERTIFICATE_STORAGE_DIRECTORY;
   return configuredDirectory
     ? path.resolve(/* turbopackIgnore: true */ process.cwd(), configuredDirectory)
@@ -11,7 +11,7 @@ function certificateStorageDirectory() {
 }
 
 export function savePrivateCertificatePdf(certificateId: string, pdfBytes: Uint8Array) {
-  const directory = certificateStorageDirectory();
+  const directory = getPrivateCertificateStorageDirectory();
   mkdirSync(directory, { recursive: true });
   const filePath = path.join(directory, `${certificateId}.pdf`);
   const temporaryPath = path.join(directory, `${certificateId}.pdf.tmp`);
