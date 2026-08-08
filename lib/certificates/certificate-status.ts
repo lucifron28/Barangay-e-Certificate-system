@@ -68,7 +68,7 @@ export function certificateStatusMessage(status: CertificateDisplayStatus) {
     case "valid":
       return "This certificate is currently within its verification window.";
     case "expired":
-      return "This certificate was issued, but its three-day verification window has ended.";
+      return "This certificate was issued, but its 72-hour verification window has ended.";
     case "replaced":
       return "This certificate has been replaced. Use the latest certificate issued by Barangay Bato.";
     case "revoked":
