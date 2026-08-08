@@ -24,3 +24,4 @@ docs/client-assets/certificate-templates/original/
 .tmp-template-images/
 .tmp-*.png
 .next-dev.*.log
+tmp/
