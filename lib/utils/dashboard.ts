@@ -15,6 +15,7 @@ export function summarizeRequests(
     done: 0,
     pending: 0,
     ready_for_pickup: 0,
+    ready_for_download: 0,
     rejected: 0,
     total: requests.length,
   };

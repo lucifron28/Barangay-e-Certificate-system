@@ -1,13 +1,16 @@
-import { certificateLabel, formatDate } from "@/lib/utils/format";
+import { certificateLabel } from "@/lib/utils/format";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import type { CertificateRequestWithResident } from "@/lib/certificates/template-data";
-import type { CertificateRequest } from "@/types/database";
+import type { CertificateRequest, CertificateSnapshot } from "@/types/database";
 
 type PrintableCertificateProps = {
   barangayCaptainName?: string;
+  certificateNumber?: string;
+  dateIssued?: string;
+  draft?: boolean;
   preparedBy: string;
   request: CertificateRequestWithResident;
-  signatureImagePath?: string | null;
+  snapshot?: CertificateSnapshot;
 };
 
 function Header() {
@@ -49,11 +52,9 @@ function Watermark() {
 function SignatureBlocks({
   barangayCaptainName,
   preparedBy,
-  signatureImagePath,
 }: {
   barangayCaptainName: string;
   preparedBy: string;
-  signatureImagePath?: string | null;
 }) {
   return (
     <div className="mt-16 grid gap-12 text-center sm:grid-cols-2">
@@ -63,17 +64,7 @@ function SignatureBlocks({
         <p className="text-xs uppercase">Prepared By</p>
       </div>
       <div>
-        {signatureImagePath ? (
-          // TODO: Confirm approved electronic signature image asset and storage path before production.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={signatureImagePath}
-            alt=""
-            className="mx-auto mb-1 h-12 max-w-56 object-contain"
-          />
-        ) : (
-          <div className="h-12" />
-        )}
+        <div className="h-12" />
         <div className="mx-auto mb-2 h-px w-56 bg-neutral" />
         <p className="font-semibold uppercase">{barangayCaptainName}</p>
         <p className="text-xs uppercase">Punong Barangay</p>
@@ -131,16 +122,16 @@ function ClearanceBody({
 }
 
 function BarangayCertificateBody({
-  address,
   age,
   birthDetails,
+  locality,
   name,
   purpose,
   request,
 }: {
-  address: string;
   age: string;
   birthDetails: string;
+  locality: string;
   name: string;
   purpose: string;
   request: CertificateRequest;
@@ -155,7 +146,7 @@ function BarangayCertificateBody({
         <p>
           Pinatutunayan ng tanggapang ito na si <strong>{name}</strong>,{" "}
           <strong>{age}</strong> taong gulang, ay lehitimong naninirahan sa{" "}
-          <strong>{address}</strong>, Barangay Bato, Mauban, Quezon.
+          <strong>{locality}</strong>.
         </p>
         <p>
           Ang talaang ito ay inihanda batay sa kahilingang isinumite sa sistema.
@@ -264,12 +255,18 @@ function ResidencyBody({
 }
 
 export function PrintableCertificate({
-  barangayCaptainName = "Barangay Captain Name",
+  barangayCaptainName = "Authorized Barangay Official",
+  certificateNumber,
+  dateIssued,
+  draft = false,
   preparedBy,
   request,
-  signatureImagePath,
+  snapshot,
 }: PrintableCertificateProps) {
-  const templateData = getCertificateTemplateData(request);
+  const templateData = getCertificateTemplateData(request, dateIssued, snapshot);
+  const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
+  const effectiveCaptainName = snapshot?.authorized_official_display_name ?? barangayCaptainName;
+  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
 
   return (
     <article className="print-surface relative mx-auto min-h-[11in] w-[8.5in] max-w-full overflow-hidden rounded-lg border border-base-300 bg-white p-[0.55in] text-neutral shadow-sm">
@@ -277,6 +274,11 @@ export function PrintableCertificate({
       {/* TODO: Final production handling may use controlled Supabase Storage assets. */}
       <Watermark />
       <div className="relative z-10">
+        {draft ? (
+          <div className="mb-4 border-2 border-dashed border-warning p-2 text-center text-xs font-bold uppercase tracking-normal text-warning">
+            Draft preview - certificate number and official issue date are assigned when saved
+          </div>
+        ) : null}
         <Header />
         <div className="mt-8 text-center text-xs uppercase tracking-normal">
           {certificateLabel(request.certificate_type)}
@@ -293,9 +295,9 @@ export function PrintableCertificate({
         ) : null}
         {request.certificate_type === "barangay_certificate" ? (
           <BarangayCertificateBody
-            address={templateData.address}
             age={templateData.age}
             birthDetails={templateData.birthDetails}
+            locality={templateData.locality}
             name={templateData.name}
             purpose={templateData.purpose}
             request={request}
@@ -323,20 +325,35 @@ export function PrintableCertificate({
         ) : null}
 
         <p className="mt-10 text-[15px] leading-8">
-          Issued this <strong>{formatDate(new Date().toISOString())}</strong> at
-          Barangay Bato, Mauban, Quezon.
+          {draft ? (
+            "The official issue date will be assigned when this preview is saved."
+          ) : (
+            <>
+              Issued this <strong>{templateData.dateIssued}</strong> at
+              Barangay Bato, Mauban, Quezon.
+            </>
+          )}
         </p>
 
+        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+          <p>
+            <span className="font-semibold">Certificate No.:</span>{" "}
+            {effectiveCertificateNumber ?? "Assigned when saved"}
+          </p>
+          <p>
+            <span className="font-semibold">Request No.:</span>{" "}
+            {request.request_number}
+          </p>
+        </div>
+
         <SignatureBlocks
-          barangayCaptainName={barangayCaptainName}
-          preparedBy={preparedBy}
-          signatureImagePath={signatureImagePath}
+          barangayCaptainName={effectiveCaptainName}
+          preparedBy={effectivePreparedBy}
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          Electronic signature display is a thesis/demo visual placeholder only
-          and is not a legally verified digital signature. Official stamp remains
-          a physical process.
+          Demo Visual Signature: the signer name is a thesis/demo visual
+          representation only and is not a legally verified digital signature.
         </div>
       </div>
     </article>

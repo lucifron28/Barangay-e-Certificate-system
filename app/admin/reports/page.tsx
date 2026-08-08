@@ -25,6 +25,7 @@ import {
   REQUEST_STATUSES,
   REQUEST_STATUS_LABELS,
 } from "@/types/enums";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type ReportsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -50,6 +51,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
     await listAdminRequests(context.supabase),
     params,
   );
+  const showPickupWorkflow = !isFullyOnlineDemo;
 
   const { stats, mostRequested } = summarizeRequests(requests);
 
@@ -59,8 +61,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         <div>
           <h1 className="text-3xl font-bold">Reports</h1>
           <p className="text-base-content/70">
-            Printable request summary. PDF and Excel exports are pending client
-            confirmation.
+            Printable request summary with PDF and Excel export.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -146,8 +147,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
 
       <div className="alert alert-info no-print">
         <span>
-          PDF and Excel exports use a clean thesis/demo format. TODO: Final
-          monthly barangay report format pending client confirmation.
+          PDF and Excel exports use a clean thesis/demo report format.
         </span>
       </div>
 
@@ -168,13 +168,15 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                     { label: "Purpose", value: request.purpose, fullWidth: true },
                     { label: "Accepted", value: formatDate(request.date_accepted) },
                     { label: "Released", value: formatDate(request.date_released) },
-                    {
-                      label: "Pickup schedule",
-                      value: schedule
-                        ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
-                        : "Not scheduled",
-                      fullWidth: true,
-                    },
+                    ...(showPickupWorkflow
+                      ? [{
+                          label: "Pickup schedule",
+                          value: schedule
+                            ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
+                            : "Not scheduled",
+                          fullWidth: true,
+                        }]
+                      : []),
                     { label: "Fee", value: formatCurrency(request.fee_amount) },
                     { label: "Payment", value: <PaymentBadge status={request.payment_status} /> },
                   ]}
@@ -192,7 +194,7 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                 <th>Purpose</th>
                 <th>Date Requested</th>
                 <th>Date Accepted</th>
-                <th>Pickup Schedule</th>
+                {showPickupWorkflow ? <th>Pickup Schedule</th> : null}
                 <th>Date Released</th>
                 <th>Status</th>
                 <th>Fee</th>
@@ -210,13 +212,15 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
                     <td className="max-w-xs truncate">{request.purpose}</td>
                     <td>{formatDate(request.date_requested)}</td>
                     <td>{formatDate(request.date_accepted)}</td>
-                    <td>
-                      {schedule
-                        ? `${formatDate(schedule.pickup_date)} ${formatTime(
-                            schedule.pickup_time,
-                          )}`
-                        : "Not scheduled"}
-                    </td>
+                    {showPickupWorkflow ? (
+                      <td>
+                        {schedule
+                          ? `${formatDate(schedule.pickup_date)} ${formatTime(
+                              schedule.pickup_time,
+                            )}`
+                          : "Not scheduled"}
+                      </td>
+                    ) : null}
                     <td>{formatDate(request.date_released)}</td>
                     <td>
                       <StatusBadge status={request.status} />

@@ -18,6 +18,7 @@ import { requireResident } from "@/lib/auth/guards";
 import { listResidentRequests } from "@/lib/services/certificate-data";
 import { summarizeRequests } from "@/lib/utils/dashboard";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
+import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
 export default async function ResidentDashboardPage() {
   const context = await requireResident();
@@ -29,6 +30,7 @@ export default async function ResidentDashboardPage() {
   const requests = await listResidentRequests(context.profile.id, context.supabase);
   const { stats } = summarizeRequests(requests);
   const recentRequests = requests.slice(0, 5);
+  const copy = getCertificateDeliveryCopy();
 
   return (
     <div className="space-y-6">
@@ -36,7 +38,7 @@ export default async function ResidentDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold">Welcome, {context.profile.full_name}</h1>
           <p className="mt-1 text-base-content/70">
-            Track your certificate requests and pickup schedules.
+            {copy.dashboardDescription}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -60,7 +62,7 @@ export default async function ResidentDashboardPage() {
           icon={FileText}
           label="Ready"
           tone="primary"
-          value={stats.ready_for_pickup}
+          value={stats.ready_for_pickup + (stats.ready_for_download ?? 0)}
         />
         <StatCard icon={CheckCircle2} label="Done" tone="success" value={stats.done} />
         <StatCard icon={Ban} label="Cancelled" value={stats.cancelled} />

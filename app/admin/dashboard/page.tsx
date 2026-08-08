@@ -18,6 +18,7 @@ import { requireAdmin } from "@/lib/auth/guards";
 import { listAdminRequests } from "@/lib/services/certificate-data";
 import { summarizeRequests } from "@/lib/utils/dashboard";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
+import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
 export default async function AdminDashboardPage() {
   const context = await requireAdmin();
@@ -33,6 +34,7 @@ export default async function AdminDashboardPage() {
   const monthlyCount = requests.filter((request) =>
     request.date_requested.startsWith(thisMonth),
   ).length;
+  const copy = getCertificateDeliveryCopy();
 
   return (
     <div className="space-y-6">
@@ -40,8 +42,7 @@ export default async function AdminDashboardPage() {
         <div>
           <h1 className="text-3xl font-bold">Welcome, {context.profile.full_name}</h1>
           <p className="mt-1 text-base-content/70">
-            Review requests, prepare certificates, manage schedules, and monitor
-            office activity.
+            Review requests, issue certificates, and monitor system activity.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -64,7 +65,7 @@ export default async function AdminDashboardPage() {
           icon={FileText}
           label="Ready"
           tone="primary"
-          value={stats.ready_for_pickup}
+          value={stats.ready_for_pickup + (stats.ready_for_download ?? 0)}
         />
         <StatCard icon={CheckCircle2} label="Done" tone="success" value={stats.done} />
         <StatCard icon={Ban} label="Cancelled" value={stats.cancelled} />
@@ -74,8 +75,7 @@ export default async function AdminDashboardPage() {
         <h2 className="text-lg font-bold">Monthly statistics overview</h2>
         <p className="mt-1 text-base-content/70">
           {monthlyCount} request{monthlyCount === 1 ? "" : "s"} submitted this
-          month. Final barangay monthly report format is pending client
-          confirmation.
+          month. {copy.issuedDescription}
         </p>
       </section>
 

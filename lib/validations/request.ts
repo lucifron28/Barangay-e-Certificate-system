@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getCertificateFieldRequirements } from "@/lib/services/certificate-fields";
 import { CERTIFICATE_TYPES } from "@/types/enums";
 
 export const certificateRequestSchema = z.object({
@@ -7,39 +8,31 @@ export const certificateRequestSchema = z.object({
   }),
   full_name: z.string().min(1, "Full name is required."),
   age: z.coerce.number().int().min(1, "Age is required."),
-  sitio: z.string().min(1, "Address or sitio is required."),
+  sitio: z.string().optional(),
   purpose: z.string().min(1, "Purpose is required."),
   contact_number: z.string().min(1, "Contact number is required."),
-  date_requested: z.string().optional(),
   birthdate: z.string().optional(),
   place_of_birth: z.string().optional(),
   years_of_residency: z.coerce.number().int().min(0).optional().or(z.literal("")),
 }).superRefine((data, context) => {
-  if (
-    data.certificate_type === "barangay_certificate" &&
-    !data.place_of_birth?.trim()
-  ) {
-    context.addIssue({
-      code: "custom",
-      message: "Place of birth is required for Barangay Certificate.",
-      path: ["place_of_birth"],
-    });
-  }
+  const requiredMessages: Record<string, string> = {
+    age: "Age is required.",
+    birthdate: "Birthdate is required for Barangay Residency.",
+    contact_number: "Contact number is required.",
+    full_name: "Full name is required.",
+    place_of_birth: "Place of birth is required for Barangay Certificate.",
+    purpose: "Purpose is required.",
+    sitio: "Address or sitio is required for this certificate.",
+    years_of_residency: "Years of residency is required for Barangay Residency.",
+  };
 
-  if (data.certificate_type === "barangay_residency") {
-    if (!data.birthdate?.trim()) {
+  for (const requirement of getCertificateFieldRequirements(data.certificate_type)) {
+    const value = data[requirement.name];
+    if (value === undefined || value === null || String(value).trim() === "") {
       context.addIssue({
         code: "custom",
-        message: "Birthdate is required for Barangay Residency.",
-        path: ["birthdate"],
-      });
-    }
-
-    if (data.years_of_residency === "" || data.years_of_residency === undefined) {
-      context.addIssue({
-        code: "custom",
-        message: "Years of residency is required for Barangay Residency.",
-        path: ["years_of_residency"],
+        message: requiredMessages[requirement.name] ?? `${requirement.label} is required.`,
+        path: [requirement.name],
       });
     }
   }

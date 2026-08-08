@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS certificate_requests (
   resident_id TEXT NOT NULL REFERENCES profiles(id),
   certificate_type TEXT NOT NULL CHECK (certificate_type IN ('barangay_clearance', 'barangay_certificate', 'barangay_indigency', 'barangay_residency')),
   purpose TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_pickup', 'done', 'cancelled')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_pickup', 'ready_for_download', 'done', 'cancelled')),
   remarks TEXT,
   submitted_data TEXT NOT NULL DEFAULT '{}',
   control_number TEXT UNIQUE,
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS pickup_schedules (
 
 CREATE TABLE IF NOT EXISTS certificate_records (
   id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL UNIQUE REFERENCES certificate_requests(id),
+  request_id TEXT NOT NULL REFERENCES certificate_requests(id),
   certificate_type TEXT NOT NULL,
   resident_id TEXT NOT NULL REFERENCES profiles(id),
   date_issued TEXT NOT NULL,
@@ -60,8 +60,27 @@ CREATE TABLE IF NOT EXISTS certificate_records (
   control_number TEXT,
   template_data TEXT NOT NULL DEFAULT '{}',
   pdf_path TEXT,
+  certificate_number TEXT,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'revoked', 'expired')),
+  issuance_mode TEXT NOT NULL DEFAULT 'fully_online_demo',
+  issued_at TEXT,
+  issued_by TEXT REFERENCES profiles(id),
+  certificate_snapshot TEXT NOT NULL DEFAULT '{}',
+  pdf_sha256 TEXT,
+  verification_expires_at TEXT,
+  revoked_at TEXT,
+  revoked_by TEXT REFERENCES profiles(id),
+  revocation_reason TEXT,
+  replacement_record_id TEXT REFERENCES certificate_records(id),
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+CREATE INDEX IF NOT EXISTS certificate_records_request_id_idx
+  ON certificate_records (request_id, issued_at DESC);
+
+CREATE UNIQUE INDEX IF NOT EXISTS certificate_records_number_idx
+  ON certificate_records (certificate_number)
+  WHERE certificate_number IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS activity_logs (
   id TEXT PRIMARY KEY,
@@ -91,4 +110,71 @@ CREATE TABLE IF NOT EXISTS system_settings (
   value TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS rate_limit_attempts (
+  key_hash TEXT PRIMARY KEY,
+  action TEXT NOT NULL,
+  window_started_at TEXT NOT NULL,
+  attempts INTEGER NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS rate_limit_attempts_action_window_idx
+  ON rate_limit_attempts (action, window_started_at);
+
+CREATE TABLE IF NOT EXISTS document_counters (
+  id TEXT PRIMARY KEY,
+  counter_type TEXT NOT NULL CHECK (counter_type IN ('request_number', 'barangay_clearance_control_number', 'certificate_number')),
+  year INTEGER NOT NULL,
+  current_value INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+  UNIQUE (counter_type, year)
+);
+
+CREATE TABLE IF NOT EXISTS payments (
+  id TEXT PRIMARY KEY,
+  request_id TEXT NOT NULL REFERENCES certificate_requests(id),
+  resident_id TEXT NOT NULL REFERENCES profiles(id),
+  provider TEXT NOT NULL,
+  provider_transaction_id TEXT NOT NULL UNIQUE,
+  amount INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'PHP',
+  status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'paid', 'failed', 'cancelled', 'expired', 'refunded', 'free')),
+  paid_at TEXT,
+  expires_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS payments_request_id_idx ON payments (request_id, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS payment_events (
+  id TEXT PRIMARY KEY,
+  payment_id TEXT NOT NULL REFERENCES payments(id),
+  event_type TEXT NOT NULL,
+  payload TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS certificate_verifications (
+  id TEXT PRIMARY KEY,
+  certificate_record_id TEXT NOT NULL UNIQUE REFERENCES certificate_records(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  short_verification_code TEXT NOT NULL UNIQUE,
+  status TEXT NOT NULL CHECK (status IN ('valid', 'expired', 'revoked')),
+  valid_from TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now')),
+  updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS certificate_download_logs (
+  id TEXT PRIMARY KEY,
+  certificate_record_id TEXT NOT NULL REFERENCES certificate_records(id),
+  user_id TEXT NOT NULL REFERENCES profiles(id),
+  result TEXT NOT NULL,
+  downloaded_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

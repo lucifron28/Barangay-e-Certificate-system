@@ -29,6 +29,9 @@ import {
   formatDate,
   formatTime,
 } from "@/lib/utils/format";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
+import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
+import { isSqliteProvider } from "@/lib/db/provider";
 
 type CertificateRequestsPageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
@@ -62,8 +65,9 @@ export default async function AdminCertificateRequestsPage({
       <div>
         <h1 className="text-3xl font-bold">Certificate Requests</h1>
         <p className="text-base-content/70">
-          Review resident submissions and move requests through the office
-          workflow.
+          {isFullyOnlineDemo
+            ? "Review submissions, confirm demo payment, and issue secure certificates."
+            : "Review resident submissions and move requests through the office workflow."}
         </p>
       </div>
       <FlashMessage error={params.error} message={params.message} />
@@ -136,7 +140,15 @@ export default async function AdminCertificateRequestsPage({
         <>
           <div className="space-y-3 md:hidden">
             {requests.map((request) => {
-              const schedule = request.pickup_schedules[0];
+                const schedule = request.pickup_schedules[0];
+              const certificateRecord = isSqliteProvider()
+                ? getCertificateRecordByRequestId(request.id)
+                : null;
+              const showIssue =
+                (request.status === "accepted" &&
+                  ["paid", "free"].includes(request.payment_status) &&
+                  certificateRecord?.status !== "issued") ||
+                certificateRecord?.status === "revoked";
               return (
                 <MobileRecordCard
                   key={request.id}
@@ -147,12 +159,12 @@ export default async function AdminCertificateRequestsPage({
                     { label: "Resident", value: request.resident?.full_name ?? "Unknown" },
                     { label: "Requested", value: formatDate(request.date_requested) },
                     { label: "Purpose", value: request.purpose, fullWidth: true },
-                    {
+                    ...(!isFullyOnlineDemo ? [{
                       label: "Pickup schedule",
                       value: schedule
                         ? `${formatDate(schedule.pickup_date)} ${formatTime(schedule.pickup_time)}`
                         : "Not scheduled",
-                    },
+                    }] : []),
                     { label: "Fee", value: formatCurrency(request.fee_amount) },
                     {
                       label: "Payment",
@@ -171,31 +183,31 @@ export default async function AdminCertificateRequestsPage({
                           <button className="btn btn-info btn-sm" type="submit">Accept</button>
                         </form>
                       ) : null}
-                      {request.status === "accepted" ? (
+                      {!isFullyOnlineDemo && request.status === "accepted" ? (
                         <Link href={`/admin/pickup-schedules?request_id=${request.id}`} className="btn btn-secondary btn-sm">
                           <CalendarPlus className="size-4" aria-hidden />
                           Schedule
                         </Link>
                       ) : null}
-                      {request.status === "accepted" && schedule ? (
+                      {!isFullyOnlineDemo && request.status === "accepted" && schedule ? (
                         <form action={markRequestReadyAction}>
                           <input type="hidden" name="request_id" value={request.id} />
                           <button className="btn btn-accent btn-sm" type="submit">Ready</button>
                         </form>
                       ) : null}
-                      {request.status === "accepted" || request.status === "ready_for_pickup" ? (
+                      {showIssue ? (
                         <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary btn-sm">
                           <Printer className="size-4" aria-hidden />
-                          Generate
+                          {certificateRecord?.status === "revoked" ? "Reissue" : "Generate"}
                         </Link>
                       ) : null}
-                      {request.payment_status === "unpaid" ? (
+                      {!isFullyOnlineDemo && request.payment_status === "unpaid" ? (
                         <form action={markPaymentPaidAction}>
                           <input type="hidden" name="request_id" value={request.id} />
                           <button className="btn btn-warning btn-sm" type="submit">Paid</button>
                         </form>
                       ) : null}
-                      {request.status === "ready_for_pickup" ? (
+                      {!isFullyOnlineDemo && request.status === "ready_for_pickup" ? (
                         <form action={markRequestDoneAction}>
                           <input type="hidden" name="request_id" value={request.id} />
                           <button className="btn btn-success btn-sm" type="submit">Done</button>
@@ -217,7 +229,7 @@ export default async function AdminCertificateRequestsPage({
                 <th>Purpose</th>
                 <th>Date Requested</th>
                 <th>Status</th>
-                <th>Pickup Schedule</th>
+                {!isFullyOnlineDemo ? <th>Pickup Schedule</th> : null}
                 <th>Fee</th>
                 <th>Payment</th>
                 <th>Action</th>
@@ -226,6 +238,14 @@ export default async function AdminCertificateRequestsPage({
             <tbody>
               {requests.map((request) => {
                 const schedule = request.pickup_schedules[0];
+                const certificateRecord = isSqliteProvider()
+                  ? getCertificateRecordByRequestId(request.id)
+                  : null;
+                const showIssue =
+                  (request.status === "accepted" &&
+                    ["paid", "free"].includes(request.payment_status) &&
+                    certificateRecord?.status !== "issued") ||
+                  certificateRecord?.status === "revoked";
                 return (
                   <tr key={request.id}>
                     <td>{request.request_number}</td>
@@ -236,13 +256,13 @@ export default async function AdminCertificateRequestsPage({
                     <td>
                       <StatusBadge status={request.status} />
                     </td>
-                    <td>
+                    {!isFullyOnlineDemo ? <td>
                       {schedule
                         ? `${formatDate(schedule.pickup_date)} ${formatTime(
                             schedule.pickup_time,
                           )}`
                         : "Not scheduled"}
-                    </td>
+                    </td> : null}
                     <td>{formatCurrency(request.fee_amount)}</td>
                     <td>
                       <PaymentBadge status={request.payment_status} />
@@ -264,7 +284,7 @@ export default async function AdminCertificateRequestsPage({
                             </button>
                           </form>
                         ) : null}
-                        {request.status === "accepted" ? (
+                        {!isFullyOnlineDemo && request.status === "accepted" ? (
                           <Link
                             href={`/admin/pickup-schedules?request_id=${request.id}`}
                             className="btn btn-secondary btn-xs"
@@ -273,7 +293,7 @@ export default async function AdminCertificateRequestsPage({
                             Schedule
                           </Link>
                         ) : null}
-                        {request.status === "accepted" && schedule ? (
+                        {!isFullyOnlineDemo && request.status === "accepted" && schedule ? (
                           <form action={markRequestReadyAction}>
                             <input type="hidden" name="request_id" value={request.id} />
                             <button className="btn btn-accent btn-xs" type="submit">
@@ -281,17 +301,16 @@ export default async function AdminCertificateRequestsPage({
                             </button>
                           </form>
                         ) : null}
-                        {request.status === "accepted" ||
-                        request.status === "ready_for_pickup" ? (
+                        {showIssue ? (
                           <Link
                             href={`/admin/generate-certificate/${request.id}`}
                             className="btn btn-primary btn-xs"
                           >
                             <Printer className="size-3.5" aria-hidden />
-                            Generate
+                            {certificateRecord?.status === "revoked" ? "Reissue" : "Generate"}
                           </Link>
                         ) : null}
-                        {request.payment_status === "unpaid" ? (
+                        {!isFullyOnlineDemo && request.payment_status === "unpaid" ? (
                           <form action={markPaymentPaidAction}>
                             <input type="hidden" name="request_id" value={request.id} />
                             <button className="btn btn-warning btn-xs" type="submit">
@@ -299,7 +318,7 @@ export default async function AdminCertificateRequestsPage({
                             </button>
                           </form>
                         ) : null}
-                        {request.status === "ready_for_pickup" ? (
+                        {!isFullyOnlineDemo && request.status === "ready_for_pickup" ? (
                           <form action={markRequestDoneAction}>
                             <input type="hidden" name="request_id" value={request.id} />
                             <button className="btn btn-success btn-xs" type="submit">

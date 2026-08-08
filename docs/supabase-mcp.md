@@ -22,6 +22,14 @@ When the correct Supabase project is ready:
 6. Run `database/seed/001_admin_setup.sql` after replacing the placeholder
    emails.
 
+For the current thesis workflow, also apply
+`database/migrations/20260805000200_online_payment_and_counter_parity.sql` after
+`20260805000100_online_certificate_lifecycle.sql`. It prepares
+`document_counters`, `payments`, `payment_events`, certificate-number uniqueness,
+verification timestamps, and the related RLS policies. The application
+certificate/payment lifecycle has been validated against SQLite only; do not
+describe this migration as live Supabase workflow validation.
+
 Storage is not required for local demo mode. Supabase Storage may be added later
 for approved template assets, signature images, generated PDFs, or long-term
 certificate archives.

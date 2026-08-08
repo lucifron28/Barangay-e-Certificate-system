@@ -7,6 +7,7 @@ const badgeClass: Record<RequestStatus, string> = {
   cancelled: "badge-neutral",
   rejected: "badge-error",
   ready_for_pickup: "badge-primary",
+  ready_for_download: "badge-info",
   done: "badge-success",
 };
 

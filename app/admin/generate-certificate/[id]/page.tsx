@@ -5,12 +5,15 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PrintButton } from "@/components/ui/print-button";
 import { SetupRequired } from "@/components/ui/setup-required";
-import { saveCertificateRecordAction } from "@/lib/actions/admin";
+import { revokeCertificateRecordAction, saveCertificateRecordAction } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
   getAdminRequest,
   getSystemSettings,
 } from "@/lib/services/certificate-data";
+import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
+import { isSqliteProvider } from "@/lib/db/provider";
+import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import { toInputDate } from "@/lib/utils/format";
 
 type GenerateCertificatePageProps = {
@@ -42,6 +45,12 @@ export default async function GenerateCertificatePage({
     return <div className="alert alert-error">Request not found.</div>;
   }
 
+  const certificateRecord = isSqliteProvider() ? getCertificateRecordByRequestId(request.id) : null;
+  const hasActiveCertificate = certificateRecord?.status === "issued";
+  const isReissue = certificateRecord?.status === "revoked";
+  const eligibleForIssuance = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
+  const canPreview = hasActiveCertificate || eligibleForIssuance || isReissue;
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <div className="no-print flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -50,21 +59,27 @@ export default async function GenerateCertificatePage({
             <ArrowLeft className="size-4" aria-hidden />
             Back
           </Link>
-          <h1 className="mt-4 text-3xl font-bold">Generate Certificate</h1>
+          <h1 className="mt-4 text-3xl font-bold">
+            {certificateRecord?.status === "revoked"
+              ? "Reissue Certificate"
+              : "Generate Certificate"}
+          </h1>
           <p className="text-base-content/70">
             Printable HTML certificate based on the provided official PDF layout
             references.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <PrintButton />
-          <Link
-            href={`/admin/generate-certificate/${id}/pdf`}
-            className="btn btn-outline"
-          >
-            <FileDown className="size-4" aria-hidden />
-            Download PDF
-          </Link>
+          {hasActiveCertificate ? <PrintButton /> : null}
+          {hasActiveCertificate ? (
+            <Link
+              href={`/admin/generate-certificate/${id}/pdf`}
+              className="btn btn-outline"
+            >
+              <FileDown className="size-4" aria-hidden />
+              Download PDF
+            </Link>
+          ) : null}
         </div>
       </div>
 
@@ -72,25 +87,43 @@ export default async function GenerateCertificatePage({
         <FlashMessage error={query?.error} message={query?.message} />
         <div className="alert alert-warning">
           <span>
-            Reminder: Barangay Captain signature and official stamp are physical
-            steps after printing. The downloadable PDF is generated from clean
-            code templates; the source PDFs remain private reference files.
+            The downloadable PDF is generated from clean code templates; the
+            source PDFs remain private reference files. The displayed signature
+            is a visual thesis/demo representation only.
           </span>
         </div>
       </div>
 
-      <PrintableCertificate
-        barangayCaptainName={settings.barangayCaptainName}
-        preparedBy={context.profile.full_name}
-        request={request}
-        signatureImagePath={settings.signatureImagePath}
-      />
+      {canPreview ? (
+        <PrintableCertificate
+          barangayCaptainName={settings.barangayCaptainName}
+          certificateNumber={hasActiveCertificate ? certificateRecord?.certificate_number ?? undefined : undefined}
+          dateIssued={hasActiveCertificate ? certificateRecord?.date_issued : undefined}
+          draft={!hasActiveCertificate}
+          preparedBy={context.profile.full_name}
+          request={request}
+          snapshot={hasActiveCertificate ? certificateRecord?.certificate_snapshot : undefined}
+        />
+      ) : null}
 
-      <form
-        action={saveCertificateRecordAction}
-        className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
-      >
+      {certificateRecord?.status === "issued" ? (
+        <form action={revokeCertificateRecordAction} className="no-print space-y-3 rounded-lg border border-error/30 bg-base-100 p-5 shadow-sm">
+          <input type="hidden" name="certificate_record_id" value={certificateRecord.id} />
+          <div><h2 className="font-semibold">Revoke issued certificate</h2><p className="text-sm text-base-content/70">Revocation disables the QR verification record. The original PDF is retained for the audit trail.</p></div>
+          <label className="form-control max-w-xl"><span className="label"><span className="label-text">Revocation reason</span></span><textarea className="textarea textarea-bordered" name="reason" minLength={3} required /></label>
+          <SubmitButton className="btn btn-error" pendingText="Revoking...">Revoke certificate</SubmitButton>
+        </form>
+      ) : eligibleForIssuance || certificateRecord?.status === "revoked" ? (
+        <form
+          action={saveCertificateRecordAction}
+          className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
+        >
         <input type="hidden" name="request_id" value={request.id} />
+        <p className="basis-full text-sm text-base-content/70">
+          {certificateRecord?.status === "revoked"
+            ? "Reissue certificate: the revoked record remains in the audit trail and this issuance receives a new number and QR token."
+            : "Save the final issued certificate after reviewing the printable preview."}
+        </p>
         <label className="form-control">
           <span className="label">
             <span className="label-text">Date Issued</span>
@@ -110,7 +143,13 @@ export default async function GenerateCertificatePage({
         <Link href={`/admin/certificate-requests/${id}`} className="btn btn-ghost">
           Cancel
         </Link>
-      </form>
+        </form>
+      ) : (
+        <div className="no-print alert alert-warning">
+          Certificate issuance is unavailable until the request is accepted and
+          its fee is paid, or the request is marked free.
+        </div>
+      )}
     </div>
   );
 }

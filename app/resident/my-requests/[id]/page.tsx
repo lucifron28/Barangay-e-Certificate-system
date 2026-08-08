@@ -17,6 +17,9 @@ import {
   formatTime,
 } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
+import { getSubmittedInformation } from "@/lib/services/submitted-data";
+import { certificateHasField } from "@/lib/services/certificate-fields";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type RequestDetailsProps = {
   params: Promise<{ id: string }>;
@@ -75,6 +78,7 @@ export default async function ResidentRequestDetailsPage({
 
   const schedule = request.pickup_schedules[0];
   const submitted = submittedFields(request.submitted_data);
+  const submittedInformation = getSubmittedInformation(request);
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -103,7 +107,7 @@ export default async function ResidentRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Date Requested</dt>
             <dd className="font-medium">{formatDate(request.date_requested)}</dd>
           </div>
-          <div>
+          {!isFullyOnlineDemo ? <div>
             <dt className="text-sm text-base-content/60">Pickup Schedule</dt>
             <dd className="font-medium">
               {schedule
@@ -112,7 +116,7 @@ export default async function ResidentRequestDetailsPage({
                   )}`
                 : "Not scheduled"}
             </dd>
-          </div>
+          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Remarks</dt>
             <dd className="font-medium">{request.remarks ?? "None"}</dd>
@@ -130,10 +134,10 @@ export default async function ResidentRequestDetailsPage({
         </dl>
 
         <div className="mt-6 rounded-lg bg-base-200 p-4">
-          <h2 className="font-semibold">Submitted data</h2>
-          <pre className="mt-3 overflow-x-auto whitespace-pre-wrap text-xs">
-            {JSON.stringify(request.submitted_data, null, 2)}
-          </pre>
+          <h2 className="font-semibold">Submitted Information</h2>
+          <dl className="mt-3 grid gap-3 sm:grid-cols-2">
+            {submittedInformation.map((field) => <div key={field.label}><dt className="text-sm text-base-content/60">{field.label}</dt><dd className="font-medium">{field.value}</dd></div>)}
+          </dl>
         </div>
 
         {request.status === "pending" ? (
@@ -177,19 +181,21 @@ export default async function ResidentRequestDetailsPage({
               required
             />
           </label>
-          <label className="form-control">
-            <span className="label-text">Sitio</span>
-            <input
-              className="input input-bordered"
-              name="sitio"
-              defaultValue={
-                submitted.common?.address_sitio ??
-                context.profile.address_sitio ??
-                ""
-              }
-              required
-            />
-          </label>
+          {certificateHasField(request.certificate_type, "sitio") ? (
+            <label className="form-control">
+              <span className="label-text">Sitio</span>
+              <input
+                className="input input-bordered"
+                name="sitio"
+                defaultValue={
+                  submitted.common?.address_sitio ??
+                  context.profile.address_sitio ??
+                  ""
+                }
+                required
+              />
+            </label>
+          ) : null}
           <label className="form-control">
             <span className="label-text">Contact Number</span>
             <input
@@ -212,39 +218,48 @@ export default async function ResidentRequestDetailsPage({
               required
             />
           </label>
-          <label className="form-control">
-            <span className="label-text">Place of Birth</span>
-            <input
-              className="input input-bordered"
-              name="place_of_birth"
-              defaultValue={submitted.certificate_specific?.place_of_birth ?? ""}
-            />
-          </label>
-          <label className="form-control">
-            <span className="label-text">Birthdate</span>
-            <input
-              className="input input-bordered"
-              name="birthdate"
-              type="date"
-              defaultValue={
-                submitted.certificate_specific?.birthdate ??
-                context.profile.date_of_birth ??
-                ""
-              }
-            />
-          </label>
-          <label className="form-control">
-            <span className="label-text">Years of Residency</span>
-            <input
-              className="input input-bordered"
-              min="0"
-              name="years_of_residency"
-              type="number"
-              defaultValue={
-                submitted.certificate_specific?.years_of_residency ?? ""
-              }
-            />
-          </label>
+          {request.certificate_type === "barangay_certificate" ? (
+            <label className="form-control">
+              <span className="label-text">Place of Birth</span>
+              <input
+                className="input input-bordered"
+                name="place_of_birth"
+                defaultValue={submitted.certificate_specific?.place_of_birth ?? ""}
+                required
+              />
+            </label>
+          ) : null}
+          {request.certificate_type === "barangay_residency" ? (
+            <>
+              <label className="form-control">
+                <span className="label-text">Birthdate</span>
+                <input
+                  className="input input-bordered"
+                  name="birthdate"
+                  type="date"
+                  defaultValue={
+                    submitted.certificate_specific?.birthdate ??
+                    context.profile.date_of_birth ??
+                    ""
+                  }
+                  required
+                />
+              </label>
+              <label className="form-control">
+                <span className="label-text">Years of Residency</span>
+                <input
+                  className="input input-bordered"
+                  min="0"
+                  name="years_of_residency"
+                  type="number"
+                  defaultValue={
+                    submitted.certificate_specific?.years_of_residency ?? ""
+                  }
+                  required
+                />
+              </label>
+            </>
+          ) : null}
           <div className="md:col-span-2">
             <button className="btn btn-primary" type="submit">
               Resubmit Request

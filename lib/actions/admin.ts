@@ -1,6 +1,7 @@
 "use server";
 
-import { requireAdmin } from "@/lib/auth/guards";
+import { requireAdmin, requireMainAdmin } from "@/lib/auth/guards";
+import { getSystemSettings } from "@/lib/services/certificate-data";
 import {
   firstZodError,
   logActivity,
@@ -10,11 +11,14 @@ import {
 import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createNotificationLog,
-  saveCertificateRecord,
+  getCertificateRecordById,
+  revokeCertificateRecord,
+  setSystemSetting,
   updateRequestStatus,
   upsertPickupSchedule,
 } from "@/lib/db/sqlite/queries";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
+import { env } from "@/lib/env";
 import {
   canMarkDone,
   canRejectRequest,
@@ -29,11 +33,21 @@ import {
   markPaymentPaidSchema,
   markReadySchema,
   rejectRequestSchema,
+  revokeCertificateSchema,
   saveCertificateSchema,
   scheduleSchema,
+  systemSettingsSchema,
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
+import {
+  CertificateIssuanceError,
+  issueCertificate,
+} from "@/lib/services/certificate-issuance";
+import {
+  getCertificateDeliveryCopy,
+  isFullyOnlineDemo,
+} from "@/lib/services/issuance-mode";
 
 async function getAdminContextOrRedirect(path: string) {
   const context = await requireAdmin();
@@ -46,6 +60,7 @@ async function getAdminContextOrRedirect(path: string) {
 }
 
 function acceptedEmail(residentName: string, certificateType: string) {
+  const delivery = getCertificateDeliveryCopy();
   return {
     message: `Dear ${residentName},
 
@@ -53,7 +68,7 @@ Good day.
 
 Your request for ${certificateType} has been accepted by Barangay Bato. Your submitted information has been reviewed and your certificate request will now proceed for processing.
 
-Please wait for another email regarding the schedule or availability of your certificate for pickup.
+${delivery.emailDelivery}
 
 Thank you.
 
@@ -68,6 +83,9 @@ function rejectedEmail(
   certificateType: string,
   remarks: string,
 ) {
+  const followUp = isFullyOnlineDemo
+    ? "For further clarification, please contact Barangay Bato through the e-Certificate System."
+    : `For further clarification, please visit the Barangay Bato office during office hours, ${OFFICE_HOURS_LABEL}.`;
   return {
     message: `Dear ${residentName},
 
@@ -77,7 +95,7 @@ We regret to inform you that your request for ${certificateType} has been reject
 
 Reason/Remarks: ${remarks}
 
-For further clarification, please visit the Barangay Bato office during office hours, ${OFFICE_HOURS_LABEL}.
+${followUp}
 
 Thank you.
 
@@ -116,23 +134,24 @@ Barangay Bato, Mauban, Quezon`,
   };
 }
 
-function readyEmail(residentName: string, certificateType: string) {
+function certificateReadyEmail(residentName: string, certificateType: string) {
+  const online = isFullyOnlineDemo;
   return {
     message: `Dear ${residentName},
 
 Good day.
 
-Your ${certificateType} is now ready for pickup at the Barangay Bato office.
+Your ${certificateType} is now ${online ? "ready as a secure PDF download" : "ready for pickup at the Barangay Bato office"}.
 
-Please proceed to the barangay office during office hours to claim your certificate. Kindly bring a valid identification card or any necessary document for verification. Certificate fees shall be settled upon pickup.
+${online ? "Please sign in to My Certificates to download the issued PDF." : `Please proceed during office hours, ${OFFICE_HOURS_LABEL}, to claim your certificate.`}
 
-Office Hours: ${OFFICE_HOURS_LABEL}
+${getCertificateDeliveryCopy().emailDelivery}
 
 Thank you.
 
 Barangay Bato e-Certificate System
 Barangay Bato, Mauban, Quezon`,
-    subject: "Certificate Ready for Pickup",
+    subject: online ? "Certificate Ready for Download" : "Certificate Ready for Pickup",
   };
 }
 
@@ -315,6 +334,13 @@ export async function rejectRequestAction(formData: FormData) {
 }
 
 export async function setPickupScheduleAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Pickup scheduling is unavailable in fully online demo mode.",
+    );
+  }
+
   const parsed = scheduleSchema.safeParse({
     pickup_date: formData.get("pickup_date"),
     pickup_time: formData.get("pickup_time"),
@@ -355,10 +381,6 @@ export async function setPickupScheduleAction(formData: FormData) {
       remarks: parsed.data.remarks || null,
       request_id: request.id,
     });
-    updateRequestStatus({
-      id: request.id,
-      status: "ready_for_pickup",
-    });
   } else {
     const { error: scheduleError } = await context.supabase!
       .from("pickup_schedules")
@@ -379,13 +401,6 @@ export async function setPickupScheduleAction(formData: FormData) {
       redirectWithError("/admin/pickup-schedules", "Unable to save schedule.");
     }
 
-    await context.supabase!
-      .from("certificate_requests")
-      .update({
-        status: "ready_for_pickup",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", request.id);
   }
 
   await logActivity({
@@ -403,28 +418,23 @@ export async function setPickupScheduleAction(formData: FormData) {
     parsed.data.pickup_date,
     parsed.data.pickup_time,
   );
-  const readyForPickupEmail = readyEmail(
-    request.resident?.full_name ?? "Resident",
-    certificateLabel(request.certificate_type),
-  );
-
   await notifyAndLog({
     ...scheduledEmail,
     requestId: request.id,
     supabase: context.supabase,
     to: request.resident?.email,
   });
-  await notifyAndLog({
-    ...readyForPickupEmail,
-    requestId: request.id,
-    supabase: context.supabase,
-    to: request.resident?.email,
-  });
-
   redirectWithMessage("/admin/pickup-schedules", "Pickup schedule saved.");
 }
 
 export async function markRequestReadyAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online certificates become ready after payment and issuance.",
+    );
+  }
+
   const parsed = markReadySchema.safeParse({
     request_id: formData.get("request_id"),
   });
@@ -465,6 +475,12 @@ export async function markRequestReadyAction(formData: FormData) {
 }
 
 export async function markPaymentPaidAction(formData: FormData) {
+  if (env.certificateIssuanceMode === "fully_online_demo") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online demo payments must be completed by the resident.",
+    );
+  }
   const parsed = markPaymentPaidSchema.safeParse({
     request_id: formData.get("request_id"),
   });
@@ -482,6 +498,13 @@ export async function markPaymentPaidAction(formData: FormData) {
 
   if (request.payment_status === "free") {
     redirectWithError("/admin/certificate-requests", "This certificate is free.");
+  }
+
+  if (request.status !== "accepted") {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Only accepted requests can have office payment recorded.",
+    );
   }
 
   if (isSqliteProvider()) {
@@ -505,7 +528,7 @@ export async function markPaymentPaidAction(formData: FormData) {
     affectedRecordId: request.id,
     affectedTable: "certificate_requests",
     profile: context.profile,
-    remarks: "Payment status recorded during pickup/claiming.",
+    remarks: "Office payment recorded in hybrid workflow.",
     supabase: context.supabase,
   });
 
@@ -513,6 +536,13 @@ export async function markPaymentPaidAction(formData: FormData) {
 }
 
 export async function markRequestDoneAction(formData: FormData) {
+  if (isFullyOnlineDemo) {
+    redirectWithError(
+      "/admin/certificate-requests",
+      "Online certificates are completed when the resident downloads the issued PDF.",
+    );
+  }
+
   const parsed = markDoneSchema.safeParse({
     request_id: formData.get("request_id"),
   });
@@ -588,19 +618,29 @@ export async function saveCertificateRecordAction(formData: FormData) {
 
   const templateData: Json = {
     generated_at: new Date().toISOString(),
-    note: "TODO: Exact PDF template positioning and final production asset handling pending client confirmation.",
-    request,
+    request_number: request.request_number,
     signature_notice:
-      "Electronic signature display is a thesis/demo visual placeholder and not a legal digital signature.",
+      "The displayed signer is a visual thesis/demo representation, not a cryptographic digital signature.",
   };
 
+  let issuedCertificate: Awaited<ReturnType<typeof issueCertificate>> | null = null;
+
   if (isSqliteProvider()) {
-    saveCertificateRecord({
-      date_issued: parsed.data.date_issued,
-      prepared_by: context.profile.id,
-      request,
-      template_data: templateData,
-    });
+    const settings = await getSystemSettings(context.supabase);
+    try {
+      issuedCertificate = await issueCertificate({
+        dateIssued: parsed.data.date_issued,
+        preparedBy: context.profile.full_name,
+        preparedById: context.profile.id,
+        request,
+        settings,
+      });
+    } catch (error) {
+      if (error instanceof CertificateIssuanceError) {
+        redirectWithError(path, error.message);
+      }
+      redirectWithError(path, "Certificate issuance could not be completed.");
+    }
   } else {
     const { error } = await context.supabase!.from("certificate_records").upsert(
       {
@@ -627,9 +667,92 @@ export async function saveCertificateRecordAction(formData: FormData) {
     affectedRecordId: request.id,
     affectedTable: "certificate_records",
     profile: context.profile,
-    remarks: "Printable certificate record saved.",
+    remarks: issuedCertificate
+      ? `Issued ${issuedCertificate.certificateNumber} with QR verification metadata.`
+      : "Printable certificate record saved.",
     supabase: context.supabase,
   });
 
+  const readyEmail = certificateReadyEmail(
+    request.resident?.full_name ?? "Resident",
+    certificateLabel(request.certificate_type),
+  );
+  await notifyAndLog({
+    ...readyEmail,
+    requestId: request.id,
+    supabase: context.supabase,
+    to: request.resident?.email,
+  });
+
   redirectWithMessage(path, "Certificate record saved.");
+}
+
+export async function revokeCertificateRecordAction(formData: FormData) {
+  const parsed = revokeCertificateSchema.safeParse({
+    certificate_record_id: formData.get("certificate_record_id"),
+    reason: formData.get("reason"),
+  });
+
+  if (!parsed.success) {
+    redirectWithError("/admin/certificate-requests", firstZodError(parsed.error));
+  }
+
+  const context = await getAdminContextOrRedirect("/admin/certificate-requests");
+  if (!isSqliteProvider()) {
+    redirectWithError("/admin/certificate-requests", "Certificate revocation is not configured in this mode.");
+  }
+
+  const record = getCertificateRecordById(parsed.data.certificate_record_id);
+  if (!record) {
+    redirectWithError("/admin/certificate-requests", "Certificate record not found.");
+  }
+
+  const path = `/admin/generate-certificate/${record.request_id}`;
+  if (!revokeCertificateRecord({
+    id: record.id,
+    reason: parsed.data.reason,
+    revokedBy: context.profile.id,
+  })) {
+    redirectWithError(path, "Only an issued certificate can be revoked.");
+  }
+
+  await logActivity({
+    action: "Certificate revoked",
+    affectedRecordId: record.id,
+    affectedTable: "certificate_records",
+    profile: context.profile,
+    remarks: parsed.data.reason,
+    supabase: context.supabase,
+  });
+
+  redirectWithMessage(path, "Certificate revoked. You can now issue a replacement.");
+}
+
+export async function updateSystemSettingsAction(formData: FormData) {
+  const parsed = systemSettingsSchema.safeParse({
+    barangay_captain_name: formData.get("barangay_captain_name"),
+  });
+  if (!parsed.success) redirectWithError("/admin/settings", firstZodError(parsed.error));
+
+  const context = await requireMainAdmin();
+  if (context.setupMissing) {
+    redirectWithError("/admin/settings", "Supabase is not configured yet.");
+  }
+  if (isSqliteProvider()) {
+    setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
+  } else {
+    const { error } = await context.supabase!.from("system_settings").upsert([
+      { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },
+    ], { onConflict: "key" });
+    if (error) redirectWithError("/admin/settings", "Unable to update settings.");
+  }
+
+  await logActivity({
+    action: "System settings updated",
+    affectedTable: "system_settings",
+    profile: context.profile,
+    remarks: "Certificate signer settings updated.",
+    supabase: context.supabase,
+  });
+  redirectWithMessage("/admin/settings", "Certificate signer settings updated.");
 }

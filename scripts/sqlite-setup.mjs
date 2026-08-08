@@ -228,7 +228,7 @@ db.transaction(() => {
   );
 
   const settings = [
-    ["barangay_captain_name", "Barangay Captain Name"],
+    ["barangay_captain_name", "Authorized Barangay Official"],
     ["signature_image_path", null],
     ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"],
   ];

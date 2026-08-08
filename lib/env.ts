@@ -1,12 +1,17 @@
 export const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   databaseProvider: process.env.DATABASE_PROVIDER ?? "sqlite",
+  certificateIssuanceMode:
+    process.env.CERTIFICATE_ISSUANCE_MODE === "hybrid_physical_original"
+      ? ("hybrid_physical_original" as const)
+      : ("fully_online_demo" as const),
   emailFrom: process.env.EMAIL_FROM ?? "",
   localDemoAdminEmail:
     process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",
   localDemoAdminPassword:
     process.env.LOCAL_DEMO_ADMIN_PASSWORD ?? "password123",
   localDemoSecret: process.env.LOCAL_DEMO_SECRET ?? "",
+  trustProxy: process.env.TRUST_PROXY === "true",
   resendApiKey: process.env.RESEND_API_KEY ?? "",
   sqliteDatabaseUrl:
     process.env.SQLITE_DATABASE_URL ?? "file:./data/dev.sqlite",

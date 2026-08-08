@@ -10,6 +10,7 @@ export const REQUEST_STATUSES = [
   "accepted",
   "rejected",
   "ready_for_pickup",
+  "ready_for_download",
   "done",
   "cancelled",
 ] as const;
@@ -21,11 +22,22 @@ export const PROFILE_ROLES = [
 ] as const;
 
 export const PAYMENT_STATUSES = ["unpaid", "paid", "free"] as const;
+export const MOCK_PAYMENT_STATUSES = [
+  "pending",
+  "processing",
+  "paid",
+  "failed",
+  "cancelled",
+  "expired",
+  "refunded",
+  "free",
+] as const;
 
 export type CertificateType = (typeof CERTIFICATE_TYPES)[number];
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 export type ProfileRole = (typeof PROFILE_ROLES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+export type MockPaymentStatus = (typeof MOCK_PAYMENT_STATUSES)[number];
 
 export const CERTIFICATE_TYPE_LABELS: Record<CertificateType, string> = {
   barangay_clearance: "Barangay Clearance",
@@ -39,6 +51,7 @@ export const REQUEST_STATUS_LABELS: Record<RequestStatus, string> = {
   accepted: "Accepted",
   rejected: "Rejected",
   ready_for_pickup: "Ready for Pickup",
+  ready_for_download: "Ready for Download",
   done: "Done",
   cancelled: "Cancelled",
 };

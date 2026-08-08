@@ -16,6 +16,7 @@ import {
   listSchedulableRequests,
 } from "@/lib/services/certificate-data";
 import { OFFICE_HOURS_LABEL } from "@/lib/services/business-rules";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import { certificateLabel, formatDate, formatTime } from "@/lib/utils/format";
 
 type PickupSchedulesPageProps = {
@@ -34,6 +35,18 @@ export default async function PickupSchedulesPage({
   searchParams,
 }: PickupSchedulesPageProps) {
   const context = await requireAdmin();
+
+  if (isFullyOnlineDemo) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-4">
+        <h1 className="text-3xl font-bold">Online certificate delivery</h1>
+        <p className="text-base-content/70">
+          Pickup scheduling is disabled in fully online demo mode. Residents
+          download issued certificates from My Certificates.
+        </p>
+      </div>
+    );
+  }
   const params = (await searchParams) ?? {};
 
   if (context.setupMissing) {
