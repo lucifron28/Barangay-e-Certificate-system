@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowLeft, FileDown, Save } from "lucide-react";
+import { ArrowLeft, FileDown } from "lucide-react";
+import { CertificateIssuanceEditor } from "@/components/certificates/certificate-issuance-editor";
 import { PrintableCertificate } from "@/components/certificates/printable-certificate";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
@@ -95,15 +96,25 @@ export default async function GenerateCertificatePage({
       </div>
 
       {canPreview ? (
-        <PrintableCertificate
-          barangayCaptainName={settings.barangayCaptainName}
-          certificateNumber={hasActiveCertificate ? certificateRecord?.certificate_number ?? undefined : undefined}
-          dateIssued={hasActiveCertificate ? certificateRecord?.date_issued : undefined}
-          draft={!hasActiveCertificate}
-          preparedBy={context.profile.full_name}
-          request={request}
-          snapshot={hasActiveCertificate ? certificateRecord?.certificate_snapshot : undefined}
-        />
+        hasActiveCertificate ? (
+          <PrintableCertificate
+            barangayCaptainName={settings.barangayCaptainName}
+            certificateNumber={certificateRecord?.certificate_number ?? undefined}
+            dateIssued={certificateRecord?.date_issued}
+            preparedBy={context.profile.full_name}
+            request={request}
+            snapshot={certificateRecord?.certificate_snapshot}
+          />
+        ) : (
+          <CertificateIssuanceEditor
+            action={saveCertificateRecordAction}
+            barangayCaptainName={settings.barangayCaptainName}
+            initialDateIssued={toInputDate(new Date().toISOString())}
+            isReissue={isReissue}
+            preparedBy={context.profile.full_name}
+            request={request}
+          />
+        )
       ) : null}
 
       {certificateRecord?.status === "issued" ? (
@@ -113,43 +124,12 @@ export default async function GenerateCertificatePage({
           <label className="form-control max-w-xl"><span className="label"><span className="label-text">Revocation reason</span></span><textarea className="textarea textarea-bordered" name="reason" minLength={3} required /></label>
           <SubmitButton className="btn btn-error" pendingText="Revoking...">Revoke certificate</SubmitButton>
         </form>
-      ) : eligibleForIssuance || certificateRecord?.status === "revoked" ? (
-        <form
-          action={saveCertificateRecordAction}
-          className="no-print flex flex-wrap items-end gap-3 rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm"
-        >
-        <input type="hidden" name="request_id" value={request.id} />
-        <p className="basis-full text-sm text-base-content/70">
-          {certificateRecord?.status === "revoked"
-            ? "Reissue certificate: the revoked record remains in the audit trail and this issuance receives a new number and QR token."
-            : "Save the final issued certificate after reviewing the printable preview."}
-        </p>
-        <label className="form-control">
-          <span className="label">
-            <span className="label-text">Date Issued</span>
-          </span>
-          <input
-            className="input input-bordered"
-            name="date_issued"
-            type="date"
-            defaultValue={toInputDate(new Date().toISOString())}
-            required
-          />
-        </label>
-        <SubmitButton pendingText="Saving...">
-          <Save className="size-4" aria-hidden />
-          Save Certificate Record
-        </SubmitButton>
-        <Link href={`/admin/certificate-requests/${id}`} className="btn btn-ghost">
-          Cancel
-        </Link>
-        </form>
-      ) : (
+      ) : !canPreview ? (
         <div className="no-print alert alert-warning">
           Certificate issuance is unavailable until the request is accepted and
           its fee is paid, or the request is marked free.
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -288,7 +288,7 @@ export function PrintableCertificate({
       <div className="relative z-10">
         {draft ? (
           <div className="mb-4 border-2 border-dashed border-warning p-2 text-center text-xs font-bold uppercase tracking-normal text-warning">
-            Draft preview - certificate number and official issue date are assigned when saved
+            Draft preview - certificate number will be assigned when saved
           </div>
         ) : null}
         <Header />
@@ -338,7 +338,10 @@ export function PrintableCertificate({
 
         <p className="mt-10 text-[15px] leading-8">
           {draft ? (
-            "The official issue date will be assigned when this preview is saved."
+            <>
+              Selected issue date: <strong>{templateData.dateIssued}</strong>.
+              Save this preview to issue the certificate.
+            </>
           ) : (
             <>
               Issued this <strong>{templateData.dateIssued}</strong> at
