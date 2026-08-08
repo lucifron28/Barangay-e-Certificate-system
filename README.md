@@ -339,9 +339,14 @@ and role checks.
 5. Apply `database/migrations/20260511090000_clarified_demo_supabase_schema.sql`.
 6. Apply `database/migrations/20260805000100_online_certificate_lifecycle.sql`.
 7. Apply `database/migrations/20260805000200_online_payment_and_counter_parity.sql`.
-8. Create the Main Admin and Barangay Secretary accounts, then promote them with
+8. Apply `database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`.
+9. Create the Main Admin and Barangay Secretary accounts, then promote them with
    the documented seed SQL.
-9. Restart the app and verify role-based redirects and RLS behavior.
+10. Restart the app and verify role-based redirects and RLS behavior.
+
+See [`docs/supabase-thesis-boundary.md`](docs/supabase-thesis-boundary.md) for
+the exact SQLite-versus-Supabase thesis boundary and the remaining live-project
+validation work.
 
 ## Supabase MCP Instructions
 
