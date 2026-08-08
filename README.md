@@ -267,9 +267,12 @@ npm run db:sqlite:seed
 npm run db:sqlite:reset
 ```
 
-`db:sqlite:reset` recreates the local demo database and sample data. The
+All three commands use the canonical `scripts/demo-reset.ts` seed path and
+recreate the same synthetic seven-request lifecycle dataset. The legacy
+`scripts/sqlite-setup.mjs` command remains as a compatibility wrapper. The
 equivalent presentation command is `npm run demo:reset`; it also generates
-real certificate PDFs and verification samples.
+certificate PDFs and prints verification samples. The test runner uses the
+same reset path against `data/test.sqlite` and an isolated certificate folder.
 
 ## Demo Login Credentials
 
