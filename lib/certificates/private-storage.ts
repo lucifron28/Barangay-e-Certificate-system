@@ -6,8 +6,8 @@ import path from "node:path";
 function certificateStorageDirectory() {
   const configuredDirectory = process.env.CERTIFICATE_STORAGE_DIRECTORY;
   return configuredDirectory
-    ? path.resolve(process.cwd(), configuredDirectory)
-    : path.join(process.cwd(), "data", "certificates");
+    ? path.resolve(/* turbopackIgnore: true */ process.cwd(), configuredDirectory)
+    : path.join(/* turbopackIgnore: true */ process.cwd(), "data", "certificates");
 }
 
 export function savePrivateCertificatePdf(certificateId: string, pdfBytes: Uint8Array) {
