@@ -15,23 +15,12 @@ export const certificateRequestSchema = z.object({
   place_of_birth: z.string().optional(),
   years_of_residency: z.coerce.number().int().min(0).optional().or(z.literal("")),
 }).superRefine((data, context) => {
-  const requiredMessages: Record<string, string> = {
-    age: "Age is required.",
-    birthdate: "Birthdate is required for Barangay Residency.",
-    contact_number: "Contact number is required.",
-    full_name: "Full name is required.",
-    place_of_birth: "Place of birth is required for Barangay Certificate.",
-    purpose: "Purpose is required.",
-    sitio: "Address or sitio is required for this certificate.",
-    years_of_residency: "Years of residency is required for Barangay Residency.",
-  };
-
   for (const requirement of getCertificateFieldRequirements(data.certificate_type)) {
     const value = data[requirement.name];
     if (value === undefined || value === null || String(value).trim() === "") {
       context.addIssue({
         code: "custom",
-        message: requiredMessages[requirement.name] ?? `${requirement.label} is required.`,
+        message: requirement.message,
         path: [requirement.name],
       });
     }

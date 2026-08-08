@@ -133,6 +133,25 @@ describe("certificate request field requirements", () => {
     expect(result.success).toBe(true);
   });
 
+  it("uses shared field requirements for certificate-specific validation messages", () => {
+    const result = certificateRequestSchema.safeParse({
+      certificate_type: "barangay_residency",
+      full_name: "Juan Demo Resident",
+      age: 28,
+      contact_number: "09170000001",
+      purpose: "School enrollment",
+    });
+
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    const messages = result.error.issues.map((issue) => issue.message);
+    for (const requirement of getCertificateFieldRequirements("barangay_residency")) {
+      if (!["full_name", "age", "contact_number", "purpose"].includes(requirement.name)) {
+        expect(messages).toContain(requirement.message);
+      }
+    }
+  });
+
   it("keeps Barangay Certificate information complete without Sitio", () => {
     const fields = getSubmittedInformation(requestBase);
     expect(fields).toEqual([
