@@ -16,11 +16,12 @@ npm test
 npm run build
 ```
 
-Expected current result: 8 test files and 39 tests pass. `npm test` resets
-`data/test.sqlite` and `data/certificates-test/`, so it does not overwrite the
-presentation database or its generated PDFs. `npm run demo:reset` resets the
-presentation database at `data/dev.sqlite` and prints fresh valid, expired, and
-revoked verification URLs.
+Expected current result: all current Vitest tests pass (the current branch
+contains 13 test files and 53 tests). `npm test` resets `data/test.sqlite` and
+`data/certificates-test/`, so it does not overwrite the presentation database or
+its generated PDFs. `npm run demo:reset` resets the presentation database at
+`data/dev.sqlite` and prints fresh valid, expired, and revoked verification
+URLs.
 
 ## Manual smoke gate
 
@@ -58,5 +59,12 @@ revoked verification URLs.
 - The displayed signer is a visual placeholder, not a legally verified digital
   signature.
 - QR verification shows issuance/status and does not prevent photocopying.
+- The QR verification window is exactly 72 hours from actual certificate
+  issuance; expired and revoked records remain viewable as status evidence but
+  cannot be downloaded by a resident.
+- Certificate download success and denial outcomes are audited without storing
+  raw tokens or private file paths.
 - SQLite is the fully validated end-to-end mode; Supabase migrations and SSR
   utilities are prepared but require a confirmed project and live RLS testing.
+  Supabase certificate issuance currently fails closed rather than performing a
+  partial record-only save.

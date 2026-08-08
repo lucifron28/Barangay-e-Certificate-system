@@ -10,8 +10,10 @@ an authorized production government service and must not be presented as one.
   cryptographic or legally verified digital signature.
 - The mock payment workflow transfers no actual funds and must not collect real
   financial information.
-- The three-day verification expiry is a client-selected demo policy, not a
-  final legal retention or validity rule.
+- The demo verification expiry is exactly 72 hours from the actual issuance
+  timestamp. It is a thesis/demo policy, not a final legal retention or validity
+  rule. Expired and revoked records remain visible for status/audit purposes,
+  but resident PDF downloads are denied.
 - Local demo authentication is for development and thesis presentation only;
   deployment must use Supabase Auth and reviewed operational controls.
 - Real deployment requires official LGU adoption and authorization.
@@ -23,3 +25,6 @@ an authorized production government service and must not be presented as one.
   signature assets.
 - Certificate templates, report formats, email content, storage, and office
   procedures require final client approval before production use.
+- Supabase certificate issuance is intentionally unavailable until private PDF
+  storage, immutable snapshots, public verification, and a reviewed issuer
+  service are implemented and tested against the confirmed project.

@@ -37,6 +37,14 @@ It keeps resident profile updates owner-only, removes trigger-only helpers from
 the authenticated API surface, protects lifecycle tables, and documents that
 public verification is not exposed through the Data API in the thesis boundary.
 
+Also review and apply
+`database/migrations/20260808000100_final_defense_supabase_boundary.sql` only
+after the project is confirmed. It restricts system-setting writes to
+`main_admin`, replaces row-count number generation with atomic yearly counters,
+removes the permissive resident payment-insert policy, and keeps certificate
+issuance unavailable until a reviewed Supabase issuer/private-storage service
+exists.
+
 Storage is not required for local demo mode. Supabase Storage may be added later
 for approved template assets, signature images, generated PDFs, or long-term
 certificate archives.
