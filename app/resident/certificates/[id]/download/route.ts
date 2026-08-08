@@ -9,6 +9,7 @@ import { requireResident } from "@/lib/auth/guards";
 import { logActivity } from "@/lib/actions/helpers";
 import { isSqliteProvider } from "@/lib/db/provider";
 import { sha256Hex } from "@/lib/security/document-hash";
+import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 
 export const runtime = "nodejs";
 
@@ -19,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   if (!isSqliteProvider()) return new Response("Certificate delivery is not configured.", { status: 503 });
 
   const record = getCertificateRecordById(id);
-  const expired = !record?.verification_expires_at || new Date(record.verification_expires_at).getTime() < Date.now();
+  const expired = !record?.verification_expires_at || isVerificationExpired(record.verification_expires_at);
   if (!record || record.resident_id !== context.profile.id || record.status !== "issued" || expired || !record.pdf_path || !record.pdf_sha256 || !existsSync(record.pdf_path)) {
     return new Response("Certificate unavailable", { status: 404, headers: { "Cache-Control": "no-store" } });
   }

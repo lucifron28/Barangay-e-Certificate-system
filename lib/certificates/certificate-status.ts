@@ -9,6 +9,15 @@ export const CERTIFICATE_DISPLAY_STATUS_LABELS = {
 
 export type CertificateDisplayStatus = keyof typeof CERTIFICATE_DISPLAY_STATUS_LABELS;
 
+export function isVerificationExpired(
+  expiresAt: string,
+  now: Date | number = new Date(),
+) {
+  const expiryTime = new Date(expiresAt).getTime();
+  const nowTime = now instanceof Date ? now.getTime() : now;
+  return Number.isNaN(expiryTime) || nowTime >= expiryTime;
+}
+
 export function getCertificateDisplayStatus(
   record: Pick<
     CertificateRecord,
@@ -21,7 +30,7 @@ export function getCertificateDisplayStatus(
   if (
     record.status === "expired" ||
     !record.verification_expires_at ||
-    new Date(record.verification_expires_at).getTime() <= now
+    isVerificationExpired(record.verification_expires_at, now)
   ) {
     return "expired";
   }

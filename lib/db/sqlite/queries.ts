@@ -6,6 +6,7 @@ import {
   getCertificateFee,
   getDefaultPaymentStatus,
 } from "@/lib/services/business-rules";
+import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import type {
   CertificateRecord,
   CertificateRequest,
@@ -1034,7 +1035,7 @@ export function getCertificateVerificationByToken(token: string) {
       : fallback;
   const expiresAt = String(row.expires_at);
   const revoked = row.revoked_at !== null || row.certificate_status === "revoked";
-  const expired = new Date(expiresAt).getTime() < Date.now();
+  const expired = row.status === "expired" || isVerificationExpired(expiresAt);
   const replacementRecordId = asText(row.replacement_record_id);
   return {
     certificateNumber: snapshotText("certificate_number", String(row.certificate_number)),

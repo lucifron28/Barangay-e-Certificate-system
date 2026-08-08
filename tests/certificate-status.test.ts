@@ -4,12 +4,31 @@ import {
   certificateStatusBadgeClass,
   certificateStatusMessage,
   getCertificateDisplayStatus,
+  isVerificationExpired,
 } from "@/lib/certificates/certificate-status";
 
 describe("certificate release status", () => {
   const now = Date.parse("2026-08-08T04:00:00.000Z");
 
   it("keeps valid certificates available until the exact expiry boundary", () => {
+    expect(
+      isVerificationExpired(
+        "2026-08-08T04:00:00.001Z",
+        now,
+      ),
+    ).toBe(false);
+    expect(
+      isVerificationExpired(
+        "2026-08-08T04:00:00.000Z",
+        now,
+      ),
+    ).toBe(true);
+    expect(
+      isVerificationExpired(
+        "2026-08-08T03:59:59.999Z",
+        now,
+      ),
+    ).toBe(true);
     expect(
       getCertificateDisplayStatus(
         { replacement_record_id: null, status: "issued", verification_expires_at: "2026-08-08T04:00:00.001Z" },

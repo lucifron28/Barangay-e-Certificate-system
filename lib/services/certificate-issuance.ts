@@ -19,6 +19,7 @@ import {
 import { sha256Hex } from "@/lib/security/document-hash";
 import { env } from "@/lib/env";
 import { issuanceMode } from "@/lib/services/issuance-mode";
+import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import type { RequestWithResident } from "@/lib/db/sqlite/queries";
 import type { CertificateRecord, Json } from "@/types/database";
 
@@ -167,8 +168,7 @@ export async function issueCertificate(input: {
   const expiresAt = new Date(
     issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
-  const verificationStatus =
-    new Date(expiresAt).getTime() <= Date.now() ? "expired" : "valid";
+  const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
   const certificateNumber = allocateCertificateNumber();
   const certificateRecordId = randomUUID();
   const verificationToken = generateVerificationToken();
