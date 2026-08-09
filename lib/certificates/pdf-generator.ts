@@ -18,6 +18,12 @@ import {
   getCertificateTemplateData,
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
+import {
+  calculateHistoricalCertificateBodyLayout,
+  generateHistoricalCertificatePdf,
+  HistoricalCertificatePdfLayoutError,
+  isHistoricalCertificateType,
+} from "@/lib/certificates/historical-layout";
 import type { CertificateSnapshot } from "@/types/database";
 
 const LETTER_WIDTH = 612;
@@ -29,12 +35,19 @@ export const CERTIFICATE_LAYOUT_REGIONS = {
   bodyBottom: 226,
   footer: { height: 38, width: LETTER_WIDTH - MARGIN * 2, x: MARGIN, y: 23 },
   qr: { size: 56, x: 490, y: 78 },
-  signature: { height: 66, width: LETTER_WIDTH - MARGIN * 2, x: MARGIN, y: 145 },
+  signature: {
+    height: 66,
+    width: LETTER_WIDTH - MARGIN * 2,
+    x: MARGIN,
+    y: 145,
+  },
   verification: { height: 68, width: 228, x: 330, y: 72 },
 } as const;
 
 export class CertificatePdfLayoutError extends Error {
-  constructor(message = "Certificate content exceeds the printable body area.") {
+  constructor(
+    message = "Certificate content exceeds the printable body area.",
+  ) {
     super(message);
     this.name = "CertificatePdfLayoutError";
   }
@@ -133,7 +146,12 @@ function drawText(
   });
 }
 
-function splitLongWord(word: string, font: PDFFont, size: number, maxWidth: number) {
+function splitLongWord(
+  word: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number,
+) {
   const lines: string[] = [];
   let current = "";
 
@@ -308,7 +326,11 @@ function bodyParagraphs(
   request: CertificateRequestWithResident,
   snapshot?: CertificateSnapshot,
 ) {
-  const data = getCertificateTemplateData(request, snapshot?.date_issued, snapshot);
+  const data = getCertificateTemplateData(
+    request,
+    snapshot?.date_issued,
+    snapshot,
+  );
 
   switch (request.certificate_type) {
     case "barangay_clearance":
@@ -379,14 +401,19 @@ function selectBodyLayout(
   for (const option of BODY_LAYOUT_OPTIONS) {
     let y = 540 - 35;
     for (const paragraph of template.paragraphs) {
-      y -= wrapText(paragraph, fonts.serif, option.bodyFontSize, maxWidth).length * option.bodyLineHeight;
+      y -=
+        wrapText(paragraph, fonts.serif, option.bodyFontSize, maxWidth).length *
+        option.bodyLineHeight;
       y -= option.paragraphGap;
     }
 
     y -= 4;
     y -= template.meta.length * option.metaLineHeight;
     y -= option.issueGap;
-    const endY = y - wrapText(issueText, fonts.serif, option.issueFontSize, maxWidth).length * option.issueLineHeight;
+    const endY =
+      y -
+      wrapText(issueText, fonts.serif, option.issueFontSize, maxWidth).length *
+        option.issueLineHeight;
 
     if (endY >= CERTIFICATE_LAYOUT_REGIONS.bodyBottom) {
       return { ...option, endY };
@@ -403,13 +430,18 @@ export async function calculateCertificateBodyLayout(input: {
   request: CertificateRequestWithResident;
   snapshot?: CertificateSnapshot;
 }) {
+  if (isHistoricalCertificateType(input.request.certificate_type)) {
+    return calculateHistoricalCertificateBodyLayout(input);
+  }
+
   const pdfDoc = await PDFDocument.create();
   const fonts: PdfFonts = {
     bold: await pdfDoc.embedFont(StandardFonts.HelveticaBold),
     regular: await pdfDoc.embedFont(StandardFonts.Helvetica),
     serif: await pdfDoc.embedFont(StandardFonts.Helvetica),
   };
-  const effectiveDateIssued = input.snapshot?.date_issued ?? input.dateIssued ?? new Date().toISOString();
+  const effectiveDateIssued =
+    input.snapshot?.date_issued ?? input.dateIssued ?? new Date().toISOString();
   return selectBodyLayout(
     fonts,
     bodyParagraphs(input.request, input.snapshot),
@@ -438,13 +470,37 @@ export async function generateCertificatePdf({
   request: CertificateRequestWithResident;
   snapshot?: CertificateSnapshot;
 }) {
+  if (isHistoricalCertificateType(request.certificate_type)) {
+    try {
+      return await generateHistoricalCertificatePdf({
+        barangayCaptainName,
+        certificateNumber,
+        dateIssued,
+        preparedBy,
+        request,
+        snapshot,
+        verificationCode,
+        verificationExpiresAt,
+        verificationUrl,
+      });
+    } catch (error) {
+      if (error instanceof HistoricalCertificatePdfLayoutError) {
+        throw new CertificatePdfLayoutError(error.message);
+      }
+      throw error;
+    }
+  }
+
   const pdfDoc = await PDFDocument.create();
-  const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
+  const effectiveCertificateNumber =
+    snapshot?.certificate_number ?? certificateNumber;
   const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
   pdfDoc.setTitle(
     `${certificateLabel(request.certificate_type)} - ${effectiveCertificateNumber ?? "Preview"}`,
   );
-  pdfDoc.setSubject("Barangay Bato e-Certificate System thesis/demo certificate");
+  pdfDoc.setSubject(
+    "Barangay Bato e-Certificate System thesis/demo certificate",
+  );
   pdfDoc.setKeywords([
     "Barangay Bato",
     "e-Certificate",
@@ -473,12 +529,24 @@ export async function generateCertificatePdf({
 
   drawWatermark(page, fonts);
   drawHeader(page, fonts);
-  centerText(page, certificateLabel(request.certificate_type), 622, fonts.regular, 8);
+  centerText(
+    page,
+    certificateLabel(request.certificate_type),
+    622,
+    fonts.regular,
+    8,
+  );
   centerText(page, template.title, 584, fonts.bold, 16);
-  drawText(page, `Certificate No.: ${effectiveCertificateNumber ?? "Pending issuance"}`, MARGIN, 646, {
-    font: fonts.regular,
-    size: 9,
-  });
+  drawText(
+    page,
+    `Certificate No.: ${effectiveCertificateNumber ?? "Pending issuance"}`,
+    MARGIN,
+    646,
+    {
+      font: fonts.regular,
+      size: 9,
+    },
+  );
 
   let y = 540;
   drawText(page, template.salutation, MARGIN, y, {
@@ -556,14 +624,7 @@ export async function generateCertificatePdf({
     fonts.bold,
     10,
   );
-  centerTextAt(
-    page,
-    "Punong Barangay",
-    446,
-    signatureY - 32,
-    fonts.regular,
-    8,
-  );
+  centerTextAt(page, "Punong Barangay", 446, signatureY - 32, fonts.regular, 8);
 
   page.drawRectangle({
     x: CERTIFICATE_LAYOUT_REGIONS.footer.x,
@@ -604,8 +665,14 @@ export async function generateCertificatePdf({
   });
 
   if (verificationUrl) {
-    const dataUrl = await QRCode.toDataURL(verificationUrl, { errorCorrectionLevel: "M", margin: 1, width: 160 });
-    const png = await pdfDoc.embedPng(Buffer.from(dataUrl.split(",")[1], "base64"));
+    const dataUrl = await QRCode.toDataURL(verificationUrl, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 160,
+    });
+    const png = await pdfDoc.embedPng(
+      Buffer.from(dataUrl.split(",")[1], "base64"),
+    );
     page.drawImage(png, {
       x: CERTIFICATE_LAYOUT_REGIONS.qr.x,
       y: CERTIFICATE_LAYOUT_REGIONS.qr.y,
