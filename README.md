@@ -29,28 +29,28 @@ before this update. Sources used include the official Next.js installation docs,
 Tailwind CSS PostCSS install docs, daisyUI install/theme docs, Supabase SSR/RLS
 docs, SQLite docs, better-sqlite3, pdf-lib, and ExcelJS docs.
 
-| Package | Version used |
-| --- | --- |
-| Next.js | `16.2.6` |
-| React | `19.2.6` |
-| React DOM | `19.2.6` |
-| TypeScript | `6.0.3` |
-| Tailwind CSS | `4.3.0` |
-| `@tailwindcss/postcss` | `4.3.0` |
-| daisyUI | `5.5.19` |
-| PostCSS | `8.5.25` |
-| `@supabase/supabase-js` | `2.105.4` |
-| `@supabase/ssr` | `0.10.3` |
-| `better-sqlite3` | `12.9.0` |
-| `exceljs` | `4.4.0` |
-| `pdf-lib` | `1.17.1` |
-| `qrcode` | `1.5.4` |
-| `server-only` | `0.0.1` |
-| `tsx` | `4.23.6` |
-| Vitest | `4.1.10` |
-| Zod | `4.4.3` |
-| ESLint | `10.3.0` |
-| Prettier | `3.8.3` |
+| Package                 | Version used |
+| ----------------------- | ------------ |
+| Next.js                 | `16.2.6`     |
+| React                   | `19.2.6`     |
+| React DOM               | `19.2.6`     |
+| TypeScript              | `6.0.3`      |
+| Tailwind CSS            | `4.3.0`      |
+| `@tailwindcss/postcss`  | `4.3.0`      |
+| daisyUI                 | `5.5.19`     |
+| PostCSS                 | `8.5.25`     |
+| `@supabase/supabase-js` | `2.105.4`    |
+| `@supabase/ssr`         | `0.10.3`     |
+| `better-sqlite3`        | `12.9.0`     |
+| `exceljs`               | `4.4.0`      |
+| `pdf-lib`               | `1.17.1`     |
+| `qrcode`                | `1.5.4`      |
+| `server-only`           | `0.0.1`      |
+| `tsx`                   | `4.23.6`     |
+| Vitest                  | `4.1.10`     |
+| Zod                     | `4.4.3`      |
+| ESLint                  | `10.3.0`     |
+| Prettier                | `3.8.3`      |
 
 Confirmed setup choices:
 
@@ -162,8 +162,8 @@ admin-side permissions, but both role values are stored separately.
   barangay monthly report format is pending.
 - Certificate templates closely follow the provided PDFs as printable HTML/PDF
   placeholders; exact production positioning still needs final print approval.
-- Email sending is wired for Resend-style API use but safely skips when keys are
-  missing.
+- Email notifications use optional Gmail SMTP through Nodemailer and safely skip
+  when SMTP configuration is missing.
 - Supabase production certificate issue, private delivery, and public
   verification remain a documented boundary and are not live-validated. The
   public verification route and certificate pages refuse to read SQLite when
@@ -179,7 +179,8 @@ admin-side permissions, but both role values are stored separately.
   current demo intentionally uses the same visual signature line in HTML/PDF.
 - Whether payment recording should remain part of final production scope.
 - Final barangay monthly report format.
-- Real email sender address and provider key.
+- Gmail sender address, Google 2-Step Verification, and a Google App Password for
+  authenticated SMTP.
 - Production storage strategy for template assets, signature images, generated
   PDFs, or archives.
 - Whether generated PDF records should persist file paths in Supabase Storage.
@@ -239,8 +240,12 @@ NEXT_PUBLIC_SUPABASE_URL=
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
 SUPABASE_SECRET_KEY=
 
-RESEND_API_KEY=
-EMAIL_FROM=
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=<FILL_ME_GMAIL_ADDRESS>
+SMTP_PASS=<FILL_ME_GMAIL_APP_PASSWORD>
+EMAIL_FROM=Barangay Bato e-Certificate <FILL_ME_GMAIL_ADDRESS>
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 LOCAL_DEMO_ADMIN_EMAIL=admin@example.com
@@ -291,12 +296,12 @@ same reset path against `data/test.sqlite` and an isolated certificate folder.
 All seeded demo accounts use `password123` unless changed through environment
 variables before seeding.
 
-| Role | Email | Username |
-| --- | --- | --- |
-| Main Admin | `admin@example.com` | `mainadmin` |
-| Barangay Secretary | `secretary@example.com` | `secretary` |
-| Resident | `resident@example.com` | `juanresident` |
-| Resident | `maria.resident@example.com` | `mariaresident` |
+| Role               | Email                        | Username        |
+| ------------------ | ---------------------------- | --------------- |
+| Main Admin         | `admin@example.com`          | `mainadmin`     |
+| Barangay Secretary | `secretary@example.com`      | `secretary`     |
+| Resident           | `resident@example.com`       | `juanresident`  |
+| Resident           | `maria.resident@example.com` | `mariaresident` |
 
 Local demo auth is for thesis/local development only and must not be used as
 production authentication.
@@ -358,7 +363,7 @@ and role checks.
 8. Apply `database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`.
 9. Apply `database/migrations/20260808000100_final_defense_supabase_boundary.sql`.
 10. Create the Main Admin and Barangay Secretary accounts, then promote them with
-   the documented seed SQL.
+    the documented seed SQL.
 11. Restart the app and verify role-based redirects and RLS behavior.
 
 See [`docs/supabase-thesis-boundary.md`](docs/supabase-thesis-boundary.md) for
@@ -421,9 +426,34 @@ The theme switcher stores the selected theme in `localStorage` and applies it to
 
 ## Email Notification Setup
 
-`sendEmailNotification()` supports future real provider integration. If
-`RESEND_API_KEY` or `EMAIL_FROM` is missing, actions continue and notification
-logs record a skipped configuration result.
+`sendEmailNotification()` uses Gmail SMTP through Nodemailer. Email is optional
+for local development: if `SMTP_USER`, `SMTP_PASS`, or `EMAIL_FROM` is missing,
+actions continue and notification logs record a skipped configuration result.
+
+Gmail SMTP requires a Google App Password, not the normal Google account
+password. For a thesis/demo sender:
+
+1. Choose the Gmail account that will send thesis/demo notifications.
+2. Enable Google 2-Step Verification for that account.
+3. Create a Google App Password for this application.
+4. Set `SMTP_USER` to the Gmail address.
+5. Set `SMTP_PASS` to the generated App Password.
+6. Set `EMAIL_FROM` to the desired display name and Gmail address.
+7. Keep these server-only values out of source control and browser variables.
+
+```env
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=465
+SMTP_SECURE=true
+SMTP_USER=<YOUR_GMAIL_ADDRESS>
+SMTP_PASS=<YOUR_GOOGLE_APP_PASSWORD>
+EMAIL_FROM=Barangay Bato e-Certificate <YOUR_GMAIL_ADDRESS>
+```
+
+If Google revokes the App Password, generate a new one and update `SMTP_PASS`.
+For a later Vercel deployment, copy the same values into server-side Vercel
+Environment Variables. This is intended for low-volume thesis/demo email use,
+not bulk email delivery.
 
 Implemented email event templates:
 
@@ -480,31 +510,31 @@ npm run build
 
 ## Current Progress Checklist
 
-| Module | Status | Notes |
-| --- | --- | --- |
-| Existing Repo Inspection | Completed | Existing files reviewed and preserved before changes |
-| Public Pages | Implemented | Home, Login, Register, About |
-| Local SQLite Mode | Implemented | Persistent local demo data in `data/dev.sqlite` |
-| Supabase Deployment Mode | Schema Prepared / Not Connected | Uses `@supabase/ssr`; lifecycle is not live-validated |
-| Resident Auth | Implemented | SQLite demo auth; Supabase mode prepared |
-| Admin Auth | Implemented | Main Admin and Barangay Secretary seeded locally |
-| Theme Switcher | Implemented | Built-in daisyUI themes plus `barangay-bato` |
-| Certificate Requests | Implemented | Uses confirmed client fields, fees, and payment status |
-| Request Cancellation | Implemented | Pending requests only |
-| Rejected Resubmission | Implemented | Same request record moves back to pending |
-| Certificate Generation | Implemented / Print QA Pending | Immutable HTML/PDF issue, bounded body layout, official-layout references, QR verification, revocation and reissue |
-| PDF Download | Implemented / Audited | Resident-owned certificate/report routes; expiry, revocation, ownership, artifact, and integrity denials are logged |
-| Pickup Scheduling | Implemented | Admin-assigned; office hours enforced |
-| Fees | Implemented | PHP 50 or Free; online payment excluded |
-| Payment Status | Implemented for Demo / Production Pending | Simulated payment attempts and history; no financial data is handled |
-| Admin Lifecycle Views | Implemented | Payment attempts and notification delivery attempts are visible per request |
-| Email Notifications | Placeholder / Partial | Templates implemented; real sending pending keys |
-| Reports | Implemented / Format Pending | Print/PDF/Excel demo format implemented |
-| Activity Logs | Implemented | Major lifecycle actions and downloads logged |
-| QR Verification | Implemented | Hashed tokens, expiry, revoked status, masked public view |
-| Revocation / Reissue | Implemented | Revocation reason, audit trail, linked replacement certificate |
-| Automated Checks | Implemented | 53 Vitest tests plus GitHub Actions CI |
-| Supabase RLS | Schema Prepared / Not Connected | Forward boundary migration adds strict settings/payment policies and atomic counters |
+| Module                   | Status                                    | Notes                                                                                                               |
+| ------------------------ | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Existing Repo Inspection | Completed                                 | Existing files reviewed and preserved before changes                                                                |
+| Public Pages             | Implemented                               | Home, Login, Register, About                                                                                        |
+| Local SQLite Mode        | Implemented                               | Persistent local demo data in `data/dev.sqlite`                                                                     |
+| Supabase Deployment Mode | Schema Prepared / Not Connected           | Uses `@supabase/ssr`; lifecycle is not live-validated                                                               |
+| Resident Auth            | Implemented                               | SQLite demo auth; Supabase mode prepared                                                                            |
+| Admin Auth               | Implemented                               | Main Admin and Barangay Secretary seeded locally                                                                    |
+| Theme Switcher           | Implemented                               | Built-in daisyUI themes plus `barangay-bato`                                                                        |
+| Certificate Requests     | Implemented                               | Uses confirmed client fields, fees, and payment status                                                              |
+| Request Cancellation     | Implemented                               | Pending requests only                                                                                               |
+| Rejected Resubmission    | Implemented                               | Same request record moves back to pending                                                                           |
+| Certificate Generation   | Implemented / Print QA Pending            | Immutable HTML/PDF issue, bounded body layout, official-layout references, QR verification, revocation and reissue  |
+| PDF Download             | Implemented / Audited                     | Resident-owned certificate/report routes; expiry, revocation, ownership, artifact, and integrity denials are logged |
+| Pickup Scheduling        | Implemented                               | Admin-assigned; office hours enforced                                                                               |
+| Fees                     | Implemented                               | PHP 50 or Free; online payment excluded                                                                             |
+| Payment Status           | Implemented for Demo / Production Pending | Simulated payment attempts and history; no financial data is handled                                                |
+| Admin Lifecycle Views    | Implemented                               | Payment attempts and notification delivery attempts are visible per request                                         |
+| Email Notifications      | Implemented / Optional                    | Gmail SMTP through Nodemailer; skipped/sent/failed attempts are logged                                              |
+| Reports                  | Implemented / Format Pending              | Print/PDF/Excel demo format implemented                                                                             |
+| Activity Logs            | Implemented                               | Major lifecycle actions and downloads logged                                                                        |
+| QR Verification          | Implemented                               | Hashed tokens, expiry, revoked status, masked public view                                                           |
+| Revocation / Reissue     | Implemented                               | Revocation reason, audit trail, linked replacement certificate                                                      |
+| Automated Checks         | Implemented                               | 53 Vitest tests plus GitHub Actions CI                                                                              |
+| Supabase RLS             | Schema Prepared / Not Connected           | Forward boundary migration adds strict settings/payment policies and atomic counters                                |
 
 The table deliberately distinguishes a completed SQLite thesis demo from
 Supabase schema preparation. No claim is made that the full lifecycle is
