@@ -21,7 +21,7 @@ const templateCases: Array<{
 }> = [
   {
     type: "barangay_clearance",
-    title: "CERTIFICATION OF BARANGAY CLEARANCE",
+    title: "CERTIFICATION OF CLEARANCE",
     salutation: "To whom it may concern:",
     specific: {},
   },
@@ -33,14 +33,14 @@ const templateCases: Array<{
   },
   {
     type: "barangay_indigency",
-    title: "CERTIFICATION OF THE BARANGAY OF INDIGENCY",
-    salutation: "To whom it may concern:",
+    title: "CERTIFICATION OF INDIGENCY",
+    salutation: "To Whom it may concern,",
     specific: {},
   },
   {
     type: "barangay_residency",
-    title: "CERTIFICATION OF THE BARANGAY OF RESIDENCY",
-    salutation: "To whom it may concern:",
+    title: "CERTIFICATION OF RESIDENCY",
+    salutation: "To Whom it may concern,",
     specific: { birthdate: "1998-04-12", years_of_residency: 8 },
   },
 ];
@@ -99,7 +99,10 @@ describe("certificate template parity", () => {
     async ({ type, specific }) => {
       const source = getRequestById("10000000-0000-4000-8000-000000000004");
       expect(source).not.toBeNull();
-      const longPurpose = "Long thesis purpose for PDF layout validation ".repeat(4).slice(0, 200).padEnd(200, "X");
+      const longPurpose = "Long thesis purpose for PDF layout validation "
+        .repeat(4)
+        .slice(0, 200)
+        .padEnd(200, "X");
       expect(longPurpose).toHaveLength(200);
       const request = {
         ...source!,
@@ -107,15 +110,18 @@ describe("certificate template parity", () => {
         purpose: longPurpose,
         submitted_data: {
           common: {
-            full_name: "A Very Long Resident Name For Certificate Layout Validation In Barangay Bato",
+            full_name:
+              "A Very Long Resident Name For Certificate Layout Validation In Barangay Bato",
             age: 28,
-            address_sitio: "Sitio Centro Extension and Riverside Community Area with Additional Address Detail",
+            address_sitio:
+              "Sitio Centro Extension and Riverside Community Area with Additional Address Detail",
             contact_number: "09170000002",
             purpose: longPurpose,
           },
           certificate_specific: {
             ...specific,
-            place_of_birth: "Mauban, Quezon Province Municipal Health Office and Birth Registration Detail",
+            place_of_birth:
+              "Mauban, Quezon Province Municipal Health Office and Birth Registration Detail",
             birthdate: "1998-04-12",
             years_of_residency: 8,
           },
@@ -130,7 +136,9 @@ describe("certificate template parity", () => {
       if (type === "barangay_certificate") {
         expect([12, 9]).toContain(layout.paragraphGap);
       }
-      expect(layout.endY).toBeGreaterThanOrEqual(CERTIFICATE_LAYOUT_REGIONS.bodyBottom);
+      expect(layout.endY).toBeGreaterThanOrEqual(
+        CERTIFICATE_LAYOUT_REGIONS.bodyBottom,
+      );
 
       const bytes = await generateCertificatePdf({
         barangayCaptainName: "Authorized Barangay Official",
