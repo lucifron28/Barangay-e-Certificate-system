@@ -1,0 +1,13 @@
+{
+  "name": "Barangay Bato e-Certificate agent",
+  "dockerComposeFile": "../compose.agent.yml",
+  "service": "agent",
+  "workspaceFolder": "/workspace",
+  "containerUser": "node",
+  "remoteUser": "node",
+  "updateRemoteUserUID": true,
+  "forwardPorts": [3000],
+  "postCreateCommand": "npm ci",
+  "overrideCommand": false,
+  "shutdownAction": "stopCompose"
+}

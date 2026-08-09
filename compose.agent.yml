@@ -1,0 +1,30 @@
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: .devcontainer/Dockerfile
+    working_dir: /workspace
+    user: node
+    init: true
+    stdin_open: true
+    tty: true
+    command: ["bash"]
+    ports:
+      - "3000:3000"
+    env_file:
+      - path: .env.agent
+        required: false
+    environment:
+      DATABASE_PROVIDER: sqlite
+      SQLITE_DATABASE_URL: file:./data/dev.sqlite
+      npm_config_cache: /home/node/.npm
+    volumes:
+      - .:/workspace
+      - agent-npm-cache:/home/node/.npm
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  agent-npm-cache:
