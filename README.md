@@ -205,13 +205,16 @@ layout references and are intentionally ignored by Git:
 These files are not inside `app/`, are not publicly exposed, and are not assumed
 to be fillable PDF forms. If any file contains real sample resident data, do not
 use that data in seeds, screenshots, public demos, or tests. Current generation
-uses a shared historical-layout PDF renderer for Residency, Clearance, and
-Indigency, while the separate `PAGPAPATUNAY` path remains out of scope for this
-alignment pass. Fresh fictional outputs were rendered and reviewed side by side
-with the private originals. The renderer uses a clearly marked stylized
+uses a shared historical-layout PDF renderer for all four references, including
+the Filipino `PAGPAPATUNAY` layout for Barangay Certificate. Fresh fictional
+outputs were rendered and reviewed side by side with the private originals. The
+renderer uses a clearly marked stylized
 seal/watermark fallback because no approved seal assets exist in the repository.
-Exact production positioning and final seal artwork still need client print
-approval. See
+PDF text is normalized through a shared PDF-safe path: proper Filipino accents
+such as `José Niño Peña` remain intact, while smart quotes, dashes, Peso signs,
+and common UTF-8 mojibake receive deterministic standard-font fallbacks. Exact
+production positioning and final seal artwork still need client print approval.
+See
 [`docs/certificate-template-alignment.md`](docs/certificate-template-alignment.md)
 for the anonymized gap analysis. Final production handling may move approved
 template assets to Supabase Storage later.
@@ -540,7 +543,7 @@ npm run build
 | Activity Logs            | Implemented                               | Major lifecycle actions and downloads logged                                                                        |
 | QR Verification          | Implemented                               | Hashed tokens, expiry, revoked status, masked public view                                                           |
 | Revocation / Reissue     | Implemented                               | Revocation reason, audit trail, linked replacement certificate                                                      |
-| Automated Checks         | Implemented                               | 53 Vitest tests plus GitHub Actions CI                                                                              |
+| Automated Checks         | Implemented                               | 68 Vitest tests plus GitHub Actions CI                                                                              |
 | Supabase RLS             | Schema Prepared / Not Connected           | Forward boundary migration adds strict settings/payment policies and atomic counters                                |
 
 The table deliberately distinguishes a completed SQLite thesis demo from

@@ -10,15 +10,18 @@ receipt numbers from the source PDFs are reproduced here.
 
 ## Scope
 
-The current pass aligns the three certificate types with active historical
+The current pass aligns all four certificate types with active historical
 references:
 
 - `RESIDENCY.pdf` -> Barangay Residency
 - `BRGY.CLEARANCE.pdf` -> Barangay Clearance
+- `BRGY.CERTIFICATE.PDF` -> Barangay Certificate (`PAGPAPATUNAY`)
 - `INDIGENCY.pdf` -> Barangay Indigency
 
-`BRGY.CERTIFICATE.PDF` is the separate `PAGPAPATUNAY` information model. It has
-no historical-layout counterpart in this pass and remains out of scope.
+The Barangay Certificate reference uses the confirmed fields (name, age, place
+of birth, and purpose) in a Filipino-language layout with the blue
+`TANGGAPAN NG PUNONG BARANGAY` heading, `PAGPAPATUNAY` title, left body copy,
+and right-side certifying-official block.
 
 ## Gap Analysis
 
@@ -53,6 +56,16 @@ no historical-layout counterpart in this pass and remains out of scope.
 | One right-side certifying official area               | Generic two-column signature footer | Signature placement differed                   | Use one principal certifying official block                                    | Implemented                |
 | Large faint central seal watermark                    | Large placeholder ellipse with text | Watermark was too generic                      | Use the shared low-contrast fallback watermark pending an approved asset       | Implemented; asset pending |
 
+### Barangay Certificate (`PAGPAPATUNAY`)
+
+| Reference element                                         | Current generated output                              | Gap                                      | Implementation decision                                                                                         | Status                         |
+| --------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Filipino government heading and paired upper seals        | Shared historical header with local fallback seals    | Approved seal artwork is not committed   | Use the Filipino heading and clearly marked stylized fallback seals                                             | Implemented; asset pending     |
+| Blue `TANGGAPAN NG PUNONG BARANGAY` heading                | English office heading in the generic renderer        | Language and hierarchy differed          | Use a certificate-specific office heading and preserve the reference's blue serif hierarchy                   | Implemented                    |
+| `PAGPAPATUNAY` title and `Sa kinauukulan:` salutation      | Generic English title/salutation                       | Title and salutation differed             | Use the supplied Filipino title and salutation                                                                  | Implemented                    |
+| Name, age, place of birth, and purpose body                | Generic standardized paragraphs                        | Confirmed field model was not aligned    | Render the four confirmed fields with bold values and bounded paragraph wrapping                               | Implemented                    |
+| Right-side `Pinatunayan ni:` official block                | Generic two-column signature footer                  | Official block treatment differed         | Use one right-side visual signature block with configurable official name and role                             | Implemented; visual placeholder |
+
 ## Asset Decision
 
 No approved seal or logo image asset was found in the repository. The renderer
@@ -70,10 +83,10 @@ fields, which remain blank printable lines when the application has no value.
 
 ## Verification Status
 
-The renderer and synthetic regression tests are implemented on the feature
-branch. Fresh fictional PDFs were rendered and reviewed side by side with the
-private references. The comparison confirmed the shared government heading,
-blue office heading, serif body hierarchy, watermark placement, single
+The renderer and synthetic regression tests cover all four private references.
+Fresh fictional PDFs are rendered and reviewed side by side with the private
+references. The comparison confirms the shared government heading, the English
+and Filipino office headings, serif body hierarchy, watermark placement, single
 certifying-official area, and compact secondary verification layer. Exact seal
 artwork remains pending because no approved seal asset exists in the repository.
 Repository lint, typecheck, test, and build validation remains the final gate.
