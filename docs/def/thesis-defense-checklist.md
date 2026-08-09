@@ -51,4 +51,4 @@
 - [ ] QR code was scanned with the phone before presentation day.
 
 The automated command sequence and manual smoke order are also recorded in
-[`docs/final-defense-readiness.md`](final-defense-readiness.md).
+[`final-defense-readiness.md`](final-defense-readiness.md).

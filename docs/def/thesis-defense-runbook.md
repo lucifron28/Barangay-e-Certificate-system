@@ -96,4 +96,4 @@ verification window measured from issuance, and a visual signature placeholder.
 Explain that expired/revoked certificates remain visible for status evidence but
 cannot be downloaded, and that the QR result does not prevent photocopying.
 Explain the production and legal limitations in
-`docs/security-and-legal-limitations.md`.
+`docs/def/security-and-legal-limitations.md`.

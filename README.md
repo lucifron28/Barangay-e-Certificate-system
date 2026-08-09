@@ -236,11 +236,11 @@ and revoked examples, payment attempts/events, download history, activity logs,
 and skipped notification examples.
 
 The defense sequence is documented in
-[`docs/thesis-defense-runbook.md`](docs/thesis-defense-runbook.md), with the
-equipment checklist in
-[`docs/thesis-defense-checklist.md`](docs/thesis-defense-checklist.md). The
-automated final gate is documented in
-[`docs/final-defense-readiness.md`](docs/final-defense-readiness.md).
+[`docs/def/thesis-defense-runbook.md`](docs/def/thesis-defense-runbook.md), with
+the equipment checklist in
+[`docs/def/thesis-defense-checklist.md`](docs/def/thesis-defense-checklist.md).
+The automated final gate is documented in
+[`docs/def/final-defense-readiness.md`](docs/def/final-defense-readiness.md).
 
 ## Environment Variables
 
@@ -397,7 +397,7 @@ local migration files through MCP or the SQL editor, then run Supabase security
 and performance advisors. The final boundary migration must be included. The
 local SQLite lifecycle is tested; the Supabase workflow is schema preparation
 and is not claimed as live-validated.
-Additional notes are in `docs/supabase-mcp.md`.
+Additional notes are in [`docs/supabase-mcp.md`](docs/supabase-mcp.md).
 
 ## Supabase RLS Policy Overview
 
@@ -500,7 +500,8 @@ Implemented email event templates:
 
 ## Defense and Legal Notes
 
-See [`docs/security-and-legal-limitations.md`](docs/security-and-legal-limitations.md)
+See
+[`docs/def/security-and-legal-limitations.md`](docs/def/security-and-legal-limitations.md)
 for the thesis-only boundary: QR verification does not prevent copying, the
 visual signature is not cryptographic, mock payment transfers no funds, and
 production requires LGU, privacy, payment, and signature-policy approval.
