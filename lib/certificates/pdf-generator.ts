@@ -498,7 +498,7 @@ export async function generateCertificatePdf({
       x: MARGIN,
       y,
     });
-    y -= 16;
+    y -= layout.paragraphGap;
   }
 
   y -= 4;

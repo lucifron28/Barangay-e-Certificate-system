@@ -99,7 +99,8 @@ describe("certificate template parity", () => {
     async ({ type, specific }) => {
       const source = getRequestById("10000000-0000-4000-8000-000000000004");
       expect(source).not.toBeNull();
-      const longPurpose = "Long thesis purpose for PDF layout validation ".repeat(4).slice(0, 200).trim();
+      const longPurpose = "Long thesis purpose for PDF layout validation ".repeat(4).slice(0, 200).padEnd(200, "X");
+      expect(longPurpose).toHaveLength(200);
       const request = {
         ...source!,
         certificate_type: type,
@@ -125,6 +126,10 @@ describe("certificate template parity", () => {
         dateIssued: "2026-08-08",
         request,
       });
+      expect(layout.paragraphGap).toBeLessThanOrEqual(16);
+      if (type === "barangay_certificate") {
+        expect([12, 9]).toContain(layout.paragraphGap);
+      }
       expect(layout.endY).toBeGreaterThanOrEqual(CERTIFICATE_LAYOUT_REGIONS.bodyBottom);
 
       const bytes = await generateCertificatePdf({
