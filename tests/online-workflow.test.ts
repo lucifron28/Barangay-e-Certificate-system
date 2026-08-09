@@ -110,9 +110,9 @@ describe("certificate PDF and issuance metadata", () => {
       certificate_type: "barangay_certificate" as const,
       purpose,
       resident: {
-        ...source!.resident,
         address_sitio: "Barangay Bato, Mauban, Quezon",
         age: 31,
+        date_of_birth: "1995-01-01",
         full_name: fullName,
       },
       submitted_data: {
