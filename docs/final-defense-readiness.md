@@ -17,7 +17,7 @@ npm run build
 ```
 
 Expected current result: all current Vitest tests pass (the current branch
-contains 13 test files and 53 tests). `npm test` resets `data/test.sqlite` and
+contains 15 test files and 69 tests). `npm test` resets `data/test.sqlite` and
 `data/certificates-test/`, so it does not overwrite the presentation database or
 its generated PDFs. `npm run demo:reset` resets the presentation database at
 `data/dev.sqlite` and prints fresh valid, expired, and revoked verification

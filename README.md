@@ -160,8 +160,9 @@ admin-side permissions, but both role values are stored separately.
   session because the available MCP projects were not clearly Barangay Bato.
 - PDF and Excel report exports use a clean thesis/demo format while the final
   barangay monthly report format is pending.
-- Certificate templates closely follow the provided PDFs as printable HTML/PDF
-  placeholders; exact production positioning still needs final print approval.
+- All four certificate types now use a shared historical-layout PDF renderer
+  based on the provided PDFs, including the Filipino `PAGPAPATUNAY` layout;
+  final production positioning still needs client print approval.
 - Email notifications use optional Gmail SMTP through Nodemailer and safely skip
   when SMTP configuration is missing.
 - Supabase production certificate issue, private delivery, and public
@@ -174,7 +175,8 @@ admin-side permissions, but both role values are stored separately.
 
 ## Placeholders / Pending Client Confirmation
 
-- Exact final certificate template positioning and print approval.
+- Exact final certificate template positioning and print approval, including
+  approved seal artwork.
 - Final authorized-official display name and any approved signature asset. The
   current demo intentionally uses the same visual signature line in HTML/PDF.
 - Whether payment recording should remain part of final production scope.
@@ -203,10 +205,24 @@ layout references and are intentionally ignored by Git:
 These files are not inside `app/`, are not publicly exposed, and are not assumed
 to be fillable PDF forms. If any file contains real sample resident data, do not
 use that data in seeds, screenshots, public demos, or tests. Current generation
-uses clean printable HTML templates and server-generated PDFs based on the
-provided layouts. Exact positioning and print fidelity still require a final
-human print comparison against the private originals; this pass does not claim
-that comparison was performed. Final production handling may move approved
+uses a shared historical-layout PDF renderer for all four references, including
+the Filipino `PAGPAPATUNAY` layout for Barangay Certificate. Fresh fictional
+outputs were rendered and reviewed side by side with the private originals. The
+renderer uses a clearly marked stylized
+seal/watermark fallback because no approved seal assets exist in the repository.
+The historical Barangay Certificate reference contains legacy/sample fields that
+are not part of the confirmed current request model; the generated body therefore
+uses the confirmed name, age, place of birth, and purpose fields while preserving
+the reference's Filipino heading, title, body hierarchy, and certifying-official
+placement. This is an intentional visual/layout adaptation, not a claim that
+every historical field is represented.
+PDF text is normalized through a shared PDF-safe path: proper Filipino accents
+such as `José Niño Peña` remain intact, while smart quotes, dashes, Peso signs,
+and common UTF-8 mojibake receive deterministic standard-font fallbacks. Exact
+production positioning and final seal artwork still need client print approval.
+See
+[`docs/certificate-template-alignment.md`](docs/certificate-template-alignment.md)
+for the anonymized gap analysis. Final production handling may move approved
 template assets to Supabase Storage later.
 
 ## Defense Demo Reset
@@ -533,7 +549,7 @@ npm run build
 | Activity Logs            | Implemented                               | Major lifecycle actions and downloads logged                                                                        |
 | QR Verification          | Implemented                               | Hashed tokens, expiry, revoked status, masked public view                                                           |
 | Revocation / Reissue     | Implemented                               | Revocation reason, audit trail, linked replacement certificate                                                      |
-| Automated Checks         | Implemented                               | 53 Vitest tests plus GitHub Actions CI                                                                              |
+| Automated Checks         | Implemented                               | 69 Vitest tests plus GitHub Actions CI                                                                              |
 | Supabase RLS             | Schema Prepared / Not Connected           | Forward boundary migration adds strict settings/payment policies and atomic counters                                |
 
 The table deliberately distinguishes a completed SQLite thesis demo from
