@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
+import { PDFDocument } from "pdf-lib";
 import {
   getRequestById,
   getCertificateRecordByRequestId,
@@ -96,6 +97,52 @@ describe("certificate PDF and issuance metadata", () => {
         "\u00e2\u20ac\u0153Quoted\u00e2\u20ac\u009d \u00e2\u20ac\u201c \u00e2\u201a\u00b150",
       ),
     ).toBe('"Quoted" - PHP50');
+  });
+
+  it("generates the Filipino historical PDF with accented names and smart punctuation", async () => {
+    const source = getRequestById("10000000-0000-4000-8000-000000000004");
+    expect(source).not.toBeNull();
+
+    const fullName = "Jos\u00e9 Ni\u00f1o Pe\u00f1a";
+    const purpose = "\u201cEmployment \u2013 \u20b1500 requirement\u201d";
+    const request = {
+      ...source!,
+      certificate_type: "barangay_certificate" as const,
+      purpose,
+      resident: {
+        ...source!.resident,
+        address_sitio: "Barangay Bato, Mauban, Quezon",
+        age: 31,
+        full_name: fullName,
+      },
+      submitted_data: {
+        common: {
+          address_sitio: "Barangay Bato, Mauban, Quezon",
+          age: 31,
+          contact_number: "09000000000",
+          full_name: fullName,
+          purpose,
+        },
+        certificate_specific: {
+          place_of_birth: "Mauban, Quezon",
+        },
+      },
+    };
+
+    const bytes = await generateCertificatePdf({
+      barangayCaptainName: "Synthetic Barangay Chairman",
+      certificateNumber: "CERT-UNICODE-0001",
+      dateIssued: "2026-08-10",
+      preparedBy: "Synthetic Admin User",
+      request,
+      verificationCode: "UNICODE-TEST",
+      verificationExpiresAt: "2026-08-13T00:00:00.000Z",
+      verificationUrl: "http://localhost:3000/verify/unicode-test",
+    });
+    const pdf = await PDFDocument.load(bytes);
+
+    expect(new TextDecoder().decode(bytes.slice(0, 4))).toBe("%PDF");
+    expect(pdf.getPageCount()).toBe(1);
   });
 
   it("generates a hashed PDF containing the issued metadata inputs", async () => {
