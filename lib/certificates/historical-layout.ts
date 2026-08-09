@@ -15,6 +15,7 @@ import {
   getCertificateTemplateData,
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
+import { normalizePdfText } from "@/lib/certificates/pdf-text";
 import type { CertificateSnapshot } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
 
@@ -26,12 +27,18 @@ const WATERMARK_COLOR = rgb(0.82, 0.82, 0.82);
 const META_COLOR = rgb(0.28, 0.28, 0.28);
 
 export type HistoricalCertificateType =
-  | "barangay_residency"
   | "barangay_clearance"
-  | "barangay_indigency";
+  | "barangay_certificate"
+  | "barangay_indigency"
+  | "barangay_residency";
 
 export const HISTORICAL_CERTIFICATE_TYPES: readonly HistoricalCertificateType[] =
-  ["barangay_residency", "barangay_clearance", "barangay_indigency"];
+  [
+    "barangay_clearance",
+    "barangay_certificate",
+    "barangay_indigency",
+    "barangay_residency",
+  ];
 
 export function isHistoricalCertificateType(
   certificateType: CertificateType,
@@ -87,11 +94,14 @@ type HistoricalTemplateConfig = {
   bodyStartY: number;
   headerLines: string[];
   headerStartY: number;
+  officeTitle: string;
   officeY: number;
   paperFieldsY?: number;
   salutation: string;
   salutationY: number;
   sealY: number;
+  signatureLabel: string;
+  signatureRole: string;
   signatureX: number;
   signatureY: number;
   title: string;
@@ -113,15 +123,41 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
       "Barangay BATO",
     ],
     headerStartY: 746,
+    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
     officeY: 650,
     paperFieldsY: 212,
     salutation: "To whom it may concern:",
     salutationY: 553,
     sealY: 733,
+    signatureLabel: "Certified by:",
+    signatureRole: "Barangay Chairman",
     signatureX: 430,
     signatureY: 306,
     title: "CERTIFICATION OF CLEARANCE",
     titleY: 606,
+  },
+  barangay_certificate: {
+    bodyBottom: 328,
+    bodyMaxWidth: 468,
+    bodyStartY: 492,
+    headerLines: [
+      "Republic of the Philippines",
+      "Municipality of Mauban",
+      "Province of Quezon",
+      "Barangay BATO",
+    ],
+    headerStartY: 706,
+    officeTitle: "TANGGAPAN NG PUNONG BARANGAY",
+    officeY: 602,
+    salutation: "Sa kinauukulan:",
+    salutationY: 540,
+    sealY: 700,
+    signatureLabel: "Pinatunayan ni:",
+    signatureRole: "Punong Barangay",
+    signatureX: 446,
+    signatureY: 278,
+    title: "PAGPAPATUNAY",
+    titleY: 566,
   },
   barangay_indigency: {
     bodyBottom: 286,
@@ -134,10 +170,13 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
       "Barangay BATO",
     ],
     headerStartY: 690,
+    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
     officeY: 608,
     salutation: "To Whom it may concern,",
     salutationY: 474,
     sealY: 686,
+    signatureLabel: "Certified by:",
+    signatureRole: "Barangay Chairman",
     signatureX: 438,
     signatureY: 177,
     title: "CERTIFICATION OF INDIGENCY",
@@ -154,10 +193,13 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
       "Barangay BATO",
     ],
     headerStartY: 690,
+    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
     officeY: 565,
     salutation: "To Whom it may concern,",
     salutationY: 494,
     sealY: 686,
+    signatureLabel: "Certified by:",
+    signatureRole: "Barangay Chairman",
     signatureX: 438,
     signatureY: 188,
     title: "CERTIFICATION OF RESIDENCY",
@@ -200,14 +242,7 @@ const BODY_LAYOUT_OPTIONS = [
   },
 ] as const;
 
-function safePdfText(value: string) {
-  return value
-    .replace(/[â€œâ€]/g, '"')
-    .replace(/[â€˜â€™]/g, "'")
-    .replace(/[â€“â€”]/g, "-")
-    .replace(/â‚±/g, "PHP")
-    .normalize("NFC");
-}
+const safePdfText = normalizePdfText;
 
 function formatPdfDateTime(value: string | undefined) {
   if (!value) return "Unavailable";
@@ -470,6 +505,34 @@ function buildHistoricalBody(
           ],
         ],
       };
+    case "barangay_certificate":
+      return {
+        issue: [
+          regular(
+            `Ipinagkaloob ngayong ${data.dateIssued} sa tanggapan ng Punong Barangay ng Barangay Bato, Mauban, Quezon.`,
+          ),
+        ],
+        paragraphs: [
+          [
+            regular("Pinatutunayan ng tanggapan na ito na si "),
+            bold(data.name),
+            regular(", "),
+            bold(data.age),
+            regular(" taong gulang, ay ipinanganak sa "),
+            bold(data.birthDetails),
+            regular(" at lehitimong naninirahan sa "),
+            bold(residentLocality),
+            regular("."),
+          ],
+          [
+            regular(
+              "Ang pagpapatunay na ito ay ipinagkakaloob sa kahilingan ng nasabing tao para sa layuning ",
+            ),
+            bold(data.purpose),
+            regular("."),
+          ],
+        ],
+      };
     case "barangay_indigency":
       return {
         issue: [
@@ -708,7 +771,7 @@ function drawHeader(
   });
   centerText(
     page,
-    "OFFICE OF THE BARANGAY CHAIRMAN",
+    config.officeTitle,
     config.officeY,
     fonts.bold,
     19,
@@ -729,7 +792,7 @@ function drawSignature(
 
   centerTextAt(
     page,
-    "Certified by:",
+    config.signatureLabel,
     config.signatureX,
     lineY + 43,
     fonts.bold,
@@ -752,7 +815,7 @@ function drawSignature(
   );
   centerTextAt(
     page,
-    "Barangay Chairman",
+    config.signatureRole,
     config.signatureX,
     lineY - 19,
     fonts.bold,

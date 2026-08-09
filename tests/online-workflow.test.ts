@@ -84,6 +84,20 @@ describe("certificate PDF and issuance metadata", () => {
     );
   });
 
+  it("preserves proper Filipino names and normalizes smart punctuation", () => {
+    expect(normalizePdfText("José Niño Peña / María De León / ÁÉÍÓÚÑ")).toBe(
+      "José Niño Peña / María De León / ÁÉÍÓÚÑ",
+    );
+    expect(normalizePdfText("“Quoted” ‘single’ – long dash — ₱50")).toBe(
+      '"Quoted" \'single\' - long dash - PHP50',
+    );
+    expect(
+      normalizePdfText(
+        "\u00e2\u20ac\u0153Quoted\u00e2\u20ac\u009d \u00e2\u20ac\u201c \u00e2\u201a\u00b150",
+      ),
+    ).toBe('"Quoted" - PHP50');
+  });
+
   it("generates a hashed PDF containing the issued metadata inputs", async () => {
     const request = getRequestById("10000000-0000-4000-8000-000000000004");
     expect(request).not.toBeNull();

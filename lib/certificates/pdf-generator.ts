@@ -24,6 +24,7 @@ import {
   HistoricalCertificatePdfLayoutError,
   isHistoricalCertificateType,
 } from "@/lib/certificates/historical-layout";
+import { normalizePdfText as normalizePdfTextValue } from "@/lib/certificates/pdf-text";
 import type { CertificateSnapshot } from "@/types/database";
 
 const LETTER_WIDTH = 612;
@@ -65,14 +66,7 @@ type DrawTextOptions = {
   size?: number;
 };
 
-function safePdfText(value: string) {
-  return value
-    .replace(/[“”]/g, '"')
-    .replace(/[‘’]/g, "'")
-    .replace(/[–—]/g, "-")
-    .replace(/₱/g, "PHP")
-    .normalize("NFC");
-}
+const safePdfText = normalizePdfTextValue;
 
 export function normalizePdfText(value: string) {
   return safePdfText(value);

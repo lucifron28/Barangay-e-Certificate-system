@@ -4,6 +4,7 @@ import { PDFDocument } from "pdf-lib";
 import {
   calculateHistoricalCertificateBodyLayout,
   generateHistoricalCertificatePdf,
+  HISTORICAL_CERTIFICATE_TYPES,
   isHistoricalCertificateType,
   type HistoricalCertificateType,
 } from "@/lib/certificates/historical-layout";
@@ -28,6 +29,11 @@ const cases: Array<{
     label: "Barangay Clearance",
     title: "CERTIFICATION OF CLEARANCE",
     type: "barangay_clearance",
+  },
+  {
+    label: "Barangay Certificate",
+    title: "PAGPAPATUNAY",
+    type: "barangay_certificate",
   },
   {
     label: "Barangay Indigency",
@@ -62,12 +68,23 @@ function syntheticRequest(type: HistoricalCertificateType) {
       certificate_specific:
         type === "barangay_residency"
           ? { birthdate: "1987-03-04", years_of_residency: 12 }
-          : {},
+          : type === "barangay_certificate"
+            ? { place_of_birth: "Mauban, Quezon" }
+            : {},
     },
   };
 }
 
 describe("historical certificate template alignment", () => {
+  it("covers all four private certificate references", () => {
+    expect(HISTORICAL_CERTIFICATE_TYPES).toEqual([
+      "barangay_clearance",
+      "barangay_certificate",
+      "barangay_indigency",
+      "barangay_residency",
+    ]);
+  });
+
   it.each(cases)(
     "generates a valid $type PDF with digital metadata",
     async ({ label, title, type }) => {
