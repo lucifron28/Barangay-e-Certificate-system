@@ -18,10 +18,22 @@ references:
 - `BRGY.CERTIFICATE.PDF` -> Barangay Certificate (`PAGPAPATUNAY`)
 - `INDIGENCY.pdf` -> Barangay Indigency
 
-The Barangay Certificate reference uses the confirmed fields (name, age, place
-of birth, and purpose) in a Filipino-language layout with the blue
-`TANGGAPAN NG PUNONG BARANGAY` heading, `PAGPAPATUNAY` title, left body copy,
-and right-side certifying-official block.
+The Barangay Certificate reference is a Filipino-language `PAGPAPATUNAY` layout
+with the blue `TANGGAPAN NG PUNONG BARANGAY` heading, title, left body copy, and
+right-side certifying-official block. The historical/sample PDF also contains
+legacy fields such as parent names, residence/address details, land or tax
+declarations, and annual income. Those fields are not part of the confirmed
+current request model. The generated body intentionally uses only the confirmed
+current fields (name, age, place of birth, and purpose) while preserving the
+reference's visual and structural identity.
+
+## PAGPAPATUNAY Information Model
+
+This is an intentional adaptation boundary for the thesis/demo. The renderer
+does not invent or persist unsupported historical fields simply to reproduce
+sample content from the private PDF. Dynamic values come from the current
+Barangay Certificate request model; exact official wording, field coverage, and
+print positioning remain subject to final client approval.
 
 ## Gap Analysis
 
@@ -29,7 +41,7 @@ and right-side certifying-official block.
 
 | Reference element                                                         | Current generated output                                  | Gap                                                                | Implementation decision                                                                                                    | Status                         |
 | ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Letter page with upper seals and centered government heading              | Shared modern header with text-only circular placeholders | Header hierarchy and seal treatment did not resemble the reference | Use a shared historical header with a stylized local fallback seal because no approved seal asset exists in the repository | Implemented; visual QA pending |
+| Letter page with upper seals and centered government heading              | Shared historical header with text-only circular placeholders | Approved seal artwork is not committed | Use a shared historical header with a stylized local fallback seal because no approved seal asset exists in the repository | Implemented; synthetic visual QA reviewed |
 | Blue `OFFICE OF THE BARANGAY CHAIRMAN` heading                            | Generic black office heading                              | Wrong color and hierarchy                                          | Use the historical blue serif office heading                                                                               | Implemented                    |
 | `CERTIFICATION OF RESIDENCY` title                                        | Expanded modern title                                     | Title wording differed                                             | Use the historical title wording                                                                                           | Implemented                    |
 | Residency statement, supporting-document paragraph, and purpose paragraph | Modern standardized paragraphs                            | Body structure and emphasis differed                               | Use a certificate-specific historical body with dynamic synthetic-safe data and bold field values                          | Implemented                    |
@@ -61,9 +73,10 @@ and right-side certifying-official block.
 | Reference element                                         | Current generated output                              | Gap                                      | Implementation decision                                                                                         | Status                         |
 | --------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
 | Filipino government heading and paired upper seals        | Shared historical header with local fallback seals    | Approved seal artwork is not committed   | Use the Filipino heading and clearly marked stylized fallback seals                                             | Implemented; asset pending     |
-| Blue `TANGGAPAN NG PUNONG BARANGAY` heading                | English office heading in the generic renderer        | Language and hierarchy differed          | Use a certificate-specific office heading and preserve the reference's blue serif hierarchy                   | Implemented                    |
-| `PAGPAPATUNAY` title and `Sa kinauukulan:` salutation      | Generic English title/salutation                       | Title and salutation differed             | Use the supplied Filipino title and salutation                                                                  | Implemented                    |
-| Name, age, place of birth, and purpose body                | Generic standardized paragraphs                        | Confirmed field model was not aligned    | Render the four confirmed fields with bold values and bounded paragraph wrapping                               | Implemented                    |
+| Blue `TANGGAPAN NG PUNONG BARANGAY` heading               | Matching Filipino office heading                     | Exact letter spacing and official artwork remain pending | Use a certificate-specific office heading and preserve the reference's blue serif hierarchy                   | Implemented                    |
+| `PAGPAPATUNAY` title and `Sa kinauukulan:` salutation     | Matching Filipino title and salutation               | Exact production typography remains pending | Use the supplied Filipino title and salutation                                                                  | Implemented                    |
+| Historical legacy body fields                              | Confirmed current fields only                         | Parent, land/tax, and income fields are not confirmed application fields | Preserve the body structure while rendering name, age, place of birth, and purpose from the current request model | Implemented; intentional adaptation |
+| Bold dynamic values and bounded paragraph wrapping         | Synthetic-safe bold values with bounded wrapping     | Final official copy and exact positioning remain pending | Keep dynamic output limited to confirmed fields and replace the body copy after client approval if required       | Implemented                    |
 | Right-side `Pinatunayan ni:` official block                | Generic two-column signature footer                  | Official block treatment differed         | Use one right-side visual signature block with configurable official name and role                             | Implemented; visual placeholder |
 
 ## Asset Decision
@@ -87,6 +100,9 @@ The renderer and synthetic regression tests cover all four private references.
 Fresh fictional PDFs are rendered and reviewed side by side with the private
 references. The comparison confirms the shared government heading, the English
 and Filipino office headings, serif body hierarchy, watermark placement, single
-certifying-official area, and compact secondary verification layer. Exact seal
-artwork remains pending because no approved seal asset exists in the repository.
-Repository lint, typecheck, test, and build validation remains the final gate.
+certifying-official area, and compact secondary verification layer. The
+`PAGPAPATUNAY` body is visually aligned but intentionally adapted to the
+confirmed current field model; exact seal artwork and production typography
+remain pending because no approved assets or final print sign-off exist in the
+repository. Repository lint, typecheck, test, and build validation remains the
+final gate.
