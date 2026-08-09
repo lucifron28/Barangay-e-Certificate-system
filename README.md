@@ -160,8 +160,9 @@ admin-side permissions, but both role values are stored separately.
   session because the available MCP projects were not clearly Barangay Bato.
 - PDF and Excel report exports use a clean thesis/demo format while the final
   barangay monthly report format is pending.
-- Certificate templates closely follow the provided PDFs as printable HTML/PDF
-  placeholders; exact production positioning still needs final print approval.
+- Residency, Clearance, and Indigency now use a shared historical-layout PDF
+  renderer based on the provided PDFs; final production positioning still needs
+  client print approval.
 - Email notifications use optional Gmail SMTP through Nodemailer and safely skip
   when SMTP configuration is missing.
 - Supabase production certificate issue, private delivery, and public
@@ -174,7 +175,8 @@ admin-side permissions, but both role values are stored separately.
 
 ## Placeholders / Pending Client Confirmation
 
-- Exact final certificate template positioning and print approval.
+- Exact final certificate template positioning and print approval, including
+  approved seal artwork.
 - Final authorized-official display name and any approved signature asset. The
   current demo intentionally uses the same visual signature line in HTML/PDF.
 - Whether payment recording should remain part of final production scope.
@@ -203,10 +205,15 @@ layout references and are intentionally ignored by Git:
 These files are not inside `app/`, are not publicly exposed, and are not assumed
 to be fillable PDF forms. If any file contains real sample resident data, do not
 use that data in seeds, screenshots, public demos, or tests. Current generation
-uses clean printable HTML templates and server-generated PDFs based on the
-provided layouts. Exact positioning and print fidelity still require a final
-human print comparison against the private originals; this pass does not claim
-that comparison was performed. Final production handling may move approved
+uses a shared historical-layout PDF renderer for Residency, Clearance, and
+Indigency, while the separate `PAGPAPATUNAY` path remains out of scope for this
+alignment pass. Fresh fictional outputs were rendered and reviewed side by side
+with the private originals. The renderer uses a clearly marked stylized
+seal/watermark fallback because no approved seal assets exist in the repository.
+Exact production positioning and final seal artwork still need client print
+approval. See
+[`docs/certificate-template-alignment.md`](docs/certificate-template-alignment.md)
+for the anonymized gap analysis. Final production handling may move approved
 template assets to Supabase Storage later.
 
 ## Defense Demo Reset
