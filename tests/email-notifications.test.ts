@@ -18,11 +18,11 @@ function configureSmtp() {
   vi.stubEnv("SMTP_HOST", "smtp.gmail.com");
   vi.stubEnv("SMTP_PORT", "465");
   vi.stubEnv("SMTP_SECURE", "true");
-  vi.stubEnv("SMTP_USER", "demo.sender@gmail.com");
+  vi.stubEnv("SMTP_USER", "synthetic-sender@example.invalid");
   vi.stubEnv("SMTP_PASS", "test-smtp-secret");
   vi.stubEnv(
     "EMAIL_FROM",
-    "Barangay Bato e-Certificate <demo.sender@gmail.com>",
+    "Barangay Bato e-Certificate <synthetic-sender@example.invalid>",
   );
 }
 
@@ -73,14 +73,14 @@ describe("Gmail SMTP email notifications", () => {
     expect(nodemailerMock.createTransport).toHaveBeenCalledWith({
       auth: {
         pass: "test-smtp-secret",
-        user: "demo.sender@gmail.com",
+        user: "synthetic-sender@example.invalid",
       },
       host: "smtp.gmail.com",
       port: 465,
       secure: true,
     });
     expect(sendMail).toHaveBeenCalledWith({
-      from: "Barangay Bato e-Certificate <demo.sender@gmail.com>",
+      from: "Barangay Bato e-Certificate <synthetic-sender@example.invalid>",
       subject: input.subject,
       text: input.message,
       to: input.to,
