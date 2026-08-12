@@ -5,9 +5,13 @@ const npmBin = process.platform === "win32" ? ".\\node_modules\\.bin\\tsx.cmd" :
 const vitestBin = process.platform === "win32" ? ".\\node_modules\\.bin\\vitest.cmd" : "node_modules/.bin/vitest";
 const env = {
   ...process.env,
+  DATABASE_PROVIDER: "sqlite",
   CERTIFICATE_STORAGE_DIRECTORY: "data/certificates-test",
   DEMO_VERIFICATION_SAMPLES_PATH: "data/test-verification-samples.json",
   SQLITE_DATABASE_URL: "file:./data/test.sqlite",
+  SMTP_USER: "",
+  SMTP_PASS: "",
+  EMAIL_FROM: "",
 };
 
 const reset = spawnSync(npmBin, ["--tsconfig", "scripts/tsconfig.json", "scripts/demo-reset.ts"], {
