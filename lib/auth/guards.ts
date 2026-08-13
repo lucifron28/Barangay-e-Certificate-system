@@ -19,15 +19,15 @@ export type AuthContext =
       missingEnv: [];
       profile: Profile | null;
       supabase: NonNullable<Awaited<ReturnType<typeof createClient>>> | null;
-      provider: "sqlite" | "supabase";
+      provider: "sqlite" | "turso" | "supabase";
     };
 
 export async function getAuthContext(): Promise<AuthContext> {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return {
       missingEnv: [],
       profile: await getLocalSessionProfile(),
-      provider: "sqlite",
+      provider: getDatabaseProvider(),
       setupMissing: false,
       supabase: null,
     };
