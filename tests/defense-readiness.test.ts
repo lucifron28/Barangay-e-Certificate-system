@@ -41,15 +41,15 @@ const paymentResidentId = residentId;
 const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000002";
 
 describe("local authentication and authorization boundaries", () => {
-  it("hashes passwords and rejects invalid credentials", () => {
+  it("hashes passwords and rejects invalid credentials", async () => {
     const passwordHash = hashPassword("password123");
 
     expect(verifyPassword("password123", passwordHash)).toBe(true);
     expect(verifyPassword("wrong-password", passwordHash)).toBe(false);
-    expect(authenticateLocalUser("admin@example.com", "password123")?.role).toBe(
+    expect((await authenticateLocalUser("admin@example.com", "password123"))?.role).toBe(
       "main_admin",
     );
-    expect(authenticateLocalUser("mainadmin", "wrong-password")).toBeNull();
+    expect(await authenticateLocalUser("mainadmin", "wrong-password")).toBeNull();
   });
 
   it("requires a configured local secret and defaults to online mode", () => {
@@ -273,6 +273,9 @@ describe("issuance and PDF integrity", () => {
     db.transaction(() => {
       db.prepare(
         "DELETE FROM certificate_verifications WHERE certificate_record_id = ?",
+      ).run(replacement.certificateRecord.id);
+      db.prepare(
+        "DELETE FROM issuance_reservations WHERE certificate_record_id = ?",
       ).run(replacement.certificateRecord.id);
       db.prepare(
         "UPDATE certificate_records SET replacement_record_id = NULL WHERE id = ?",
