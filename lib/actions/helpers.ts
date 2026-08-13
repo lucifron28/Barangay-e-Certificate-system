@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSqliteProvider } from "@/lib/db/provider";
-import { createActivityLog } from "@/lib/db/sqlite/queries";
+import { createActivityLog } from "@/lib/db/queries";
 import type { Database, Profile } from "@/types/database";
 
 export function firstZodError(error: { issues: { message: string }[] }) {
@@ -32,7 +32,7 @@ export async function logActivity({
   supabase: SupabaseClient<Database> | null;
 }) {
   if (isSqliteProvider()) {
-    createActivityLog({
+    await createActivityLog({
       action,
       affected_record_id: affectedRecordId,
       affected_table: affectedTable,

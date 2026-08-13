@@ -8,7 +8,7 @@ import {
 } from "@/lib/actions/helpers";
 import { requireResident } from "@/lib/auth/guards";
 import { isSqliteProvider } from "@/lib/db/provider";
-import { updateProfile } from "@/lib/db/sqlite/queries";
+import { updateProfile } from "@/lib/db/queries";
 import { profileUpdateSchema } from "@/lib/validations/profile";
 
 export async function updateResidentProfileAction(formData: FormData) {
@@ -35,7 +35,7 @@ export async function updateResidentProfileAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    const profile = updateProfile(context.profile.id, {
+    const profile = await updateProfile(context.profile.id, {
       address_sitio: parsed.data.address_sitio,
       age: parsed.data.age ?? null,
       civil_status: parsed.data.civil_status || null,

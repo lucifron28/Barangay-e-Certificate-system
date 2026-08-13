@@ -17,7 +17,7 @@ import {
   type RequestWithResident,
   type ScheduleWithRequest,
   type SystemSettings,
-} from "@/lib/db/sqlite/queries";
+} from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
 import type { Database, PickupSchedule, Profile } from "@/types/database";
 
@@ -37,7 +37,7 @@ export async function listResidentRequests(
   residentId: string,
   supabase: Supabase,
 ) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listSqliteResidentRequests(residentId);
   }
 
@@ -51,7 +51,7 @@ export async function listResidentRequests(
 }
 
 export async function listAdminRequests(supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listAllRequests();
   }
 
@@ -68,7 +68,7 @@ export async function getResidentRequest(
   residentId: string,
   supabase: Supabase,
 ) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return getResidentRequestById(id, residentId);
   }
 
@@ -83,7 +83,7 @@ export async function getResidentRequest(
 }
 
 export async function getAdminRequest(id: string, supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return getRequestById(id);
   }
 
@@ -97,7 +97,7 @@ export async function getAdminRequest(id: string, supabase: Supabase) {
 }
 
 export async function listSchedulableRequests(supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listSqliteSchedulableRequests();
   }
 
@@ -111,7 +111,7 @@ export async function listSchedulableRequests(supabase: Supabase) {
 }
 
 export async function listPickupSchedules(supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listSqlitePickupSchedules();
   }
 
@@ -126,7 +126,7 @@ export async function listPickupSchedules(supabase: Supabase) {
 }
 
 export async function listResidents(supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listSqliteResidents();
   }
 
@@ -140,10 +140,10 @@ export async function listResidents(supabase: Supabase) {
 }
 
 export async function getResidentRecord(id: string, supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return {
-      profile: getProfileById(id),
-      requests: listResidentHistory(id),
+      profile: await getProfileById(id),
+      requests: await listResidentHistory(id),
     };
   }
 
@@ -163,7 +163,7 @@ export async function getResidentRecord(id: string, supabase: Supabase) {
 }
 
 export async function listActivityLogs(supabase: Supabase) {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return listSqliteActivityLogs();
   }
 
@@ -176,7 +176,7 @@ export async function listActivityLogs(supabase: Supabase) {
 }
 
 export async function getSystemSettings(supabase: Supabase): Promise<SystemSettings> {
-  if (getDatabaseProvider() === "sqlite") {
+  if (getDatabaseProvider() !== "supabase") {
     return getSqliteSystemSettings();
   }
 

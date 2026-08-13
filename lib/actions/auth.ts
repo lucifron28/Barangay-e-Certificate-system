@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { isSqliteProvider } from "@/lib/db/provider";
-import { createProfile, profileExists } from "@/lib/db/sqlite/queries";
+import { createProfile, profileExists } from "@/lib/db/queries";
 import {
   authenticateLocalUser,
   clearLocalSession,
@@ -43,7 +43,7 @@ export async function loginAction(formData: FormData) {
       redirectWithError(LOGIN_PATH, "Too many attempts. Please try again later.");
     }
 
-    const profile = authenticateLocalUser(parsed.data.login, parsed.data.password);
+    const profile = await authenticateLocalUser(parsed.data.login, parsed.data.password);
 
     if (!profile) {
       redirectWithError(LOGIN_PATH, "Invalid username or password.");
@@ -142,14 +142,14 @@ export async function registerResidentAction(formData: FormData) {
 
     const username = parsed.data.username?.trim() || null;
 
-    if (profileExists(parsed.data.email, username)) {
+    if (await profileExists(parsed.data.email, username)) {
       redirectWithError(
         REGISTER_PATH,
         "Unable to create account. Please review your details and try again.",
       );
     }
 
-    createProfile({
+    await createProfile({
       address_sitio: parsed.data.address_sitio,
       age: parsed.data.age,
       civil_status: parsed.data.civil_status || null,
