@@ -1,5 +1,3 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS profiles (
   id TEXT PRIMARY KEY,
   auth_user_id TEXT,
@@ -60,8 +58,6 @@ CREATE TABLE IF NOT EXISTS certificate_records (
   control_number TEXT,
   template_data TEXT NOT NULL DEFAULT '{}',
   pdf_path TEXT,
-  pdf_storage_provider TEXT NOT NULL DEFAULT 'local' CHECK (pdf_storage_provider IN ('local', 'vercel_blob')),
-  pdf_storage_key TEXT,
   certificate_number TEXT,
   status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft', 'issued', 'revoked', 'expired')),
   issuance_mode TEXT NOT NULL DEFAULT 'fully_online_demo',
@@ -77,12 +73,8 @@ CREATE TABLE IF NOT EXISTS certificate_records (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
-CREATE INDEX IF NOT EXISTS certificate_records_request_id_idx
-  ON certificate_records (request_id, issued_at DESC);
-
-CREATE UNIQUE INDEX IF NOT EXISTS certificate_records_number_idx
-  ON certificate_records (certificate_number)
-  WHERE certificate_number IS NOT NULL;
+CREATE INDEX IF NOT EXISTS certificate_records_request_id_idx ON certificate_records (request_id, issued_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS certificate_records_number_idx ON certificate_records (certificate_number) WHERE certificate_number IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS activity_logs (
   id TEXT PRIMARY KEY,
@@ -121,9 +113,7 @@ CREATE TABLE IF NOT EXISTS rate_limit_attempts (
   attempts INTEGER NOT NULL DEFAULT 0,
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-
-CREATE INDEX IF NOT EXISTS rate_limit_attempts_action_window_idx
-  ON rate_limit_attempts (action, window_started_at);
+CREATE INDEX IF NOT EXISTS rate_limit_attempts_action_window_idx ON rate_limit_attempts (action, window_started_at);
 
 CREATE TABLE IF NOT EXISTS document_counters (
   id TEXT PRIMARY KEY,
@@ -149,7 +139,6 @@ CREATE TABLE IF NOT EXISTS payments (
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
-
 CREATE INDEX IF NOT EXISTS payments_request_id_idx ON payments (request_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS payment_events (
@@ -179,37 +168,4 @@ CREATE TABLE IF NOT EXISTS certificate_download_logs (
   user_id TEXT NOT NULL REFERENCES profiles(id),
   result TEXT NOT NULL,
   downloaded_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
-CREATE TABLE IF NOT EXISTS auth_sessions (
-  id TEXT PRIMARY KEY,
-  profile_id TEXT NOT NULL REFERENCES profiles(id),
-  token_hash TEXT NOT NULL UNIQUE,
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  expires_at TEXT NOT NULL,
-  last_seen_at TEXT NOT NULL DEFAULT (datetime('now')),
-  revoked_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS auth_sessions_profile_id_idx
-  ON auth_sessions (profile_id, expires_at DESC);
-
-CREATE TABLE IF NOT EXISTS issuance_reservations (
-  id TEXT PRIMARY KEY,
-  request_id TEXT NOT NULL REFERENCES certificate_requests(id),
-  certificate_record_id TEXT NOT NULL UNIQUE,
-  certificate_number TEXT NOT NULL UNIQUE,
-  reserved_by TEXT NOT NULL REFERENCES profiles(id),
-  status TEXT NOT NULL CHECK (status IN ('reserved', 'finalized', 'released')),
-  created_at TEXT NOT NULL DEFAULT (datetime('now')),
-  finalized_at TEXT,
-  released_at TEXT
-);
-
-CREATE INDEX IF NOT EXISTS issuance_reservations_request_idx
-  ON issuance_reservations (request_id, status, created_at DESC);
-
-CREATE TABLE IF NOT EXISTS schema_migrations (
-  version TEXT PRIMARY KEY,
-  applied_at TEXT NOT NULL DEFAULT (datetime('now'))
 );

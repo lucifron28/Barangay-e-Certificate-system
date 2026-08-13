@@ -2,7 +2,7 @@ import { spawnSync } from "node:child_process";
 import process from "node:process";
 
 // Keep the legacy command available while using the same canonical demo data as
-// `demo:reset`, CI, and the thesis defense runbook.
+// `demo:reset`, CI, and local client-preview testing.
 const runner = process.platform === "win32"
   ? ".\\node_modules\\.bin\\tsx.cmd"
   : "node_modules/.bin/tsx";

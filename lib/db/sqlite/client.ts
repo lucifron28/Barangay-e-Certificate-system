@@ -4,6 +4,7 @@ import Database from "better-sqlite3";
 import { mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { env } from "@/lib/env";
+import { migrateSqlite } from "@/lib/db/migrations";
 
 let cachedDb: Database.Database | null = null;
 
@@ -35,6 +36,7 @@ export function getSqliteDb() {
     "schema.sql",
   );
   db.exec(readFileSync(schemaPath, "utf8"));
+  migrateSqlite(db);
 
   cachedDb = db;
   return db;

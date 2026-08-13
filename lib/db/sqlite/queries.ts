@@ -166,6 +166,8 @@ function certificateRecordFromRow(row: Row | undefined): CertificateRecord | nul
     date_issued: String(row.date_issued),
     id: String(row.id),
     pdf_path: asText(row.pdf_path),
+    pdf_storage_provider: (asText(row.pdf_storage_provider) ?? "local") as "local" | "vercel_blob",
+    pdf_storage_key: asText(row.pdf_storage_key),
     pdf_sha256: asText(row.pdf_sha256),
     prepared_by: asText(row.prepared_by),
     issuance_mode: String(row.issuance_mode) as CertificateRecord["issuance_mode"],
@@ -241,6 +243,53 @@ export function getProfileById(id: string) {
       | Row
       | undefined,
   );
+}
+
+export function createAuthSession(input: {
+  expires_at: string;
+  id: string;
+  profile_id: string;
+  token_hash: string;
+}) {
+  const timestamp = nowIso();
+  getSqliteDb()
+    .prepare(
+      `INSERT INTO auth_sessions (id, profile_id, token_hash, created_at, expires_at, last_seen_at, revoked_at)
+       VALUES (?, ?, ?, ?, ?, ?, NULL)`,
+    )
+    .run(input.id, input.profile_id, input.token_hash, timestamp, input.expires_at, timestamp);
+}
+
+export function getAuthSessionProfileByTokenHash(tokenHash: string) {
+  return profileFromRow(
+    getSqliteDb()
+      .prepare(
+        `SELECT p.*
+         FROM auth_sessions s
+         JOIN profiles p ON p.id = s.profile_id
+         WHERE s.token_hash = ?
+           AND s.revoked_at IS NULL
+           AND s.expires_at > ?
+         LIMIT 1`,
+      )
+      .get(tokenHash, nowIso()) as Row | undefined,
+  );
+}
+
+export function touchAuthSession(tokenHash: string) {
+  getSqliteDb()
+    .prepare(
+      "UPDATE auth_sessions SET last_seen_at = ? WHERE token_hash = ? AND revoked_at IS NULL",
+    )
+    .run(nowIso(), tokenHash);
+}
+
+export function revokeAuthSession(tokenHash: string) {
+  getSqliteDb()
+    .prepare(
+      "UPDATE auth_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL",
+    )
+    .run(nowIso(), tokenHash);
 }
 
 export function findProfileByLogin(login: string) {
@@ -392,6 +441,58 @@ export function generateCertificateNumber() {
 
 export function allocateCertificateNumber() {
   return getSqliteDb().transaction(() => generateCertificateNumber())();
+}
+
+export function reserveCertificateIssuance(input: {
+  certificate_record_id: string;
+  request_id: string;
+  reserved_by: string;
+}) {
+  const db = getSqliteDb();
+  return db.transaction(() => {
+    const existing = db
+      .prepare(
+        "SELECT status FROM issuance_reservations WHERE request_id = ? AND status IN ('reserved', 'finalized') LIMIT 1",
+      )
+      .get(input.request_id) as { status: string } | undefined;
+    if (existing) {
+      throw new Error(
+        existing.status === "finalized"
+          ? "CERTIFICATE_ALREADY_ISSUED"
+          : "CERTIFICATE_ISSUANCE_IN_PROGRESS",
+      );
+    }
+    const certificateNumber = generateCertificateNumber();
+    db.prepare(
+      `INSERT INTO issuance_reservations (
+        id, request_id, certificate_record_id, certificate_number, reserved_by, status, created_at
+      ) VALUES (?, ?, ?, ?, ?, 'reserved', ?)` ,
+    ).run(
+      randomUUID(),
+      input.request_id,
+      input.certificate_record_id,
+      certificateNumber,
+      input.reserved_by,
+      nowIso(),
+    );
+    return certificateNumber;
+  })();
+}
+
+export function finalizeCertificateIssuanceReservation(certificateRecordId: string) {
+  getSqliteDb()
+    .prepare(
+      "UPDATE issuance_reservations SET status = 'finalized', finalized_at = ? WHERE certificate_record_id = ? AND status = 'reserved'",
+    )
+    .run(nowIso(), certificateRecordId);
+}
+
+export function releaseCertificateIssuanceReservation(certificateRecordId: string) {
+  getSqliteDb()
+    .prepare(
+      "UPDATE issuance_reservations SET status = 'released', released_at = ? WHERE certificate_record_id = ? AND status = 'reserved'",
+    )
+    .run(nowIso(), certificateRecordId);
 }
 
 export function createCertificateRequest(input: {
@@ -599,7 +700,7 @@ export function createMockPayment(input: {
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
     db.prepare(
       `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
+       VALUES (?, ?, ?, 'simulated_local', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
     ).run(id, input.request_id, input.resident_id, transactionId, input.amount, expiresAt, timestamp, timestamp);
     db.prepare(
       "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -792,7 +893,9 @@ export function persistIssuedCertificate(input: {
   issued_at: string;
   issuance_mode: CertificateRecord["issuance_mode"];
   next_request_status: RequestStatus;
-  pdf_path: string;
+  pdf_path: string | null;
+  pdf_storage_key?: string | null;
+  pdf_storage_provider?: "local" | "vercel_blob";
   pdf_sha256: string;
   prepared_by: string;
   request: CertificateRequest;
@@ -829,7 +932,8 @@ export function persistIssuedCertificate(input: {
 
     if (
       requestRow.status !== input.current_request_status ||
-      !["paid", "free"].includes(requestRow.payment_status)
+      (input.issuance_mode === "fully_online_demo" &&
+        !["paid", "free"].includes(requestRow.payment_status))
     ) {
       throw new Error("CERTIFICATE_REQUEST_NOT_ELIGIBLE");
     }
@@ -841,7 +945,7 @@ export function persistIssuedCertificate(input: {
       throw new Error("CERTIFICATE_ISSUER_NOT_AUTHORIZED");
     }
 
-    if (requestRow.payment_status === "paid") {
+    if (input.issuance_mode === "fully_online_demo" && requestRow.payment_status === "paid") {
       const successfulPayment = db
         .prepare(
           "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' LIMIT 1",
@@ -856,10 +960,11 @@ export function persistIssuedCertificate(input: {
     db.prepare(
       `INSERT INTO certificate_records (
         id, request_id, certificate_type, resident_id, date_issued, prepared_by,
-        control_number, template_data, pdf_path, certificate_number, status,
+        control_number, template_data, pdf_path, pdf_storage_provider, pdf_storage_key,
+        certificate_number, status,
         issuance_mode, issued_at, issued_by, certificate_snapshot, pdf_sha256,
         verification_expires_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'issued', ?, ?, ?, ?, ?, ?, ?)`,
     ).run(
       input.certificate_record_id,
       input.request.id,
@@ -870,6 +975,8 @@ export function persistIssuedCertificate(input: {
       input.request.control_number,
       stringifyJson(input.template_data),
       input.pdf_path,
+      input.pdf_storage_provider ?? "local",
+      input.pdf_storage_key ?? null,
       input.certificate_number,
       input.issuance_mode,
       input.issued_at,
@@ -910,6 +1017,15 @@ export function persistIssuedCertificate(input: {
 
     if (requestUpdate.changes !== 1) {
       throw new Error("CERTIFICATE_REQUEST_STATE_CHANGED");
+    }
+
+    const reservationUpdate = db
+      .prepare(
+        "UPDATE issuance_reservations SET status = 'finalized', finalized_at = ? WHERE certificate_record_id = ? AND status = 'reserved'",
+      )
+      .run(timestamp, input.certificate_record_id);
+    if (reservationUpdate.changes !== 1) {
+      throw new Error("CERTIFICATE_ISSUANCE_RESERVATION_FAILED");
     }
 
     const revokedRecord = db
@@ -986,6 +1102,10 @@ export function revokeCertificateRecord(input: {
     if (verificationResult.changes !== 1) {
       throw new Error("CERTIFICATE_VERIFICATION_STATE_FAILED");
     }
+
+    db.prepare(
+      "UPDATE issuance_reservations SET status = 'released', released_at = ? WHERE certificate_record_id = ? AND status = 'finalized'",
+    ).run(timestamp, input.id);
 
     return true;
   })();

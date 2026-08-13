@@ -96,6 +96,8 @@ export type CertificateRecord = {
   control_number: string | null;
   template_data: Json;
   pdf_path: string | null;
+  pdf_storage_provider: "local" | "vercel_blob";
+  pdf_storage_key: string | null;
   certificate_number: string | null;
   status: "draft" | "issued" | "revoked" | "expired";
   issuance_mode: "fully_online_demo" | "hybrid_physical_original";
