@@ -1,4 +1,4 @@
-# Historical Certificate Template Alignment
+# Certificate Template Alignment
 
 This document records the anonymized layout decisions for the historical PDF
 references stored locally under
@@ -29,7 +29,7 @@ reference's visual and structural identity.
 
 ## PAGPAPATUNAY Information Model
 
-This is an intentional adaptation boundary for the thesis/demo. The renderer
+This is an intentional client-preview adaptation boundary. The renderer
 does not invent or persist unsupported historical fields simply to reproduce
 sample content from the private PDF. Dynamic values come from the current
 Barangay Certificate request model; exact official wording, field coverage, and
@@ -90,7 +90,7 @@ asset can replace the fallback without changing certificate business logic.
 ## Digital Verification Layer
 
 Existing certificate number, request number, control number, prepared-by name,
-verification code, expiry, QR link, and thesis/demo disclaimer remain in a
+verification code, expiry, QR link, and system-record disclaimer remain in a
 compact secondary footer area. They do not replace the historical CTC or O.R.
 fields, which remain blank printable lines when the application has no value.
 

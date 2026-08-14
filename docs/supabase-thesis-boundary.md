@@ -1,13 +1,13 @@
-# Supabase Thesis Boundary
+# Supabase Legacy Boundary
 
-This repository has a prepared Supabase deployment boundary, but the thesis
-demo is validated end to end with local SQLite. No live Supabase project or
-Supabase MCP connection was available during this phase.
+This repository retains a prepared Supabase boundary for possible future use,
+but the current client deployment target is Turso with Vercel Private Blob. No
+live Supabase project or Supabase MCP connection was used for this deployment.
 
 ## Current boundary
 
-- `DATABASE_PROVIDER=sqlite` is the supported local/demo mode.
-- SQLite owns local demo auth, request workflow, mock payment, certificate PDF
+- `DATABASE_PROVIDER=sqlite` is the supported local mode.
+- SQLite owns local demo auth, request workflow, simulated payment, certificate PDF
   issuance, private PDF storage, QR verification, revocation, and reissue.
 - `DATABASE_PROVIDER=supabase` uses the prepared SSR client, cookie session
   refresh, PostgreSQL migrations, and RLS policies where the repository has a
@@ -69,5 +69,5 @@ CLI's migration and advisor commands before applying it.
    the existing fail-closed certificate boundary until this work is complete.
 4. Move official template/signature assets to a private Supabase Storage bucket
    only after privacy and retention rules are approved.
-5. Re-run the thesis workflow against Supabase before calling it a deployment
-   mode.
+5. Re-run the full client acceptance workflow against Supabase before calling
+   it a supported deployment mode.

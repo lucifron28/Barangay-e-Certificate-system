@@ -1,4 +1,7 @@
-# Supabase MCP Notes
+# Supabase MCP Notes (Legacy/Future)
+
+Supabase is not the current client deployment target. These notes are retained
+for a future target change and must not replace the current Turso/Vercel guide.
 
 A prior Supabase MCP inspection recorded the projects below on May 11, 2026.
 No project was clearly identified as the Barangay Bato e-Certificate System,
@@ -23,7 +26,7 @@ When the correct Supabase project is ready:
 6. Run `database/seed/001_admin_setup.sql` after replacing the placeholder
    emails.
 
-For the current thesis workflow, also apply
+For the legacy local-validation workflow, also apply
 `database/migrations/20260805000200_online_payment_and_counter_parity.sql` after
 `20260805000100_online_certificate_lifecycle.sql`. It prepares
 `document_counters`, `payments`, `payment_events`, certificate-number uniqueness,
@@ -35,7 +38,7 @@ Finally review
 `database/migrations/20260805000300_supabase_thesis_deployment_boundary.sql`.
 It keeps resident profile updates owner-only, removes trigger-only helpers from
 the authenticated API surface, protects lifecycle tables, and documents that
-public verification is not exposed through the Data API in the thesis boundary.
+public verification is not exposed through the Data API in the legacy boundary.
 
 Also review and apply
 `database/migrations/20260808000100_final_defense_supabase_boundary.sql` only
