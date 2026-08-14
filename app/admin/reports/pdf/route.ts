@@ -83,7 +83,7 @@ export async function GET(request: Request) {
   }
 
   page.drawText(
-    "Barangay Bato e-Certificate System - thesis/demo report.",
+    "Barangay Bato e-Certificate System - client preview report.",
     {
       x: 36,
       y: 36,

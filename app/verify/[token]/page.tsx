@@ -5,8 +5,8 @@ import {
   CERTIFICATE_DISPLAY_STATUS_LABELS,
   certificateStatusMessage,
 } from "@/lib/certificates/certificate-status";
-import { isSqliteProvider } from "@/lib/db/provider";
-import { getCertificateVerificationByToken } from "@/lib/db/sqlite/queries";
+import { getDatabaseProvider } from "@/lib/db/provider";
+import { getCertificateVerificationByToken } from "@/lib/db/queries";
 import { consumeRateLimit } from "@/lib/security/rate-limit";
 import { certificateLabel, formatDate, formatDateTime } from "@/lib/utils/format";
 
@@ -63,19 +63,19 @@ export default async function VerifyCertificatePage({
     );
   }
 
-  if (!isSqliteProvider()) {
+  if (getDatabaseProvider() === "supabase") {
     return (
       <VerificationState
-        message="Public certificate verification is not connected to the Supabase deployment boundary yet. Use the SQLite thesis demo or connect the approved verification service before enabling this route."
+        message="Public certificate verification is not configured for this deployment yet. Configure the selected database and verification service before enabling this route."
         status="NOT AVAILABLE"
         tone="warning"
       />
     );
   }
 
-  let verification: ReturnType<typeof getCertificateVerificationByToken>;
+  let verification: Awaited<ReturnType<typeof getCertificateVerificationByToken>>;
   try {
-    verification = getCertificateVerificationByToken(token);
+    verification = await getCertificateVerificationByToken(token);
   } catch {
     return <VerificationState />;
   }

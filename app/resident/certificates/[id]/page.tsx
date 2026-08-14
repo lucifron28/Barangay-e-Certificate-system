@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireResident } from "@/lib/auth/guards";
-import { getCertificateRecordById } from "@/lib/db/sqlite/queries";
+import { getCertificateRecordById } from "@/lib/db/queries";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
 import {
   certificateStatusBadgeClass,
@@ -20,7 +20,7 @@ export default async function ResidentCertificatePage({ params }: { params: Prom
   if (!isCertificateIssuanceConfigured()) {
     return <div className="alert alert-warning">{CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE}</div>;
   }
-  const record = getCertificateRecordById(id);
+  const record = await getCertificateRecordById(id);
   if (!record || record.resident_id !== context.profile.id) redirect("/resident/certificates");
   const displayStatus = getCertificateDisplayStatus(record);
   const available = displayStatus === "valid";

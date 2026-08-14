@@ -367,8 +367,8 @@ export function PrintableCertificate({
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          Demo Visual Signature: the signer name is a thesis/demo visual
-          representation only and is not a legally verified digital signature.
+          Visual Signature Placeholder: the signer name is a preview-only
+          representation and is not a legally verified digital signature.
         </div>
       </div>
     </article>
