@@ -9,10 +9,10 @@ Do not use a local SQLite file as a production database and do not import
 The Vercel project is linked and the production deployment is live:
 
 - Production: <https://barangay-bato-ecertificate-system.vercel.app>
-- Latest Preview: <https://barangay-bato-ecertificate-system-8d0xzsn6w-ron-cada-projects.vercel.app>
+- Latest production deployment: <https://barangay-bato-ecertificate-system-dn29p39ef-ron-cada-projects.vercel.app>
 - Project: `barangay-bato-ecertificate-system`
-- Turso migrations: `0000_initial_schema.sql` and
-  `0001_client_deployment.sql` applied; no pending migrations.
+- Turso migrations: `0000_initial_schema.sql`, `0001_client_deployment.sql`,
+  and `0002_full_online_workflow.sql` applied; no pending migrations.
 - Storage: private Vercel Blob store linked to Production, Preview, and
   Development.
 
