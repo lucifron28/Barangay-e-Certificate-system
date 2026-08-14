@@ -62,7 +62,7 @@ export type CertificateSnapshot = {
   date_issued: string;
   issued_at: string;
   verification_expires_at: string;
-  issuance_mode: "fully_online_demo" | "hybrid_physical_original";
+  issuance_mode: "fully_online_demo";
   holder_full_name: string;
   holder_age: number | null;
   holder_address_sitio: string | null;
@@ -100,7 +100,7 @@ export type CertificateRecord = {
   pdf_storage_key: string | null;
   certificate_number: string | null;
   status: "draft" | "issued" | "revoked" | "expired";
-  issuance_mode: "fully_online_demo" | "hybrid_physical_original";
+  issuance_mode: "fully_online_demo";
   issued_at: string | null;
   issued_by: string | null;
   certificate_snapshot: CertificateSnapshot;

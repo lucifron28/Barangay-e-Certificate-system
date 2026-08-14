@@ -4,7 +4,6 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { updateSystemSettingsAction } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
-import { OFFICE_HOURS_LABEL } from "@/lib/services/business-rules";
 import { getSystemSettings } from "@/lib/services/certificate-data";
 
 export default async function AdminSettingsPage({ searchParams }: { searchParams?: Promise<{ error?: string; message?: string }> }) {
@@ -23,8 +22,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
       <div>
         <h1 className="text-3xl font-bold">System Settings</h1>
         <p className="text-base-content/70">
-          Demo-ready operational settings used by certificate generation and
-          pickup scheduling.
+          Operational settings used by online certificate generation.
         </p>
       </div>
 
@@ -42,15 +40,11 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
             ) : <dd className="font-medium">{settings.barangayCaptainName}</dd>}
           </div>
           <div>
-            <dt className="text-sm text-base-content/60">Pickup Office Hours</dt>
-            <dd className="font-medium">{OFFICE_HOURS_LABEL}</dd>
-          </div>
-          <div>
             <dt className="text-sm text-base-content/60">Payment Recording</dt>
-            <dd className="font-medium">Online demo: unpaid, paid, or free.</dd>
+            <dd className="font-medium">Online demo payment status records: unpaid, paid, or free.</dd>
           </div>
         </div>
-        <p className="mt-5 text-sm text-base-content/70">The signer name is rendered as a consistent visual thesis/demo placeholder in both HTML preview and PDF. It is not a cryptographic signature.</p>
+        <p className="mt-5 text-sm text-base-content/70">The signer name is rendered as a consistent visual placeholder in both HTML preview and PDF. It is not a legally verified digital signature.</p>
         {!canEdit ? <p className="mt-3 text-sm text-base-content/60">Barangay Secretary access is view-only for security-sensitive settings.</p> : null}
       </section>
     </div>

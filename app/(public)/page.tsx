@@ -9,7 +9,7 @@ import {
   PenLine,
   UserPlus,
 } from "lucide-react";
-import { getCertificateDeliveryCopy, isFullyOnlineDemo } from "@/lib/services/issuance-mode";
+import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
 const certificateTypes = [
   "Barangay Clearance",
@@ -56,16 +56,15 @@ export default function HomePage() {
             </div>
             <div className="alert border-base-300 bg-base-100">
               <Banknote className="size-5" aria-hidden />
-              <span>{isFullyOnlineDemo ? "Accepted requests use a mock online payment with no real funds transfer." : "Certificate fees follow the assigned office workflow."}</span>
+              <span>Certificate fees are shown before checkout. The thesis/demo payment flow transfers no actual funds.</span>
             </div>
             <div className="alert border-base-300 bg-base-100">
               <PenLine className="size-5" aria-hidden />
               <span>
-                Electronic signature display is a thesis/demo visual representation
-                only, not a legally verified digital signature.
+                Electronic signature display is a visual placeholder only, not a
+                legally verified digital signature.
               </span>
             </div>
-            {!isFullyOnlineDemo ? <div className="alert border-base-300 bg-base-100 sm:col-span-3"><PenLine className="size-5" aria-hidden /><span>Physical signing and official stamping remain part of the hybrid workflow.</span></div> : null}
           </div>
         </div>
 
@@ -93,7 +92,7 @@ export default function HomePage() {
                   Prepared By
                 </div>
                 <div className="rounded border border-dashed border-base-content/30 p-3 text-center text-xs">
-                  Demo Signature
+                  Signature Placeholder
                 </div>
               </div>
             </div>

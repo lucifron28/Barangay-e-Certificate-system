@@ -2,7 +2,6 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getAdminNavItems } from "@/lib/navigation";
-import { issuanceMode } from "@/lib/services/issuance-mode";
 
 export default async function AdminLayout({
   children,
@@ -17,7 +16,7 @@ export default async function AdminLayout({
 
   return (
     <DashboardShell
-      navItems={getAdminNavItems(issuanceMode)}
+      navItems={getAdminNavItems()}
       profile={context.profile}
       title="Admin Portal"
     >

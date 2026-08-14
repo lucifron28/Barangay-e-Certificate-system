@@ -42,6 +42,7 @@ describe("deployment provider boundaries", () => {
     const source = readFileSync(join(process.cwd(), "lib", "db", "migrations.ts"), "utf8");
     expect(source).toContain("0000_initial_schema.sql");
     expect(source).toContain("0001_client_deployment.sql");
+    expect(source).toContain("0002_full_online_workflow.sql");
     expect(source).toContain("schema_migrations");
   });
 

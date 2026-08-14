@@ -14,7 +14,6 @@ export function summarizeRequests(
     cancelled: 0,
     done: 0,
     pending: 0,
-    ready_for_pickup: 0,
     ready_for_download: 0,
     rejected: 0,
     total: requests.length,
@@ -23,7 +22,9 @@ export function summarizeRequests(
   const certificateCounts = new Map<CertificateType, number>();
 
   for (const request of requests) {
-    stats[request.status] += 1;
+    if (request.status in stats) {
+      stats[request.status] += 1;
+    }
     certificateCounts.set(
       request.certificate_type,
       (certificateCounts.get(request.certificate_type) ?? 0) + 1,

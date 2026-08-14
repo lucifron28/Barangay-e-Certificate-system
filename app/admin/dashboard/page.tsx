@@ -63,9 +63,9 @@ export default async function AdminDashboardPage() {
         <StatCard icon={XCircle} label="Rejected" tone="error" value={stats.rejected} />
         <StatCard
           icon={FileText}
-          label="Ready"
+          label="Ready for Download"
           tone="primary"
-          value={stats.ready_for_pickup + (stats.ready_for_download ?? 0)}
+          value={stats.ready_for_download}
         />
         <StatCard icon={CheckCircle2} label="Done" tone="success" value={stats.done} />
         <StatCard icon={Ban} label="Cancelled" value={stats.cancelled} />

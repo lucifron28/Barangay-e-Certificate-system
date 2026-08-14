@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft, CalendarPlus, Mail, Printer, WalletCards } from "lucide-react";
+import { ArrowLeft, Mail, Printer, WalletCards } from "lucide-react";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PaymentBadge } from "@/components/ui/payment-badge";
@@ -7,27 +7,22 @@ import { SetupRequired } from "@/components/ui/setup-required";
 import { StatusBadge } from "@/components/ui/status-badge";
 import {
   acceptRequestAction,
-  markPaymentPaidAction,
-  markRequestDoneAction,
-  markRequestReadyAction,
   rejectRequestAction,
 } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getSubmittedInformation, usesSitio } from "@/lib/services/submitted-data";
 import { getAdminRequest } from "@/lib/services/certificate-data";
-import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   getCertificateRecordByRequestId,
   listNotificationLogsForRequest,
   listPaymentsForRequest,
-} from "@/lib/db/sqlite/queries";
-import { isSqliteProvider } from "@/lib/db/provider";
+} from "@/lib/db/queries";
+import { getDatabaseProvider } from "@/lib/db/provider";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import {
   certificateLabel,
   formatCurrency,
   formatDate,
-  formatTime,
 } from "@/lib/utils/format";
 
 type AdminRequestDetailsProps = {
@@ -64,15 +59,15 @@ export default async function AdminRequestDetailsPage({
     );
   }
 
-  const schedule = request.pickup_schedules[0];
   const submittedInformation = getSubmittedInformation(request);
-  const certificateRecord = isSqliteProvider()
-    ? getCertificateRecordByRequestId(request.id)
-    : null;
-  const paymentAttempts = isSqliteProvider() ? listPaymentsForRequest(request.id) : [];
-  const notificationLogs = isSqliteProvider()
-    ? listNotificationLogsForRequest(request.id)
-    : [];
+  const [certificateRecord, paymentAttempts, notificationLogs] =
+    getDatabaseProvider() === "supabase"
+      ? [null, [], []]
+      : await Promise.all([
+          getCertificateRecordByRequestId(request.id),
+          listPaymentsForRequest(request.id),
+          listNotificationLogsForRequest(request.id),
+        ]);
   const hasActiveCertificate = certificateRecord?.status === "issued";
   const issuanceEligible = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
   const reissueEligible = certificateRecord?.status === "revoked";
@@ -123,10 +118,6 @@ export default async function AdminRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Date Requested</dt>
             <dd className="font-medium">{formatDate(request.date_requested)}</dd>
           </div>
-          {!isFullyOnlineDemo ? <div>
-            <dt className="text-sm text-base-content/60">Pickup Schedule</dt>
-            <dd className="font-medium">{schedule ? `${formatDate(schedule.pickup_date)} at ${formatTime(schedule.pickup_time)}` : "Not scheduled"}</dd>
-          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Remarks</dt>
             <dd className="font-medium">{request.remarks ?? "None"}</dd>
@@ -160,9 +151,7 @@ export default async function AdminRequestDetailsPage({
                 Payment attempts
               </h2>
               <p className="mt-1 text-sm text-base-content/70">
-                {isFullyOnlineDemo
-                  ? "Demo payment history for this request. No actual funds are transferred."
-                  : "Recorded office payment history for this request."}
+                "Simulated payment history for this request. No actual funds are transferred."
               </p>
             </div>
             <PaymentBadge status={request.payment_status} />
@@ -241,7 +230,6 @@ export default async function AdminRequestDetailsPage({
             >
               Accept Request
             </SubmitButton>
-            {!isFullyOnlineDemo ? <Link href={`/admin/pickup-schedules?request_id=${request.id}`} className="btn btn-outline"><CalendarPlus className="size-4" aria-hidden />Set Pickup Schedule</Link> : null}
           </div>
         </form>
 
@@ -265,40 +253,11 @@ export default async function AdminRequestDetailsPage({
             >
               Reject Request
             </SubmitButton>
-            {issuanceEligible || reissueEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />{reissueEligible ? "Reissue Certificate" : "Generate Certificate"}</Link> : <span className="text-sm text-base-content/60">{hasActiveCertificate ? "Certificate already issued. Revoke it before reissuing." : request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete demo payment before issuing."}</span>}
+            {issuanceEligible || reissueEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />{reissueEligible ? "Reissue Certificate" : "Generate Certificate"}</Link> : <span className="text-sm text-base-content/60">{hasActiveCertificate ? "Certificate already issued. Revoke it before reissuing." : request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete the simulated payment before issuing in online test mode."}</span>}
           </div>
         </form>
       </section>
 
-      <section className="rounded-lg border border-base-300 bg-base-100 p-5 shadow-sm">
-        <h2 className="font-bold">{isFullyOnlineDemo ? "Online certificate actions" : "Claiming and payment actions"}</h2>
-        <div className="mt-4 flex flex-wrap gap-2">
-          {!isFullyOnlineDemo && request.status === "accepted" && schedule ? (
-            <form action={markRequestReadyAction}>
-              <input type="hidden" name="request_id" value={request.id} />
-              <button className="btn btn-accent" type="submit">
-                Mark Ready for Pickup
-              </button>
-            </form>
-          ) : null}
-          {!isFullyOnlineDemo && request.payment_status === "unpaid" ? (
-            <form action={markPaymentPaidAction}>
-              <input type="hidden" name="request_id" value={request.id} />
-              <button className="btn btn-warning" type="submit">
-                Mark Payment as Paid
-              </button>
-            </form>
-          ) : null}
-          {!isFullyOnlineDemo && request.status === "ready_for_pickup" ? (
-            <form action={markRequestDoneAction}>
-              <input type="hidden" name="request_id" value={request.id} />
-              <button className="btn btn-success" type="submit">
-                Mark Done After Claiming
-              </button>
-            </form>
-          ) : null}
-        </div>
-      </section>
     </div>
   );
 }

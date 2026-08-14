@@ -8,20 +8,17 @@ import {
   getSystemSettings as getSqliteSystemSettings,
   listActivityLogs as listSqliteActivityLogs,
   listAllRequests,
-  listPickupSchedules as listSqlitePickupSchedules,
   listResidentHistory,
   listResidentRequests as listSqliteResidentRequests,
   listResidents as listSqliteResidents,
-  listSchedulableRequests as listSqliteSchedulableRequests,
   type ActivityLogWithUser,
   type RequestWithResident,
-  type ScheduleWithRequest,
   type SystemSettings,
 } from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
-import type { Database, PickupSchedule, Profile } from "@/types/database";
+import type { Database, Profile } from "@/types/database";
 
-export type { ActivityLogWithUser, RequestWithResident, ScheduleWithRequest, SystemSettings };
+export type { ActivityLogWithUser, RequestWithResident, SystemSettings };
 
 type Supabase = SupabaseClient<Database> | null;
 
@@ -32,7 +29,6 @@ function requireSupabase(supabase: Supabase) {
 
   return supabase;
 }
-
 export async function listResidentRequests(
   residentId: string,
   supabase: Supabase,
@@ -43,7 +39,7 @@ export async function listResidentRequests(
 
   const { data } = await requireSupabase(supabase)
     .from("certificate_requests")
-    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
+    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*)")
     .eq("resident_id", residentId)
     .order("date_requested", { ascending: false });
 
@@ -57,7 +53,7 @@ export async function listAdminRequests(supabase: Supabase) {
 
   const { data } = await requireSupabase(supabase)
     .from("certificate_requests")
-    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
+    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*)")
     .order("date_requested", { ascending: false });
 
   return (data ?? []) as RequestWithResident[];
@@ -74,7 +70,7 @@ export async function getResidentRequest(
 
   const { data } = await requireSupabase(supabase)
     .from("certificate_requests")
-    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
+    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*)")
     .eq("id", id)
     .eq("resident_id", residentId)
     .maybeSingle();
@@ -89,40 +85,11 @@ export async function getAdminRequest(id: string, supabase: Supabase) {
 
   const { data } = await requireSupabase(supabase)
     .from("certificate_requests")
-    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
+    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*)")
     .eq("id", id)
     .maybeSingle();
 
   return data as RequestWithResident | null;
-}
-
-export async function listSchedulableRequests(supabase: Supabase) {
-  if (getDatabaseProvider() !== "supabase") {
-    return listSqliteSchedulableRequests();
-  }
-
-  const { data } = await requireSupabase(supabase)
-    .from("certificate_requests")
-    .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
-    .in("status", ["accepted", "ready_for_pickup"])
-    .order("date_requested", { ascending: false });
-
-  return (data ?? []) as RequestWithResident[];
-}
-
-export async function listPickupSchedules(supabase: Supabase) {
-  if (getDatabaseProvider() !== "supabase") {
-    return listSqlitePickupSchedules();
-  }
-
-  const { data } = await requireSupabase(supabase)
-    .from("pickup_schedules")
-    .select(
-      "*, request:certificate_requests!pickup_schedules_request_id_fkey(*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*))",
-    )
-    .order("pickup_date", { ascending: true });
-
-  return (data ?? []) as ScheduleWithRequest[];
 }
 
 export async function listResidents(supabase: Supabase) {
@@ -151,7 +118,7 @@ export async function getResidentRecord(id: string, supabase: Supabase) {
     requireSupabase(supabase).from("profiles").select("*").eq("id", id).maybeSingle(),
     requireSupabase(supabase)
       .from("certificate_requests")
-      .select("*, resident:profiles!certificate_requests_resident_id_fkey(*), pickup_schedules(*)")
+      .select("*, resident:profiles!certificate_requests_resident_id_fkey(*)")
       .eq("resident_id", id)
       .order("date_requested", { ascending: false }),
   ]);
@@ -227,10 +194,4 @@ export function filterRequests(
       (!dateRequested || requestedDate === dateRequested)
     );
   });
-}
-
-export function flattenPickup(schedule: PickupSchedule | undefined) {
-  return schedule
-    ? `${schedule.pickup_date} ${schedule.pickup_time}`
-    : "Not scheduled";
 }

@@ -4,7 +4,7 @@ import { CertificateRequestForm } from "@/components/forms/certificate-request-f
 import { FlashMessage } from "@/components/ui/flash-message";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { requireResident } from "@/lib/auth/guards";
-import { issuanceMode, getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
+import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
 type RequestCertificatePageProps = {
   searchParams?: Promise<{
@@ -40,7 +40,7 @@ export default async function RequestCertificatePage({
 
       <FlashMessage error={params?.error} message={params?.message} />
 
-      <CertificateRequestForm profile={context.profile} mode={issuanceMode} />
+      <CertificateRequestForm profile={context.profile} />
     </div>
   );
 }

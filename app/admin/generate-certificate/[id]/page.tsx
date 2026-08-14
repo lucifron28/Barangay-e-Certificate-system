@@ -15,7 +15,6 @@ import {
 import { getCertificateRecordByRequestId } from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
-import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
   isCertificateIssuanceConfigured,
@@ -141,9 +140,8 @@ export default async function GenerateCertificatePage({
         </div>
       ) : !canPreview ? (
         <div className="no-print alert alert-warning">
-          {isFullyOnlineDemo
-            ? "Certificate issuance is unavailable until the request is accepted and its simulated fee is paid, or the request is marked free."
-            : "Certificate issuance is unavailable until the request is accepted."}
+          Certificate issuance is unavailable until the request is accepted and its
+          simulated fee is paid, or the request is marked free.
         </div>
       ) : null}
     </div>

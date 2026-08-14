@@ -6,7 +6,6 @@ const badgeClass: Record<RequestStatus, string> = {
   accepted: "badge-info",
   cancelled: "badge-neutral",
   rejected: "badge-error",
-  ready_for_pickup: "badge-primary",
   ready_for_download: "badge-info",
   done: "badge-success",
 };

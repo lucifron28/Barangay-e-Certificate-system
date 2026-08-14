@@ -109,7 +109,6 @@ describe("certificate request field requirements", () => {
       const markup = renderToStaticMarkup(
         <CertificateRequestForm
           initialCertificateType={certificateType}
-          mode="fully_online_demo"
           profile={profile}
         />,
       );

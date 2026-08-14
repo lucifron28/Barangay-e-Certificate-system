@@ -2,8 +2,7 @@
 
 import { requireResident } from "@/lib/auth/guards";
 import { redirectWithError, redirectWithMessage, logActivity } from "@/lib/actions/helpers";
-import { isLocalSqliteProvider } from "@/lib/db/provider";
-import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
+import { isSqliteProvider } from "@/lib/db/provider";
 import {
   createMockPayment,
   getLatestPaymentForRequest,
@@ -21,8 +20,8 @@ export async function startMockPaymentAction(formData: FormData) {
   const context = await requireResident();
   const requestId = String(formData.get("request_id") ?? "");
   const path = paymentPath(requestId);
-  if (!requestId || context.setupMissing || !isLocalSqliteProvider() || !isFullyOnlineDemo) {
-    redirectWithError(path, "Simulated payment is available only in fully online local demo mode.");
+  if (!requestId || context.setupMissing || !isSqliteProvider()) {
+    redirectWithError(path, "Online payment simulation is not configured.");
   }
   const request = await getResidentRequestById(requestId, context.profile.id);
   if (!request || request.status !== "accepted" || request.payment_status !== "unpaid") {
@@ -40,7 +39,7 @@ export async function resolveMockPaymentAction(formData: FormData) {
   const requestId = String(formData.get("request_id") ?? "");
   const outcome = String(formData.get("outcome") ?? "");
   const path = paymentPath(requestId);
-  if (!paymentId || !requestId || !["paid", "failed", "cancelled"].includes(outcome) || context.setupMissing || !isLocalSqliteProvider() || !isFullyOnlineDemo) {
+  if (!paymentId || !requestId || !["paid", "failed", "cancelled"].includes(outcome) || context.setupMissing || !isSqliteProvider()) {
     redirectWithError(path, "Unable to resolve simulated payment.");
   }
   const payment = await resolveMockPayment({ payment_id: paymentId, resident_id: context.profile.id, status: outcome as "paid" | "failed" | "cancelled" });
@@ -52,7 +51,7 @@ export async function resolveMockPaymentAction(formData: FormData) {
 
 export async function getResidentDemoPayment(requestId: string) {
   const context = await requireResident();
-  if (context.setupMissing || !isLocalSqliteProvider()) return { context, payment: null, request: null };
+  if (context.setupMissing || !isSqliteProvider()) return { context, payment: null, request: null };
   const request = await getResidentRequestById(requestId, context.profile.id);
   return {
     context,

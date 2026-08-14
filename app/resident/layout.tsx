@@ -2,7 +2,6 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { requireResident } from "@/lib/auth/guards";
 import { getResidentNavItems } from "@/lib/navigation";
-import { issuanceMode } from "@/lib/services/issuance-mode";
 
 export default async function ResidentLayout({
   children,
@@ -17,7 +16,7 @@ export default async function ResidentLayout({
 
   return (
     <DashboardShell
-      navItems={getResidentNavItems(issuanceMode)}
+      navItems={getResidentNavItems()}
       profile={context.profile}
       title="Resident Portal"
     >
