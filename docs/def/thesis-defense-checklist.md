@@ -6,7 +6,7 @@
 - [ ] `LOCAL_DEMO_SECRET` is stable for the whole demonstration and is at least
       32 characters.
 - [ ] `DATABASE_PROVIDER=sqlite` is set.
-- [ ] `CERTIFICATE_ISSUANCE_MODE=fully_online_demo` is set.
+- [ ] No certificate issuance-mode variable is configured.
 - [ ] Laptop charger is packed.
 - [ ] Phone is charged and available for QR scanning.
 - [ ] Phone and laptop are connected to the same network.

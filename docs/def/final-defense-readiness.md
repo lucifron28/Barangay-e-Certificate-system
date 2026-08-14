@@ -25,8 +25,8 @@ URLs.
 
 ## Manual smoke gate
 
-1. Run `npm run demo:reset` with `DATABASE_PROVIDER=sqlite` and
-   `CERTIFICATE_ISSUANCE_MODE=fully_online_demo`.
+1. Run `npm run demo:reset` with `DATABASE_PROVIDER=sqlite`. The full-online
+   certificate workflow is the default and requires no mode variable.
 2. Start with `npm run dev` and sign in as the resident, Main Admin, and
    Barangay Secretary demo accounts.
 3. Submit a request, accept it, complete the mock payment, issue the PDF, and

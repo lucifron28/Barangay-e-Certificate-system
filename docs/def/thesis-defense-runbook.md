@@ -9,8 +9,8 @@ accounts and sample records only. The default demo mode is
 1. Copy `.env.example` to `.env.local`.
 2. Set `LOCAL_DEMO_SECRET` to a private random value with at least 32
    characters.
-3. Keep `DATABASE_PROVIDER=sqlite` and
-   `CERTIFICATE_ISSUANCE_MODE=fully_online_demo`.
+3. Keep `DATABASE_PROVIDER=sqlite`. Certificate delivery is full-online by
+   default; no issuance-mode variable is required.
 4. Confirm that the laptop and test phone are on the same network if a phone
    QR scan will be demonstrated.
 
@@ -80,13 +80,12 @@ accounts and sample records only. The default demo mode is
    tables.
 6. Log out and confirm the public login page is displayed.
 
-## Hybrid Workflow Note
+## Online Workflow Note
 
-To demonstrate the older office workflow, set
-`CERTIFICATE_ISSUANCE_MODE=hybrid_physical_original`, reset the database, and
-restart the app. Pickup schedules, office payment recording, ready-for-pickup,
-and done-after-claiming controls return in that mode. Do not mix hybrid wording
-into the default fully-online defense flow.
+The application has one active delivery path: accepted paid or free requests
+are issued as secure PDFs, residents download them through the authenticated
+route, and a successful download completes the request. The payment screen is
+simulated for thesis/demo use and transfers no actual funds.
 
 ## What to Explain
 
