@@ -493,7 +493,7 @@ export async function generateCertificatePdf({
     `${certificateLabel(request.certificate_type)} - ${effectiveCertificateNumber ?? "Preview"}`,
   );
   pdfDoc.setSubject(
-    "Barangay Bato e-Certificate System thesis/demo certificate",
+    "Barangay Bato e-Certificate System certificate",
   );
   pdfDoc.setKeywords([
     "Barangay Bato",
@@ -630,7 +630,7 @@ export async function generateCertificatePdf({
   });
   centerText(
     page,
-    "THESIS DEMO - NOT FOR OFFICIAL USE",
+    "System record verification does not establish physical-document originality.",
     CERTIFICATE_LAYOUT_REGIONS.footer.y + 26,
     fonts.regular,
     8,

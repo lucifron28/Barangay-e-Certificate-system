@@ -35,10 +35,6 @@ export const env = {
       : ("local" as const),
   blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN?.trim() ?? "",
   sessionCookieSecret: process.env.SESSION_COOKIE_SECRET?.trim() ?? "",
-  certificateIssuanceMode:
-    process.env.CERTIFICATE_ISSUANCE_MODE === "fully_online_demo"
-      ? ("fully_online_demo" as const)
-      : ("hybrid_physical_original" as const),
   emailFrom: process.env.EMAIL_FROM?.trim() ?? "",
   localDemoAdminEmail:
     process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",

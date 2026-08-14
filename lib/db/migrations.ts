@@ -16,7 +16,11 @@ export type MigrationStatus = {
 };
 
 function migrationFiles() {
-  return ["0000_initial_schema.sql", "0001_client_deployment.sql"];
+  return [
+    "0000_initial_schema.sql",
+    "0001_client_deployment.sql",
+    "0002_full_online_workflow.sql",
+  ];
 }
 
 function migrationStatements(contents: string) {
@@ -36,6 +40,11 @@ function readMigration(version: string) {
     case "0001_client_deployment.sql":
       return readFileSync(
         path.join(process.cwd(), "database", "migrations", "0001_client_deployment.sql"),
+        "utf8",
+      );
+    case "0002_full_online_workflow.sql":
+      return readFileSync(
+        path.join(process.cwd(), "database", "migrations", "0002_full_online_workflow.sql"),
         "utf8",
       );
     default:

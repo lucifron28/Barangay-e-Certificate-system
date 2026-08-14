@@ -974,7 +974,7 @@ async function drawVerificationLayer({
 
   centerText(
     page,
-    "THESIS DEMO - NOT FOR OFFICIAL USE",
+    "System record verification does not establish physical-document originality.",
     HISTORICAL_LAYOUT_REGIONS.footer.y,
     fonts.sans,
     6.5,
@@ -1042,7 +1042,7 @@ export async function generateHistoricalCertificatePdf({
   pdfDoc.setTitle(
     `${certificateLabel(request.certificate_type)} - ${effectiveCertificateNumber ?? "Preview"}`,
   );
-  pdfDoc.setSubject("Barangay Bato historical-layout thesis/demo certificate");
+  pdfDoc.setSubject("Barangay Bato e-Certificate System certificate");
   pdfDoc.setKeywords([
     "Barangay Bato",
     "e-Certificate",

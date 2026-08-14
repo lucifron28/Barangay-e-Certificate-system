@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS certificate_requests (
   resident_id TEXT NOT NULL REFERENCES profiles(id),
   certificate_type TEXT NOT NULL CHECK (certificate_type IN ('barangay_clearance', 'barangay_certificate', 'barangay_indigency', 'barangay_residency')),
   purpose TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_pickup', 'ready_for_download', 'done', 'cancelled')),
+  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'ready_for_download', 'done', 'cancelled')),
   remarks TEXT,
   submitted_data TEXT NOT NULL DEFAULT '{}',
   control_number TEXT UNIQUE,

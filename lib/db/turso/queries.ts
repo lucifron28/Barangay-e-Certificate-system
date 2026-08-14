@@ -827,7 +827,7 @@ export async function listPickupSchedules() {
 }
 
 export async function listSchedulableRequests() {
-  return (await listAllRequests()).filter((request) => ["accepted", "ready_for_pickup"].includes(request.status));
+  return (await listAllRequests()).filter((request) => request.status === "accepted");
 }
 
 export async function listResidents() {

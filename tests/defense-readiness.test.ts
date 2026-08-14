@@ -28,10 +28,7 @@ import {
   removePrivateCertificatePdf,
 } from "@/lib/certificates/private-storage";
 import {
-  canMarkReady,
-  canMarkDone,
   canResubmitRequest,
-  canScheduleRequest,
 } from "@/lib/services/business-rules";
 import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
@@ -72,20 +69,9 @@ describe("request, counter, and payment rules", () => {
     expect(certificate).toMatch(/^CERT-\d{4}-\d{4}$/);
   });
 
-  it("allows only the intended status transitions", () => {
+  it("allows only the intended resident retry transition", () => {
     expect(canResubmitRequest("rejected")).toBe(true);
     expect(canResubmitRequest("accepted")).toBe(false);
-    expect(canScheduleRequest("accepted")).toBe(true);
-    expect(canScheduleRequest("pending")).toBe(false);
-    expect(canMarkReady("accepted", true)).toBe(true);
-    expect(canMarkReady("accepted", false)).toBe(false);
-    expect(canMarkReady("pending", true)).toBe(false);
-    expect(canMarkReady("rejected", true)).toBe(false);
-    expect(canMarkReady("cancelled", true)).toBe(false);
-    expect(canMarkReady("ready_for_pickup", true)).toBe(false);
-    expect(canMarkReady("done", true)).toBe(false);
-    expect(canMarkDone("ready_for_pickup")).toBe(true);
-    expect(canMarkDone("ready_for_download")).toBe(false);
   });
 
   it("can retry after a failed payment and preserves a new attempt", () => {

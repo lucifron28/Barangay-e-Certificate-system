@@ -9,10 +9,10 @@ Do not use a local SQLite file as a production database and do not import
 The Vercel project is linked and the production deployment is live:
 
 - Production: <https://barangay-bato-ecertificate-system.vercel.app>
-- Latest Preview: <https://barangay-bato-ecertificate-system-8d0xzsn6w-ron-cada-projects.vercel.app>
+- Latest production deployment: <https://barangay-bato-ecertificate-system-dn29p39ef-ron-cada-projects.vercel.app>
 - Project: `barangay-bato-ecertificate-system`
-- Turso migrations: `0000_initial_schema.sql` and
-  `0001_client_deployment.sql` applied; no pending migrations.
+- Turso migrations: `0000_initial_schema.sql`, `0001_client_deployment.sql`,
+  and `0002_full_online_workflow.sql` applied; no pending migrations.
 - Storage: private Vercel Blob store linked to Production, Preview, and
   Development.
 
@@ -53,7 +53,9 @@ Connect the GitHub repository to the approved Vercel project. Configure these va
     SMTP_PASS=<gmail-app-password>
     EMAIL_FROM=Barangay Bato e-Certificate <approved-gmail-address>
 
-Set CERTIFICATE_ISSUANCE_MODE according to the approved Preview workflow. Do not use LOCAL_DEMO_SECRET as the production session secret.
+The application uses the full-online certificate workflow in every deployed
+environment. Do not add a certificate issuance mode variable. Do not use
+LOCAL_DEMO_SECRET as the production session secret.
 
 ## 4. Configure Private Blob
 
@@ -66,7 +68,9 @@ Run the migration script from a trusted operator environment with Preview databa
     DATABASE_PROVIDER=turso npm run db:migrate:turso
     DATABASE_PROVIDER=turso npm run db:status
 
-Expected files are 0000_initial_schema.sql and 0001_client_deployment.sql. The runner creates schema_migrations, applies files in order, and does not drop existing production tables.
+Expected files are 0000_initial_schema.sql, 0001_client_deployment.sql, and
+0002_full_online_workflow.sql. The runner creates schema_migrations, applies
+files in order, and does not drop existing production tables.
 
 ## 6. Bootstrap The First Admin
 
@@ -74,7 +78,7 @@ Do not use a public registration form to create an admin account. Use a controll
 
 ## 7. Configure Gmail SMTP
 
-Enable two-step verification on the approved Gmail account and create an App Password. The App Password is not the normal Gmail password. Configure port 465 with secure SMTP. Send first to an approved synthetic recipient, verify the message and notification log, then test accepted, rejected, scheduled, and ready-for-pickup events.
+Enable two-step verification on the approved Gmail account and create an App Password. The App Password is not the normal Gmail password. Configure port 465 with secure SMTP. Send first to an approved synthetic recipient, verify the message and notification log, then test accepted, rejected, and certificate-ready events.
 
 ## 8. Run The Production Gate
 
@@ -84,7 +88,7 @@ The command reports missing variable names only. A successful result confirms en
 
 ## 9. Preview Acceptance
 
-Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, office payment-status recording, certificate issuance before pickup payment, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist. Do not enable an online payment provider.
+Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, simulated online payment, PDF issuance, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist. The payment screen is a thesis/demo simulation and must not be treated as a real gateway.
 
 ## 10. Production Handoff Gate
 

@@ -185,12 +185,6 @@ describe("certificate PDF and issuance metadata", () => {
     expect(isCertificateIssuanceEligible({ status: "accepted", payment_status: "paid" })).toBe(true);
     expect(isCertificateIssuanceEligible({ status: "accepted", payment_status: "free" })).toBe(true);
     expect(isCertificateIssuanceEligible({ status: "accepted", payment_status: "unpaid" })).toBe(false);
-    expect(
-      isCertificateIssuanceEligible(
-        { status: "accepted", payment_status: "unpaid" },
-        "hybrid_physical_original",
-      ),
-    ).toBe(true);
     expect(isCertificateIssuanceEligible({ status: "pending", payment_status: "paid" })).toBe(false);
   });
 });

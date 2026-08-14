@@ -1,31 +1,26 @@
-# Defense and Internal Notes
+# Archived Historical Notes
 
-This folder collects thesis-defense rehearsal material and internal development
-tooling notes so the active project documentation stays easy to scan.
+This folder contains historical thesis-defense and internal development notes.
+It is retained for repository history and is not an active operating,
+deployment, or client-acceptance guide. Use the current documents in `docs/`
+instead.
 
-## Defense Materials
+## Archived Materials
 
-- [Final Defense Readiness](final-defense-readiness.md) - automated and manual
-  final verification gates.
-- [Thesis Defense Audit](thesis-defense-audit.md) - completed repair-loop audit
-  and known scope boundaries.
-- [Thesis Defense Checklist](thesis-defense-checklist.md) - equipment, data,
-  privacy, and quality-gate checklist.
-- [Thesis Defense Runbook](thesis-defense-runbook.md) - rehearsal sequence for
-  the resident, admin, payment, certificate, and QR workflows.
-- [Security and Legal Limitations](security-and-legal-limitations.md) - thesis
-  and production-use limitations that must be stated accurately.
+- `final-defense-readiness.md`
+- `thesis-defense-audit.md`
+- `thesis-defense-checklist.md`
+- `thesis-defense-runbook.md`
+- `security-and-legal-limitations.md`
 
-## Internal Tooling
+## Historical Tooling
 
-- [Agent Container](agent-container.md) - optional Docker-based development
-  environment and its security boundaries.
+- `agent-container.md`
 
-## Active Project References
+## Current References
 
-These remain at the `docs/` root because they support normal implementation and
-deployment setup rather than a specific defense rehearsal:
-
-- [Certificate Template Alignment](../certificate-template-alignment.md)
-- [Supabase MCP Notes](../supabase-mcp.md)
-- [Supabase Thesis Boundary](../supabase-thesis-boundary.md)
+- [Client readiness](../client-readiness.md)
+- [Vercel and Turso deployment](../deployment-vercel-turso.md)
+- [Client acceptance checklist](../client-acceptance-checklist.md)
+- [Client acceptance runbook](../client-acceptance-runbook.md)
+- [Operations guide](../operations.md)

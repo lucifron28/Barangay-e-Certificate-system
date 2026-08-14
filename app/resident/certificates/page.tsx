@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireResident } from "@/lib/auth/guards";
-import { listResidentCertificateRecords } from "@/lib/db/sqlite/queries";
+import { listResidentCertificateRecords } from "@/lib/db/queries";
 import {
   certificateStatusBadgeClass,
   CERTIFICATE_DISPLAY_STATUS_LABELS,
@@ -18,7 +18,7 @@ export default async function ResidentCertificatesPage() {
   if (!isCertificateIssuanceConfigured()) {
     return <div className="alert alert-warning">{CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE}</div>;
   }
-  const records = listResidentCertificateRecords(context.profile.id);
+  const records = await listResidentCertificateRecords(context.profile.id);
   return (
     <div className="space-y-6">
       <div>

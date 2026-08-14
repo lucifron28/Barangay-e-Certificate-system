@@ -19,13 +19,11 @@ import type { Profile } from "@/types/database";
 
 type CertificateRequestFormProps = {
   profile: Profile;
-  mode: "fully_online_demo" | "hybrid_physical_original";
   initialCertificateType?: CertificateType;
 };
 
 export function CertificateRequestForm({
   initialCertificateType = "barangay_clearance",
-  mode,
   profile,
 }: CertificateRequestFormProps) {
   const [certificateType, setCertificateType] = useState<CertificateType>(
@@ -159,7 +157,7 @@ export function CertificateRequestForm({
       </div>
       <div className="alert alert-info md:col-span-2">
         <span>
-          {mode === "fully_online_demo" ? "Accepted requests can use mock payment and verified PDF delivery." : "Accepted requests follow the assigned hybrid delivery workflow."}
+          Accepted requests can use simulated online payment and verified PDF delivery.
         </span>
       </div>
       <div className="flex flex-wrap gap-3 md:col-span-2">

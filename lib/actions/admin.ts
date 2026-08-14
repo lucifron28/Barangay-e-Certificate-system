@@ -15,28 +15,15 @@ import {
   revokeCertificateRecord,
   setSystemSetting,
   updateRequestStatus,
-  upsertPickupSchedule,
 } from "@/lib/db/queries";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
-import { env } from "@/lib/env";
-import {
-  canMarkReady,
-  canMarkDone,
-  canRejectRequest,
-  canScheduleRequest,
-  isWithinOfficeHours,
-  OFFICE_HOURS_LABEL,
-} from "@/lib/services/business-rules";
+import { canRejectRequest } from "@/lib/services/business-rules";
 import { getAdminRequest } from "@/lib/services/certificate-data";
 import {
   acceptRequestSchema,
-  markDoneSchema,
-  markPaymentPaidSchema,
-  markReadySchema,
   rejectRequestSchema,
   revokeCertificateSchema,
   saveCertificateSchema,
-  scheduleSchema,
   systemSettingsSchema,
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
@@ -45,10 +32,7 @@ import {
   CertificateIssuanceError,
   issueCertificate,
 } from "@/lib/services/certificate-issuance";
-import {
-  getCertificateDeliveryCopy,
-  isFullyOnlineDemo,
-} from "@/lib/services/issuance-mode";
+import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 import {
   CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
   isCertificateIssuanceConfigured,
@@ -88,9 +72,6 @@ function rejectedEmail(
   certificateType: string,
   remarks: string,
 ) {
-  const followUp = isFullyOnlineDemo
-    ? "For further clarification, please contact Barangay Bato through the e-Certificate System."
-    : `For further clarification, please visit the Barangay Bato office during office hours, ${OFFICE_HOURS_LABEL}.`;
   return {
     message: `Dear ${residentName},
 
@@ -100,7 +81,7 @@ We regret to inform you that your request for ${certificateType} has been reject
 
 Reason/Remarks: ${remarks}
 
-${followUp}
+For further clarification, please contact Barangay Bato through the e-Certificate System.
 
 Thank you.
 
@@ -110,45 +91,15 @@ Barangay Bato, Mauban, Quezon`,
   };
 }
 
-function pickupEmail(
-  residentName: string,
-  certificateType: string,
-  pickupDate: string,
-  pickupTime: string,
-) {
-  return {
-    message: `Dear ${residentName},
-
-Good day.
-
-Your request for ${certificateType} has been scheduled for pickup.
-
-Pickup Date: ${pickupDate}
-Pickup Time: ${pickupTime}
-Location: Barangay Bato Office
-
-Please claim your certificate during the assigned schedule. Certificate fees shall be settled at the barangay office upon pickup.
-
-Office Hours: ${OFFICE_HOURS_LABEL}
-
-Thank you.
-
-Barangay Bato e-Certificate System
-Barangay Bato, Mauban, Quezon`,
-    subject: "Pickup Schedule for Your Certificate Request",
-  };
-}
-
 function certificateReadyEmail(residentName: string, certificateType: string) {
-  const online = isFullyOnlineDemo;
   return {
     message: `Dear ${residentName},
 
 Good day.
 
-Your ${certificateType} is now ${online ? "ready as a secure PDF download" : "ready for pickup at the Barangay Bato office"}.
+Your ${certificateType} is now ready as a secure PDF download.
 
-${online ? "Please sign in to My Certificates to download the issued PDF." : `Please proceed during office hours, ${OFFICE_HOURS_LABEL}, to claim your certificate.`}
+Please sign in to My Certificates to download the issued PDF.
 
 ${getCertificateDeliveryCopy().emailDelivery}
 
@@ -156,7 +107,7 @@ Thank you.
 
 Barangay Bato e-Certificate System
 Barangay Bato, Mauban, Quezon`,
-    subject: online ? "Certificate Ready for Download" : "Certificate Ready for Pickup",
+    subject: "Certificate Ready for Download",
   };
 }
 
@@ -336,271 +287,6 @@ export async function rejectRequestAction(formData: FormData) {
   });
 
   redirectWithMessage(path, "Request rejected.");
-}
-
-export async function setPickupScheduleAction(formData: FormData) {
-  if (env.certificateIssuanceMode === "fully_online_demo") {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Pickup scheduling is unavailable in fully online demo mode.",
-    );
-  }
-
-  const parsed = scheduleSchema.safeParse({
-    pickup_date: formData.get("pickup_date"),
-    pickup_time: formData.get("pickup_time"),
-    remarks: formData.get("remarks"),
-    request_id: formData.get("request_id"),
-  });
-
-  if (!parsed.success) {
-    redirectWithError("/admin/pickup-schedules", firstZodError(parsed.error));
-  }
-
-  if (!isWithinOfficeHours(parsed.data.pickup_date, parsed.data.pickup_time)) {
-    redirectWithError(
-      "/admin/pickup-schedules",
-      `Pickup must be scheduled within office hours: ${OFFICE_HOURS_LABEL}.`,
-    );
-  }
-
-  const context = await getAdminContextOrRedirect("/admin/pickup-schedules");
-  const request = await getAdminRequest(parsed.data.request_id, context.supabase);
-
-  if (!request) {
-    redirectWithError("/admin/pickup-schedules", "Request not found.");
-  }
-
-  if (!canScheduleRequest(request.status)) {
-    redirectWithError(
-      "/admin/pickup-schedules",
-      "Only accepted requests can be scheduled.",
-    );
-  }
-
-  if (isSqliteProvider()) {
-    await upsertPickupSchedule({
-      created_by: context.profile.id,
-      pickup_date: parsed.data.pickup_date,
-      pickup_time: parsed.data.pickup_time,
-      remarks: parsed.data.remarks || null,
-      request_id: request.id,
-    });
-  } else {
-    const { error: scheduleError } = await context.supabase!
-      .from("pickup_schedules")
-      .upsert(
-        {
-          created_by: context.profile.id,
-          pickup_date: parsed.data.pickup_date,
-          pickup_time: parsed.data.pickup_time,
-          remarks: parsed.data.remarks || null,
-          request_id: request.id,
-        },
-        {
-          onConflict: "request_id",
-        },
-      );
-
-    if (scheduleError) {
-      redirectWithError("/admin/pickup-schedules", "Unable to save schedule.");
-    }
-
-  }
-
-  await logActivity({
-    action: "Created pickup schedule",
-    affectedRecordId: request.id,
-    affectedTable: "pickup_schedules",
-    profile: context.profile,
-    remarks: "Pickup schedule assigned within official office hours.",
-    supabase: context.supabase,
-  });
-
-  const scheduledEmail = pickupEmail(
-    request.resident?.full_name ?? "Resident",
-    certificateLabel(request.certificate_type),
-    parsed.data.pickup_date,
-    parsed.data.pickup_time,
-  );
-  await notifyAndLog({
-    ...scheduledEmail,
-    requestId: request.id,
-    supabase: context.supabase,
-    to: request.resident?.email,
-  });
-  redirectWithMessage("/admin/pickup-schedules", "Pickup schedule saved.");
-}
-
-export async function markRequestReadyAction(formData: FormData) {
-  if (env.certificateIssuanceMode === "fully_online_demo") {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Online certificates become ready after payment and issuance.",
-    );
-  }
-
-  const parsed = markReadySchema.safeParse({
-    request_id: formData.get("request_id"),
-  });
-
-  if (!parsed.success) {
-    redirectWithError("/admin/certificate-requests", firstZodError(parsed.error));
-  }
-
-  const context = await getAdminContextOrRedirect("/admin/certificate-requests");
-  const request = await getAdminRequest(parsed.data.request_id, context.supabase);
-
-  if (
-    !request ||
-    !canMarkReady(request.status, request.pickup_schedules.length > 0)
-  ) {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Only accepted requests with a pickup schedule can be marked ready for pickup.",
-    );
-  }
-
-  if (isSqliteProvider()) {
-    await updateRequestStatus({ id: request.id, status: "ready_for_pickup" });
-  } else {
-    await context.supabase!
-      .from("certificate_requests")
-      .update({ status: "ready_for_pickup", updated_at: new Date().toISOString() })
-      .eq("id", request.id);
-  }
-
-  await logActivity({
-    action: "Changed request status",
-    affectedRecordId: request.id,
-    affectedTable: "certificate_requests",
-    profile: context.profile,
-    remarks: "Marked as ready for pickup.",
-    supabase: context.supabase,
-  });
-
-  redirectWithMessage("/admin/certificate-requests", "Request marked ready.");
-}
-
-export async function markPaymentPaidAction(formData: FormData) {
-  if (env.certificateIssuanceMode === "fully_online_demo") {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Simulated online payments must be completed by the resident.",
-    );
-  }
-  const parsed = markPaymentPaidSchema.safeParse({
-    request_id: formData.get("request_id"),
-  });
-
-  if (!parsed.success) {
-    redirectWithError("/admin/certificate-requests", firstZodError(parsed.error));
-  }
-
-  const context = await getAdminContextOrRedirect("/admin/certificate-requests");
-  const request = await getAdminRequest(parsed.data.request_id, context.supabase);
-
-  if (!request) {
-    redirectWithError("/admin/certificate-requests", "Request not found.");
-  }
-
-  if (request.payment_status === "free") {
-    redirectWithError("/admin/certificate-requests", "This certificate is free.");
-  }
-
-  if (!["accepted", "ready_for_pickup"].includes(request.status)) {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Only accepted or ready-for-pickup requests can have office payment recorded.",
-    );
-  }
-
-  if (isSqliteProvider()) {
-    await updateRequestStatus({
-      id: request.id,
-      paymentStatus: "paid",
-      status: request.status,
-    });
-  } else {
-    await context.supabase!
-      .from("certificate_requests")
-      .update({
-        payment_status: "paid",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", request.id);
-  }
-
-  await logActivity({
-    action: "Payment marked paid",
-    affectedRecordId: request.id,
-    affectedTable: "certificate_requests",
-    profile: context.profile,
-    remarks: "Office payment recorded in hybrid workflow.",
-    supabase: context.supabase,
-  });
-
-  redirectWithMessage("/admin/certificate-requests", "Payment marked paid.");
-}
-
-export async function markRequestDoneAction(formData: FormData) {
-  if (isFullyOnlineDemo) {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Online certificates are completed when the resident downloads the issued PDF.",
-    );
-  }
-
-  const parsed = markDoneSchema.safeParse({
-    request_id: formData.get("request_id"),
-  });
-
-  if (!parsed.success) {
-    redirectWithError("/admin/certificate-requests", firstZodError(parsed.error));
-  }
-
-  const context = await getAdminContextOrRedirect("/admin/certificate-requests");
-  const request = await getAdminRequest(parsed.data.request_id, context.supabase);
-
-  if (!request || !canMarkDone(request.status)) {
-    redirectWithError(
-      "/admin/certificate-requests",
-      "Only ready-for-pickup requests can be marked done.",
-    );
-  }
-
-  if (isSqliteProvider()) {
-    await updateRequestStatus({
-      dateReleased: new Date().toISOString(),
-      id: request.id,
-      status: "done",
-    });
-  } else {
-    const { error } = await context.supabase!
-      .from("certificate_requests")
-      .update({
-        date_released: new Date().toISOString(),
-        status: "done",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", request.id)
-      .eq("status", "ready_for_pickup");
-
-    if (error) {
-      redirectWithError("/admin/certificate-requests", "Unable to mark as done.");
-    }
-  }
-
-  await logActivity({
-    action: "Marked request as done",
-    affectedRecordId: request.id,
-    affectedTable: "certificate_requests",
-    profile: context.profile,
-    remarks: "Certificate claimed by resident.",
-    supabase: context.supabase,
-  });
-
-  redirectWithMessage("/admin/certificate-requests", "Request marked as done.");
 }
 
 export async function saveCertificateRecordAction(formData: FormData) {

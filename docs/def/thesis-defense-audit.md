@@ -19,7 +19,7 @@ connected to an identified live Barangay Bato project.
 | 5. Admin lifecycle views | Complete | Payment attempts and notification delivery history visible per request |
 | 6. SQLite setup/reset | Complete | One canonical demo reset and isolated test database |
 | 7. Isolated defense workflows | Complete | Fresh request/payment/issue/revoke/reissue integration coverage |
-| 8. Hybrid transition and Supabase boundary | Complete | Shared ready-state rule, atomic yearly counters, strict settings/payment RLS, and fail-closed Supabase issuance |
+| 8. Online lifecycle and Supabase boundary | Complete | Secure-download state, atomic yearly counters, strict settings/payment RLS, and fail-closed Supabase issuance |
 | 9. Final defense regression coverage | Complete | QR expiry/download matrix, long-content PDF coverage, storage isolation, and boundary tests |
 | 10. Final defense documentation | Complete | Runbook, checklist, limitations, README, and final readiness guide |
 | Automated quality gate | Complete locally | `npm ci`, reset, lint, typecheck, all current Vitest tests, and production build |

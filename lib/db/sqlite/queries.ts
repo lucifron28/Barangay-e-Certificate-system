@@ -866,9 +866,7 @@ export function listPickupSchedules() {
 }
 
 export function listSchedulableRequests() {
-  return listAllRequests().filter((request) =>
-    ["accepted", "ready_for_pickup"].includes(request.status),
-  );
+  return listAllRequests().filter((request) => request.status === "accepted");
 }
 
 export function listResidents() {

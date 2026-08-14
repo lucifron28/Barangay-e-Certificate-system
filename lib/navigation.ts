@@ -1,6 +1,5 @@
 import {
   Activity,
-  CalendarDays,
   ClipboardList,
   FileText,
   Home,
@@ -10,7 +9,6 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-import type { IssuanceMode } from "@/lib/services/issuance-mode";
 
 const residentNavItems = [
   {
@@ -39,12 +37,6 @@ const residentNavItems = [
     icon: UserRound,
   },
 ] as const;
-
-const residentPickupNavItem = {
-  href: "/resident/pickup-schedule",
-  label: "Pickup Schedule",
-  icon: CalendarDays,
-} as const;
 
 const adminNavItems = [
   {
@@ -84,22 +76,12 @@ const adminNavItems = [
   },
 ] as const;
 
-const adminPickupNavItem = {
-  href: "/admin/pickup-schedules",
-  label: "Pickup Schedules",
-  icon: CalendarDays,
-} as const;
-
-export function getResidentNavItems(mode: IssuanceMode) {
-  return mode === "hybrid_physical_original"
-    ? [...residentNavItems.slice(0, 4), residentPickupNavItem, ...residentNavItems.slice(4)]
-    : residentNavItems;
+export function getResidentNavItems() {
+  return residentNavItems;
 }
 
-export function getAdminNavItems(mode: IssuanceMode) {
-  return mode === "hybrid_physical_original"
-    ? [...adminNavItems.slice(0, 3), adminPickupNavItem, ...adminNavItems.slice(3)]
-    : adminNavItems;
+export function getAdminNavItems() {
+  return adminNavItems;
 }
 
 export const publicNavItems = [

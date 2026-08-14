@@ -5,7 +5,6 @@ import {
   isVerificationExpired,
 } from "@/lib/certificates/certificate-status";
 import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
-import { canMarkReady } from "@/lib/services/business-rules";
 import { isCertificateIssuanceConfigured } from "@/lib/services/certificate-lifecycle";
 
 describe("final defense regression matrix", () => {
@@ -38,12 +37,7 @@ describe("final defense regression matrix", () => {
     ).toBe("denied_expired");
   });
 
-  it("keeps hybrid transitions and deployment boundaries fail-closed", () => {
-    expect(canMarkReady("accepted", true)).toBe(true);
-    expect(canMarkReady("pending", true)).toBe(false);
-    expect(canMarkReady("rejected", true)).toBe(false);
-    expect(canMarkReady("cancelled", true)).toBe(false);
-    expect(canMarkReady("done", true)).toBe(false);
+  it("keeps online issuance and deployment boundaries fail-closed", () => {
     expect(isCertificateIssuanceConfigured("sqlite")).toBe(true);
     expect(isCertificateIssuanceConfigured("supabase")).toBe(false);
   });

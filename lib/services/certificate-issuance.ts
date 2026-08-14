@@ -59,10 +59,9 @@ export class CertificateIssuanceError extends Error {
 
 export function isCertificateIssuanceEligible(
   request: Pick<RequestWithResident, "status" | "payment_status">,
-  mode: "fully_online_demo" | "hybrid_physical_original" = issuanceMode,
 ) {
   if (request.status !== "accepted") return false;
-  return mode === "hybrid_physical_original" || ["paid", "free"].includes(request.payment_status);
+  return ["paid", "free"].includes(request.payment_status);
 }
 
 function getOfficialIssueDate(dateIssued: string) {
@@ -142,7 +141,6 @@ export async function issueCertificate(input: {
   }
 
   if (
-    issuanceMode === "fully_online_demo" &&
     request.payment_status === "paid" &&
     !(await hasSuccessfulPayment(request.id, request.resident_id))
   ) {
@@ -156,8 +154,8 @@ export async function issueCertificate(input: {
   const isReissue = previousRecord?.status === "revoked";
   const canReissue =
     isReissue &&
-    (issuanceMode === "hybrid_physical_original" || ["paid", "free"].includes(request.payment_status)) &&
-    ["accepted", "ready_for_download", "ready_for_pickup", "done"].includes(request.status);
+    ["paid", "free"].includes(request.payment_status) &&
+    ["accepted", "ready_for_download", "done"].includes(request.status);
 
   if (await getIssuedCertificateRecordByRequestId(request.id)) {
     throw new CertificateIssuanceError(
@@ -257,12 +255,7 @@ export async function issueCertificate(input: {
       date_issued: dateIssued,
       issued_at: issuedAt,
       issuance_mode: issuanceMode,
-      next_request_status:
-        issuanceMode === "fully_online_demo"
-          ? "ready_for_download"
-          : request.pickup_schedules.length
-            ? "ready_for_pickup"
-            : request.status,
+      next_request_status: "ready_for_download",
       pdf_path: storedPdf.path,
       pdf_storage_key: storedPdf.key,
       pdf_storage_provider: storedPdf.provider,

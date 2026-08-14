@@ -14,13 +14,11 @@ import {
   certificateLabel,
   formatCurrency,
   formatDate,
-  formatTime,
 } from "@/lib/utils/format";
 import type { Json } from "@/types/database";
 import { getSubmittedInformation } from "@/lib/services/submitted-data";
 import { certificateHasField } from "@/lib/services/certificate-fields";
 import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
-import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 
 type RequestDetailsProps = {
   params: Promise<{ id: string }>;
@@ -77,7 +75,6 @@ export default async function ResidentRequestDetailsPage({
     );
   }
 
-  const schedule = request.pickup_schedules[0];
   const submitted = submittedFields(request.submitted_data);
   const submittedInformation = getSubmittedInformation(request);
 
@@ -108,16 +105,6 @@ export default async function ResidentRequestDetailsPage({
             <dt className="text-sm text-base-content/60">Date Requested</dt>
             <dd className="font-medium">{formatDate(request.date_requested)}</dd>
           </div>
-          {!isFullyOnlineDemo ? <div>
-            <dt className="text-sm text-base-content/60">Pickup Schedule</dt>
-            <dd className="font-medium">
-              {schedule
-                ? `${formatDate(schedule.pickup_date)} at ${formatTime(
-                    schedule.pickup_time,
-                  )}`
-                : "Not scheduled"}
-            </dd>
-          </div> : null}
           <div>
             <dt className="text-sm text-base-content/60">Remarks</dt>
             <dd className="font-medium">{request.remarks ?? "None"}</dd>
