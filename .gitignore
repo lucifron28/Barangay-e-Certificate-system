@@ -28,3 +28,5 @@ docs/client-assets/certificate-templates/original/
 .tmp-*.png
 .next-dev.*.log
 tmp/
+.vercel
+.env*.local

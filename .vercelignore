@@ -1,0 +1,12 @@
+.env
+.env.*
+!.env.example
+.artifacts/
+data/
+docs/client-assets/certificate-templates/original/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.zip
+node_modules/
+.next/
