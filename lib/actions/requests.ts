@@ -7,7 +7,7 @@ import {
   cancelRequest,
   createCertificateRequest,
   resubmitRejectedRequest,
-} from "@/lib/db/sqlite/queries";
+} from "@/lib/db/queries";
 import {
   getCertificateFee,
   getDefaultPaymentStatus,
@@ -63,7 +63,7 @@ export async function createCertificateRequestAction(formData: FormData) {
   const years = yearsOfResidency(parsed.data.years_of_residency);
 
   if (isSqliteProvider()) {
-    const request = createCertificateRequest({
+    const request = await createCertificateRequest({
       age: parsed.data.age,
       birthdate: parsed.data.birthdate || null,
       certificate_type: parsed.data.certificate_type,
@@ -166,7 +166,7 @@ export async function cancelCertificateRequestAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    const request = cancelRequest(requestId, profile.id);
+    const request = await cancelRequest(requestId, profile.id);
 
     if (!request || request.status !== "cancelled") {
       redirectWithError(
@@ -236,7 +236,7 @@ export async function resubmitCertificateRequestAction(formData: FormData) {
   const years = yearsOfResidency(parsed.data.years_of_residency);
 
   if (isSqliteProvider()) {
-    const request = resubmitRejectedRequest({
+    const request = await resubmitRejectedRequest({
       age: parsed.data.age,
       birthdate: parsed.data.birthdate || null,
       contact_number: parsed.data.contact_number,

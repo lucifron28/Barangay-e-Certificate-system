@@ -2,9 +2,7 @@ import "server-only";
 
 import { headers } from "next/headers";
 import { env } from "@/lib/env";
-import { isSqliteProvider } from "@/lib/db/provider";
-import { clearSqliteRateLimit, consumeSqliteRateLimit } from "./sqlite";
-import { consumeSupabaseRateLimit } from "./supabase";
+import { getDatabaseProvider } from "@/lib/db/provider";
 import type { RateLimitAction, RateLimitPolicy } from "./types";
 
 const POLICIES: Record<RateLimitAction, RateLimitPolicy> = {
@@ -18,27 +16,35 @@ async function clientFingerprint() {
   const forwarded = env.trustProxy
     ? requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
     : null;
-
-  // Forwarding headers are ignored unless a known reverse proxy is configured.
   return forwarded || requestHeaders.get("user-agent") || "local-demo";
 }
 
 export async function consumeRateLimit(action: RateLimitAction, identifier: string) {
   const fingerprint = await clientFingerprint();
-
-  if (!isSqliteProvider()) {
+  const provider = getDatabaseProvider();
+  if (provider === "supabase") {
+    const { consumeSupabaseRateLimit } = await import("./supabase");
     return consumeSupabaseRateLimit();
   }
-
+  if (provider === "turso") {
+    const { consumeTursoRateLimit } = await import("./turso");
+    return consumeTursoRateLimit(action, identifier, fingerprint, POLICIES[action]);
+  }
+  const { consumeSqliteRateLimit } = await import("./sqlite");
   return consumeSqliteRateLimit(action, identifier, fingerprint, POLICIES[action]);
 }
 
 export async function clearRateLimit(action: RateLimitAction, identifier: string) {
-  if (!isSqliteProvider()) {
+  const provider = getDatabaseProvider();
+  if (provider === "supabase") return;
+  const fingerprint = await clientFingerprint();
+  if (provider === "turso") {
+    const { clearTursoRateLimit } = await import("./turso");
+    await clearTursoRateLimit(action, identifier, fingerprint);
     return;
   }
-
-  clearSqliteRateLimit(action, identifier, await clientFingerprint());
+  const { clearSqliteRateLimit } = await import("./sqlite");
+  clearSqliteRateLimit(action, identifier, fingerprint);
 }
 
 export type { RateLimitAction, RateLimitResult } from "./types";

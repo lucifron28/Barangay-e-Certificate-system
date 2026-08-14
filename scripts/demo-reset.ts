@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
+import { getDatabaseProvider } from "@/lib/db/provider";
 import {
   createCertificateDownloadLog,
   getRequestById,
@@ -122,7 +123,7 @@ function insertPayment(
     `INSERT INTO payments (
       id, request_id, resident_id, provider, provider_transaction_id, amount,
       currency, status, paid_at, expires_at, created_at, updated_at
-    ) VALUES (?, ?, ?, 'mock_thesis_demo', ?, ?, 'PHP', ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, 'simulated_local', ?, ?, 'PHP', ?, ?, ?, ?, ?)`,
   ).run(
     input.id,
     input.requestId,
@@ -190,6 +191,9 @@ function clearDatabaseFiles() {
 }
 
 async function main() {
+  if (getDatabaseProvider() !== "sqlite") {
+    throw new Error("demo:reset is SQLite-only and refuses to reset a remote database.");
+  }
   clearDatabaseFiles();
   const db = getSqliteDb();
   const timestamp = new Date().toISOString();
@@ -227,7 +231,7 @@ async function main() {
     for (const profile of [admin, secretary, resident, residentTwo]) insertProfile(db, profile);
 
     insertRequest(db, { id: requestIds[0], requestNumber: `REQ-${year}-0001`, residentId: residentTwoId, certificateType: "barangay_certificate", purpose: "Scholarship requirement", status: "pending", submittedData: submittedData({ name: residentTwo.full_name, age: residentTwo.age, contact: residentTwo.contact_number, purpose: "Scholarship requirement", placeOfBirth: "Mauban, Quezon" }), feeAmount: 50, paymentStatus: "unpaid", dateRequested: dates[0] });
-    insertRequest(db, { id: requestIds[1], requestNumber: `REQ-${year}-0002`, residentId: residentId, certificateType: "barangay_clearance", purpose: "Employment requirement", status: "accepted", remarks: "Accepted and awaiting demo payment.", submittedData: submittedData({ name: resident.full_name, age: resident.age, contact: resident.contact_number, purpose: "Employment requirement", sitio: resident.address_sitio }), controlNumber: `BCL-${year}-0001`, feeAmount: 50, paymentStatus: "unpaid", dateRequested: dates[1], dateAccepted: dates[1] });
+    insertRequest(db, { id: requestIds[1], requestNumber: `REQ-${year}-0002`, residentId: residentId, certificateType: "barangay_clearance", purpose: "Employment requirement", status: "accepted", remarks: "Accepted and awaiting simulated payment.", submittedData: submittedData({ name: resident.full_name, age: resident.age, contact: resident.contact_number, purpose: "Employment requirement", sitio: resident.address_sitio }), controlNumber: `BCL-${year}-0001`, feeAmount: 50, paymentStatus: "unpaid", dateRequested: dates[1], dateAccepted: dates[1] });
     insertRequest(db, { id: requestIds[2], requestNumber: `REQ-${year}-0003`, residentId: residentId, certificateType: "barangay_certificate", purpose: "Local employment", status: "accepted", submittedData: submittedData({ name: resident.full_name, age: resident.age, contact: resident.contact_number, purpose: "Local employment", placeOfBirth: "Mauban, Quezon" }), feeAmount: 50, paymentStatus: "paid", dateRequested: dates[2], dateAccepted: dates[2] });
     insertRequest(db, { id: requestIds[3], requestNumber: `REQ-${year}-0004`, residentId: residentTwoId, certificateType: "barangay_indigency", purpose: "Medical assistance", status: "accepted", submittedData: submittedData({ name: residentTwo.full_name, age: residentTwo.age, contact: residentTwo.contact_number, purpose: "Medical assistance", sitio: residentTwo.address_sitio }), feeAmount: 0, paymentStatus: "free", dateRequested: dates[3], dateAccepted: dates[3] });
     insertRequest(db, { id: requestIds[4], requestNumber: `REQ-${year}-0005`, residentId: residentId, certificateType: "barangay_residency", purpose: "School enrollment", status: "accepted", submittedData: submittedData({ name: resident.full_name, age: resident.age, contact: resident.contact_number, purpose: "School enrollment", sitio: resident.address_sitio, birthdate: resident.date_of_birth ?? undefined, yearsOfResidency: 12 }), feeAmount: 50, paymentStatus: "paid", dateRequested: dates[4], dateAccepted: dates[4] });
@@ -260,9 +264,9 @@ async function main() {
       insertPaymentEvent(db, paymentId, "mock_payment_paid", dateOffset(-5 - index));
     }
 
-    insertActivity(db, { action: "Request submitted", recordId: requestIds[0], remarks: "Seeded presentation request.", userId: residentTwoId, role: "resident", createdAt: dates[0] });
+    insertActivity(db, { action: "Request submitted", recordId: requestIds[0], remarks: "Seeded synthetic request.", userId: residentTwoId, role: "resident", createdAt: dates[0] });
     insertActivity(db, { action: "Request accepted", recordId: requestIds[2], remarks: "Seeded accepted paid request.", userId: secretaryId, role: "barangay_secretary", createdAt: dates[2] });
-    insertActivity(db, { action: "Mock payment paid", recordId: requestIds[2], remarks: "DEMO PAYMENT - no actual funds transferred.", userId: residentId, role: "resident", createdAt: dateOffset(-3) });
+    insertActivity(db, { action: "Simulated payment paid", recordId: requestIds[2], remarks: "SIMULATED PAYMENT - no actual funds transferred.", userId: residentId, role: "resident", createdAt: dateOffset(-3) });
     insertActivity(db, { action: "Request rejected", recordId: requestIds[0], remarks: "Seeded prior review history.", userId: secretaryId, role: "barangay_secretary", createdAt: dates[0] });
 
     for (const [key, value] of [["barangay_captain_name", "Authorized Barangay Official"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
@@ -301,14 +305,14 @@ async function main() {
   updateRequestStatus({ id: requestIds[6], status: "done", dateReleased: timestamp });
   insertActivity(db, { action: "Certificate revoked", recordId: requestIds[6], remarks: "Seeded revoked verification.", userId: adminId, role: "main_admin", createdAt: timestamp });
 
-  const notificationMessage = "Demo notification: no email provider is configured.";
+  const notificationMessage = "Synthetic notification: no email provider is configured.";
   db.prepare(
     `INSERT INTO notification_logs (id, request_id, recipient_email, subject, message, status, provider_response, created_at)
      VALUES (?, ?, ?, ?, ?, 'skipped', ?, ?)`,
   ).run(randomUUID(), requestIds[2], resident.email, "Certificate Request Accepted", notificationMessage, JSON.stringify({ configured: false }), timestamp);
 
   db.prepare("UPDATE rate_limit_attempts SET attempts = 0").run();
-  process.stdout.write(`SQLite thesis demo reset complete at ${dbPath}\n`);
+  process.stdout.write(`SQLite local demo reset complete at ${dbPath}\n`);
   process.stdout.write(`Demo password: ${password}\n`);
   for (const sample of issuedSamples) {
     process.stdout.write(`${sample.label}: ${sample.certificateNumber} ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/verify/${sample.token}\n`);

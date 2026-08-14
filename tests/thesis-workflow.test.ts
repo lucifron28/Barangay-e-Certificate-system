@@ -117,6 +117,7 @@ describe("isolated thesis certificate workflow", () => {
         for (const recordId of recordIds) {
           db.prepare("DELETE FROM certificate_verifications WHERE certificate_record_id = ?").run(recordId);
           db.prepare("DELETE FROM certificate_download_logs WHERE certificate_record_id = ?").run(recordId);
+          db.prepare("DELETE FROM issuance_reservations WHERE certificate_record_id = ?").run(recordId);
           db.prepare("DELETE FROM certificate_records WHERE id = ?").run(recordId);
         }
         db.prepare("DELETE FROM certificate_requests WHERE id = ?").run(request?.id);

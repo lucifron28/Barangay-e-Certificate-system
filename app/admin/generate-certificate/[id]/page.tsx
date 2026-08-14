@@ -12,9 +12,10 @@ import {
   getAdminRequest,
   getSystemSettings,
 } from "@/lib/services/certificate-data";
-import { getCertificateRecordByRequestId } from "@/lib/db/sqlite/queries";
-import { isSqliteProvider } from "@/lib/db/provider";
+import { getCertificateRecordByRequestId } from "@/lib/db/queries";
+import { getDatabaseProvider } from "@/lib/db/provider";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
+import { isFullyOnlineDemo } from "@/lib/services/issuance-mode";
 import {
   CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
   isCertificateIssuanceConfigured,
@@ -50,7 +51,9 @@ export default async function GenerateCertificatePage({
     return <div className="alert alert-error">Request not found.</div>;
   }
 
-  const certificateRecord = isSqliteProvider() ? getCertificateRecordByRequestId(request.id) : null;
+  const certificateRecord = getDatabaseProvider() === "supabase"
+    ? null
+    : await getCertificateRecordByRequestId(request.id);
   const hasActiveCertificate = certificateRecord?.status === "issued";
   const isReissue = certificateRecord?.status === "revoked";
   const eligibleForIssuance = isCertificateIssuanceEligible(request) && !hasActiveCertificate;
@@ -96,7 +99,7 @@ export default async function GenerateCertificatePage({
           <span>
             The downloadable PDF is generated from clean code templates; the
             source PDFs remain private reference files. The displayed signature
-            is a visual thesis/demo representation only.
+            is a visual placeholder only, not a legally verified digital signature.
           </span>
         </div>
       </div>
@@ -132,14 +135,15 @@ export default async function GenerateCertificatePage({
         </form>
       ) : !isCertificateIssuanceConfigured() ? (
         <div className="no-print alert alert-warning">
-          {CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE} The SQLite thesis/demo
-          issuance pipeline must be replaced with a reviewed Supabase service
-          before this workflow is enabled there.
+          {CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE} Configure the selected
+          database and private certificate-storage providers before enabling
+          this workflow.
         </div>
       ) : !canPreview ? (
         <div className="no-print alert alert-warning">
-          Certificate issuance is unavailable until the request is accepted and
-          its fee is paid, or the request is marked free.
+          {isFullyOnlineDemo
+            ? "Certificate issuance is unavailable until the request is accepted and its simulated fee is paid, or the request is marked free."
+            : "Certificate issuance is unavailable until the request is accepted."}
         </div>
       ) : null}
     </div>

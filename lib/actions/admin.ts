@@ -16,7 +16,7 @@ import {
   setSystemSetting,
   updateRequestStatus,
   upsertPickupSchedule,
-} from "@/lib/db/sqlite/queries";
+} from "@/lib/db/queries";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
 import { env } from "@/lib/env";
 import {
@@ -178,7 +178,7 @@ async function notifyAndLog(input: {
   });
 
   if (isSqliteProvider()) {
-    createNotificationLog({
+    await createNotificationLog({
       message: input.message,
       provider_response: result.providerResponse as Json,
       recipient_email: input.to,
@@ -222,7 +222,7 @@ export async function acceptRequestAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    updateRequestStatus({
+    await updateRequestStatus({
       dateAccepted: new Date().toISOString(),
       id: request.id,
       remarks: parsed.data.remarks || "Request accepted.",
@@ -292,7 +292,7 @@ export async function rejectRequestAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    updateRequestStatus({
+    await updateRequestStatus({
       id: request.id,
       remarks: parsed.data.remarks,
       status: "rejected",
@@ -379,7 +379,7 @@ export async function setPickupScheduleAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    upsertPickupSchedule({
+    await upsertPickupSchedule({
       created_by: context.profile.id,
       pickup_date: parsed.data.pickup_date,
       pickup_time: parsed.data.pickup_time,
@@ -462,7 +462,7 @@ export async function markRequestReadyAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    updateRequestStatus({ id: request.id, status: "ready_for_pickup" });
+    await updateRequestStatus({ id: request.id, status: "ready_for_pickup" });
   } else {
     await context.supabase!
       .from("certificate_requests")
@@ -486,7 +486,7 @@ export async function markPaymentPaidAction(formData: FormData) {
   if (env.certificateIssuanceMode === "fully_online_demo") {
     redirectWithError(
       "/admin/certificate-requests",
-      "Online demo payments must be completed by the resident.",
+      "Simulated online payments must be completed by the resident.",
     );
   }
   const parsed = markPaymentPaidSchema.safeParse({
@@ -508,15 +508,15 @@ export async function markPaymentPaidAction(formData: FormData) {
     redirectWithError("/admin/certificate-requests", "This certificate is free.");
   }
 
-  if (request.status !== "accepted") {
+  if (!["accepted", "ready_for_pickup"].includes(request.status)) {
     redirectWithError(
       "/admin/certificate-requests",
-      "Only accepted requests can have office payment recorded.",
+      "Only accepted or ready-for-pickup requests can have office payment recorded.",
     );
   }
 
   if (isSqliteProvider()) {
-    updateRequestStatus({
+    await updateRequestStatus({
       id: request.id,
       paymentStatus: "paid",
       status: request.status,
@@ -570,7 +570,7 @@ export async function markRequestDoneAction(formData: FormData) {
   }
 
   if (isSqliteProvider()) {
-    updateRequestStatus({
+    await updateRequestStatus({
       dateReleased: new Date().toISOString(),
       id: request.id,
       status: "done",
@@ -684,17 +684,17 @@ export async function revokeCertificateRecordAction(formData: FormData) {
     redirectWithError("/admin/certificate-requests", "Certificate revocation is not configured in this mode.");
   }
 
-  const record = getCertificateRecordById(parsed.data.certificate_record_id);
+  const record = await getCertificateRecordById(parsed.data.certificate_record_id);
   if (!record) {
     redirectWithError("/admin/certificate-requests", "Certificate record not found.");
   }
 
   const path = `/admin/generate-certificate/${record.request_id}`;
-  if (!revokeCertificateRecord({
+  if (!(await revokeCertificateRecord({
     id: record.id,
     reason: parsed.data.reason,
     revokedBy: context.profile.id,
-  })) {
+  }))) {
     redirectWithError(path, "Only an issued certificate can be revoked.");
   }
 
@@ -721,7 +721,7 @@ export async function updateSystemSettingsAction(formData: FormData) {
     redirectWithError("/admin/settings", "Supabase is not configured yet.");
   }
   if (isSqliteProvider()) {
-    setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
+    await setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
   } else {
     const { error } = await context.supabase!.from("system_settings").upsert([
       { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },

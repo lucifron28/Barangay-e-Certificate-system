@@ -31,7 +31,11 @@ export function getCertificateDownloadDenial(input: {
   if (!record.verification_expires_at || isVerificationExpired(record.verification_expires_at, input.now)) {
     return "denied_expired" as const;
   }
-  if (!record.pdf_path || !record.pdf_sha256 || !input.artifactExists) {
+  if (
+    (!record.pdf_path && !record.pdf_storage_key) ||
+    !record.pdf_sha256 ||
+    !input.artifactExists
+  ) {
     return "denied_missing_artifact" as const;
   }
   if (input.integrityChecked && input.integrityValid === false) {

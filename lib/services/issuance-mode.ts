@@ -8,15 +8,15 @@ export const isHybridPhysicalOriginal = issuanceMode === "hybrid_physical_origin
 
 export function getIssuanceModeLabel(mode: IssuanceMode = issuanceMode) {
   return mode === "fully_online_demo"
-    ? "Fully online thesis demo"
+    ? "Online certificate delivery"
     : "Hybrid physical-original workflow";
 }
 
 export function getCertificateDeliveryCopy(mode: IssuanceMode = issuanceMode) {
   if (mode === "fully_online_demo") {
     return {
-      requestDescription: "Submit online, complete the demo payment when accepted, and download your verified certificate PDF.",
-      dashboardDescription: "Track reviews, demo payments, verified PDF certificates, and QR status.",
+      requestDescription: "Submit online, complete the simulated payment when accepted, and download your verified certificate PDF in local test mode.",
+      dashboardDescription: "Track reviews, simulated payments, verified PDF certificates, and QR status in local test mode.",
       issuedDescription: "Issued certificates are available as secure PDF downloads for 72 hours from issuance.",
       emailDelivery: "Your certificate is ready as a secure PDF download in the Barangay Bato e-Certificate System.",
     } as const;

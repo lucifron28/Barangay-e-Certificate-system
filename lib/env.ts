@@ -27,10 +27,18 @@ function parseSmtpSecure(value: string | undefined) {
 export const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   databaseProvider: process.env.DATABASE_PROVIDER ?? "sqlite",
+  tursoAuthToken: process.env.TURSO_AUTH_TOKEN?.trim() ?? "",
+  tursoDatabaseUrl: process.env.TURSO_DATABASE_URL?.trim() ?? "",
+  certificateStorageProvider:
+    process.env.CERTIFICATE_STORAGE_PROVIDER === "vercel_blob"
+      ? ("vercel_blob" as const)
+      : ("local" as const),
+  blobReadWriteToken: process.env.BLOB_READ_WRITE_TOKEN?.trim() ?? "",
+  sessionCookieSecret: process.env.SESSION_COOKIE_SECRET?.trim() ?? "",
   certificateIssuanceMode:
-    process.env.CERTIFICATE_ISSUANCE_MODE === "hybrid_physical_original"
-      ? ("hybrid_physical_original" as const)
-      : ("fully_online_demo" as const),
+    process.env.CERTIFICATE_ISSUANCE_MODE === "fully_online_demo"
+      ? ("fully_online_demo" as const)
+      : ("hybrid_physical_original" as const),
   emailFrom: process.env.EMAIL_FROM?.trim() ?? "",
   localDemoAdminEmail:
     process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",
@@ -65,7 +73,42 @@ export function isSupabaseMode() {
 }
 
 export function isSqliteMode() {
-  return env.databaseProvider !== "supabase";
+  return env.databaseProvider === "sqlite";
+}
+
+export function isTursoMode() {
+  return env.databaseProvider === "turso";
+}
+
+export function hasTursoEnv() {
+  return Boolean(env.tursoDatabaseUrl && env.tursoAuthToken);
+}
+
+export function hasSessionCookieSecret() {
+  return (env.sessionCookieSecret || env.localDemoSecret).length >= 32;
+}
+
+export function getProductionEnvErrors() {
+  const errors: string[] = [];
+  if (env.databaseProvider !== "turso") {
+    errors.push("DATABASE_PROVIDER must be turso for production.");
+  }
+  if (!env.tursoDatabaseUrl) errors.push("TURSO_DATABASE_URL is required.");
+  if (!env.tursoAuthToken) errors.push("TURSO_AUTH_TOKEN is required.");
+  if (env.certificateStorageProvider !== "vercel_blob") {
+    errors.push("CERTIFICATE_STORAGE_PROVIDER must be vercel_blob for production.");
+  }
+  if (!env.blobReadWriteToken) errors.push("BLOB_READ_WRITE_TOKEN is required.");
+  if (!env.sessionCookieSecret || env.sessionCookieSecret.length < 32) {
+    errors.push("SESSION_COOKIE_SECRET must be at least 32 characters.");
+  }
+  if (!env.appUrl.startsWith("https://")) {
+    errors.push("NEXT_PUBLIC_APP_URL must use HTTPS for production.");
+  }
+  if (!env.smtpUser) errors.push("SMTP_USER is required for production notifications.");
+  if (!env.smtpPass) errors.push("SMTP_PASS is required for production notifications.");
+  if (!env.emailFrom) errors.push("EMAIL_FROM is required for production notifications.");
+  return errors;
 }
 
 export function hasEmailConfiguration() {

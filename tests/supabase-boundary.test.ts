@@ -20,14 +20,12 @@ const adminActions = readFileSync(
   "utf8",
 );
 
-describe("Supabase thesis boundary", () => {
-  it("keeps certificate issuance explicitly SQLite-only until the service exists", () => {
+describe("legacy Supabase deployment boundary", () => {
+  it("keeps certificate issuance outside the legacy Supabase path", () => {
     expect(isCertificateIssuanceConfigured("sqlite")).toBe(true);
     expect(isCertificateIssuanceConfigured("supabase")).toBe(false);
     expect(adminActions).toContain("CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE");
-    expect(CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE).toContain(
-      "Supabase deployment mode",
-    );
+    expect(CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE).toContain("not configured");
     expect(adminActions).not.toContain('from("certificate_records").upsert');
   });
 

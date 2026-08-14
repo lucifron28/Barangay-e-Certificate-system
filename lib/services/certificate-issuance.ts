@@ -7,23 +7,25 @@ import {
 } from "@/lib/certificates/pdf-generator";
 import { createCertificateSnapshot } from "@/lib/certificates/snapshot";
 import {
-  removePrivateCertificatePdf,
-  savePrivateCertificatePdf,
+  removeStoredCertificatePdf,
+  storeCertificatePdf,
+  type StoredCertificatePdf,
 } from "@/lib/certificates/private-storage";
 import {
-  allocateCertificateNumber,
   getCertificateRecordByRequestId,
   getIssuedCertificateRecordByRequestId,
   getProfileById,
   hasSuccessfulPayment,
   generateVerificationToken,
   persistIssuedCertificate,
-} from "@/lib/db/sqlite/queries";
+  releaseCertificateIssuanceReservation,
+  reserveCertificateIssuance,
+} from "@/lib/db/queries";
 import { sha256Hex } from "@/lib/security/document-hash";
 import { env } from "@/lib/env";
 import { issuanceMode } from "@/lib/services/issuance-mode";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
-import type { RequestWithResident } from "@/lib/db/sqlite/queries";
+import type { RequestWithResident } from "@/lib/db/queries";
 import type { CertificateRecord, Json } from "@/types/database";
 
 export const VERIFICATION_LIFETIME_MS = 3 * 24 * 60 * 60 * 1000;
@@ -55,8 +57,12 @@ export class CertificateIssuanceError extends Error {
   }
 }
 
-export function isCertificateIssuanceEligible(request: Pick<RequestWithResident, "status" | "payment_status">) {
-  return request.status === "accepted" && ["paid", "free"].includes(request.payment_status);
+export function isCertificateIssuanceEligible(
+  request: Pick<RequestWithResident, "status" | "payment_status">,
+  mode: "fully_online_demo" | "hybrid_physical_original" = issuanceMode,
+) {
+  if (request.status !== "accepted") return false;
+  return mode === "hybrid_physical_original" || ["paid", "free"].includes(request.payment_status);
 }
 
 function getOfficialIssueDate(dateIssued: string) {
@@ -127,7 +133,7 @@ export async function issueCertificate(input: {
 }) {
   const { request } = input;
 
-  const issuer = getProfileById(input.preparedById);
+  const issuer = await getProfileById(input.preparedById);
   if (!issuer || !["main_admin", "barangay_secretary"].includes(issuer.role)) {
     throw new CertificateIssuanceError(
       "INVALID_ISSUER",
@@ -135,21 +141,25 @@ export async function issueCertificate(input: {
     );
   }
 
-  if (request.payment_status === "paid" && !hasSuccessfulPayment(request.id, request.resident_id)) {
+  if (
+    issuanceMode === "fully_online_demo" &&
+    request.payment_status === "paid" &&
+    !(await hasSuccessfulPayment(request.id, request.resident_id))
+  ) {
     throw new CertificateIssuanceError(
       "PAYMENT_NOT_SETTLED",
       "A successful payment record is required before issuing this certificate.",
     );
   }
 
-  const previousRecord = getCertificateRecordByRequestId(request.id);
+  const previousRecord = await getCertificateRecordByRequestId(request.id);
   const isReissue = previousRecord?.status === "revoked";
   const canReissue =
     isReissue &&
-    ["paid", "free"].includes(request.payment_status) &&
-    ["accepted", "ready_for_download", "done"].includes(request.status);
+    (issuanceMode === "hybrid_physical_original" || ["paid", "free"].includes(request.payment_status)) &&
+    ["accepted", "ready_for_download", "ready_for_pickup", "done"].includes(request.status);
 
-  if (getIssuedCertificateRecordByRequestId(request.id)) {
+  if (await getIssuedCertificateRecordByRequestId(request.id)) {
     throw new CertificateIssuanceError(
       "ALREADY_ISSUED",
       "A certificate is already issued for this request.",
@@ -173,8 +183,35 @@ export async function issueCertificate(input: {
     issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
   const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
-  const certificateNumber = allocateCertificateNumber();
   const certificateRecordId = randomUUID();
+  let certificateNumber: string;
+  try {
+    certificateNumber = await reserveCertificateIssuance({
+      certificate_record_id: certificateRecordId,
+      request_id: request.id,
+      reserved_by: input.preparedById,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "CERTIFICATE_ISSUANCE_IN_PROGRESS") {
+      throw new CertificateIssuanceError(
+        "PERSISTENCE_FAILED",
+        "Another certificate issuance attempt is already in progress for this request.",
+        { cause: error },
+      );
+    }
+    if (error instanceof Error && error.message === "CERTIFICATE_ALREADY_ISSUED") {
+      throw new CertificateIssuanceError(
+        "ALREADY_ISSUED",
+        "A certificate is already issued for this request.",
+        { cause: error },
+      );
+    }
+    throw new CertificateIssuanceError(
+      "PERSISTENCE_FAILED",
+      "Certificate issuance could not be started.",
+      { cause: error },
+    );
+  }
   const verificationToken = generateVerificationToken();
   const shortVerificationCode = getShortVerificationCode();
   const tokenHash = createHash("sha256").update(verificationToken).digest("hex");
@@ -195,10 +232,10 @@ export async function issueCertificate(input: {
     generated_at: new Date().toISOString(),
     request_number: request.request_number,
     signature_notice:
-      "The displayed signer is a visual thesis/demo representation, not a cryptographic digital signature.",
+      "The displayed signer is a visual placeholder, not a legally verified digital signature.",
   };
 
-  let pdfPath: string | null = null;
+  let storedPdf: StoredCertificatePdf | null = null;
   try {
     const pdfBytes = await generateCertificatePdf({
       barangayCaptainName: input.settings.barangayCaptainName,
@@ -212,8 +249,8 @@ export async function issueCertificate(input: {
       verificationUrl,
     });
 
-    pdfPath = savePrivateCertificatePdf(certificateRecordId, pdfBytes);
-    const certificateRecord = persistIssuedCertificate({
+    storedPdf = await storeCertificatePdf(certificateRecordId, pdfBytes);
+    const certificateRecord = await persistIssuedCertificate({
       certificate_number: certificateNumber,
       certificate_record_id: certificateRecordId,
       current_request_status: request.status,
@@ -226,7 +263,9 @@ export async function issueCertificate(input: {
           : request.pickup_schedules.length
             ? "ready_for_pickup"
             : request.status,
-      pdf_path: pdfPath,
+      pdf_path: storedPdf.path,
+      pdf_storage_key: storedPdf.key,
+      pdf_storage_provider: storedPdf.provider,
       pdf_sha256: sha256Hex(pdfBytes),
       prepared_by: input.preparedById,
       request,
@@ -255,9 +294,10 @@ export async function issueCertificate(input: {
       verificationUrl,
     } satisfies CertificateIssuanceResult;
   } catch (error) {
-    if (pdfPath) {
-      removePrivateCertificatePdf(pdfPath);
+    if (storedPdf) {
+      await removeStoredCertificatePdf(storedPdf);
     }
+    await releaseCertificateIssuanceReservation(certificateRecordId);
 
     if (error instanceof CertificateIssuanceError) {
       throw error;
