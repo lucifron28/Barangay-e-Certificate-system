@@ -50,7 +50,7 @@ export async function createCertificateRequestAction(formData: FormData) {
   const context = await requireResident();
 
   if (context.setupMissing) {
-    redirectWithError(REQUEST_PATH, "Supabase is not configured yet.");
+    redirectWithError(REQUEST_PATH, "This service is temporarily unavailable.");
   }
   const profile = context.profile;
 
@@ -156,7 +156,7 @@ export async function createCertificateRequestAction(formData: FormData) {
 export async function cancelCertificateRequestAction(formData: FormData) {
   const context = await requireResident();
   if (context.setupMissing) {
-    redirectWithError("/resident/my-requests", "Supabase is not configured yet.");
+    redirectWithError("/resident/my-requests", "This service is temporarily unavailable.");
   }
   const profile = context.profile;
   const requestId = String(formData.get("request_id") ?? "");
@@ -220,7 +220,7 @@ export async function cancelCertificateRequestAction(formData: FormData) {
 export async function resubmitCertificateRequestAction(formData: FormData) {
   const context = await requireResident();
   if (context.setupMissing) {
-    redirectWithError("/resident/my-requests", "Supabase is not configured yet.");
+    redirectWithError("/resident/my-requests", "This service is temporarily unavailable.");
   }
   const profile = context.profile;
   const requestId = String(formData.get("request_id") ?? "");

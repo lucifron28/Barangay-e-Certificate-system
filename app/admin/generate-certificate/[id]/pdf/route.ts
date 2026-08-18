@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: PdfRouteProps) {
 
   if (context.setupMissing) {
     return NextResponse.json(
-      { error: "Supabase is not configured yet." },
+      { error: "This service is temporarily unavailable." },
       { status: 503 },
     );
   }

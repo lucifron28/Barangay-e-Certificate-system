@@ -2,8 +2,9 @@
 
 Responsive web application for Barangay Bato, Mauban, Quezon. Residents can
 submit certificate requests and track status. Main Admin and Barangay
-Secretary users can review requests, complete the online demo payment step,
-issue private certificates, review reports, and inspect activity history.
+Secretary users can review requests, complete the clearly labeled payment
+simulation, issue private certificates, review reports, and inspect activity
+history.
 
 This repository is prepared for client preview and deployment handoff. It does
 not automatically deploy, import resident data, or connect a real payment
@@ -16,8 +17,9 @@ provider.
 | Local development and CI | SQLite | Local ignored directory | Optional placeholder/logging |
 | Vercel preview/production | Turso | Vercel Private Blob | Gmail SMTP via App Password |
 
-Supabase utilities and migrations remain as legacy/future preparation. Supabase
-is not the current deployment target for this project.
+Supabase utilities and migrations remain available as a separate deployment
+option. The active presentation deployment uses Turso, Vercel Private Blob,
+and provider-neutral application services.
 
 ## Tech Stack And Versions
 
@@ -75,9 +77,9 @@ but their role values remain separate for future permission refinement.
 - Four certificate types: Clearance, Certificate/Pagpapatunay, Indigency, and
   Residency.
 - Fees: PHP 50 for Clearance, Certificate, and Residency; Indigency is free.
-- Payment state is `unpaid`, `paid`, or `free`; the current online payment
-  screen is a clearly labeled thesis/demo simulation and transfers no actual
-  funds. A real payment gateway remains out of scope.
+- Payment state is `unpaid`, `paid`, or `free`; the current payment screen is a
+  clearly labeled simulation and transfers no actual funds. A real payment
+  gateway remains out of scope.
 - Residents may cancel only before approval. Accepted requests cannot be
   rejected or cancelled by residents.
 - Rejected requests can be resubmitted using the existing request record.
@@ -99,7 +101,7 @@ but their role values remain separate for future permission refinement.
 - Year-scoped atomic counters for requests, controls, and certificates.
 - Acceptance, rejection with required remarks, cancellation, and rejected
   request resubmission.
-- Online demo payment flow for accepted requests, with payment records and
+- Clearly labeled payment simulation for accepted requests, with payment records and
   retryable attempts on SQLite and Turso.
 - Printable certificate HTML and generated PDF layouts based on supplied
   official reference PDFs.
@@ -127,11 +129,11 @@ but their role values remain separate for future permission refinement.
   signature/seal assets, retention policy, and print approval remain client
   handoff items.
 - Synthetic Main Admin, Barangay Secretary, and resident identities are seeded
-  in the current Turso thesis-demo database. Public registration still cannot
+  in the current Turso presentation database. Public registration still cannot
   create admin roles, and real operator identities must replace the demo users
   before operational use.
 - A real online payment gateway, provider credentials, refunds, and financial
-  reconciliation remain outside this thesis/demo scope.
+  reconciliation remain outside this presentation scope.
 - Blob orphan cleanup is best-effort on issuance failure; a scheduled
   reconciliation job can be added after production storage is approved.
 
@@ -151,7 +153,7 @@ stored in Turso.
 
 ## Current Deployment
 
-The thesis/demo deployment is live on Vercel:
+The presentation deployment is live on Vercel:
 
 - Production: <https://barangay-bato-ecertificate-system.vercel.app>
 - Latest production deployment: <https://barangay-bato-ecertificate-system-dn29p39ef-ron-cada-projects.vercel.app>
@@ -162,24 +164,28 @@ The thesis/demo deployment is live on Vercel:
 - Certificate storage: private Vercel Blob is connected for Production,
   Preview, and Development.
 
-The deployment is suitable for controlled thesis/demo testing. Email delivery
+The deployment is suitable for controlled presentation testing. Email delivery
 is intentionally disabled until approved SMTP credentials are added. The
-current production database contains only synthetic thesis-demo records; do
+current production database contains only synthetic presentation records; do
 not use these accounts as operational credentials.
 
-### Production Thesis-Demo Accounts
+### Production Presentation Accounts
 
-The current Vercel deployment is seeded with synthetic accounts so the thesis
-presentation can be demonstrated against the real production stack:
+The current Vercel deployment is seeded with synthetic accounts so the
+presentation can be demonstrated against the real deployment stack. Passwords
+are intentionally not stored in this repository or documentation.
 
-| Role | Email | Username | Password |
-| --- | --- | --- | --- |
-| Main Admin | `admin@example.com` | `mainadmin` | `password123` |
-| Barangay Secretary | `secretary@example.com` | `secretary` | `password123` |
-| Resident | `resident@example.com` | `juanresident` | `password123` |
-| Resident | `maria.resident@example.com` | `mariaresident` | `password123` |
+| Role | Email | Username |
+| --- | --- | --- |
+| Main Admin | `admin@example.com` | `mainadmin` |
+| Barangay Secretary | `secretary@example.com` | `secretary` |
+| Resident | `resident@example.com` | `juanresident` |
+| Resident | `maria.resident@example.com` | `mariaresident` |
 
-These accounts and the three sample requests are synthetic demo data only.
+These accounts and the three sample requests are synthetic presentation data
+only. The seed command requires two privately supplied passwords and revokes
+existing sessions for the seeded profiles before updating their password
+hashes.
 The idempotent seed command is protected by an explicit confirmation flag and
 does not delete existing Turso records:
 
@@ -190,8 +196,11 @@ node --env-file=.env node_modules/tsx/dist/cli.mjs \
 ```
 
 Run it only from a trusted operator machine with `DATABASE_PROVIDER=turso`,
-`TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN` loaded. Use a separate controlled
-bootstrap with real credentials before any non-demo deployment.
+`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `DEMO_ADMIN_PASSWORD`, and
+`DEMO_RESIDENT_PASSWORD` loaded. Both password values must be at least 14
+characters, must not be predictable, and must never be printed or committed.
+Use a separate controlled bootstrap with real credentials before any
+non-presentation deployment.
 
 ## Environment Variables
 
@@ -241,8 +250,10 @@ npm run db:sqlite:reset
 npm run dev
 ```
 
-The reset command is SQLite-only and refuses to load for Turso. It creates
-synthetic data in `data/dev.sqlite`; it never imports that file into Turso.
+The reset command is SQLite-only and refuses to load for Turso. It requires
+`LOCAL_DEMO_ADMIN_PASSWORD` to be set in the local shell and never uses a
+default password. It creates synthetic data in `data/dev.sqlite`; it never
+imports that file into Turso.
 Tests use separate `data/test.sqlite` and `data/certificates-test/` paths.
 
 Useful commands:
@@ -257,9 +268,6 @@ npm run build
 
 ### Local Demo Accounts
 
-All seeded accounts use `password123` unless
-`LOCAL_DEMO_ADMIN_PASSWORD` is set before reset.
-
 | Role | Email | Username |
 | --- | --- | --- |
 | Main Admin | `admin@example.com` | `mainadmin` |
@@ -267,7 +275,8 @@ All seeded accounts use `password123` unless
 | Resident | `resident@example.com` | `juanresident` |
 | Resident | `maria.resident@example.com` | `mariaresident` |
 
-These accounts and records are synthetic and local-preview only.
+These accounts and records are synthetic and local-preview only. Keep the
+password value in a local secret manager or shell, not in source control.
 
 ## Turso Setup
 
@@ -375,7 +384,7 @@ Reports support filtering, browser print, PDF download, and Excel export through
 `write-excel-file` 4.1.1. The monthly barangay format remains pending final
 client confirmation.
 
-Payment records support the online thesis/demo simulation. No gateway, card
+Payment records support the payment simulation. No gateway, card
 data, bank data, or real funds transfer is implemented. Fees are displayed and
 the resident completes a simulated payment before the admin can issue a PDF.
 
@@ -406,7 +415,7 @@ is not an active operating or deployment guide.
 | Public pages | Implemented | Home, About, Login, Register |
 | Local SQLite mode | Implemented | Persistent local database and synthetic seed |
 | Turso deployment mode | Deployed / Partial | Async provider, migrations applied, fail-closed credentials |
-| Vercel deployment | Deployed / Partial | Production alias is live; synthetic demo accounts seeded; email remains |
+| Vercel deployment | Deployed / Partial | Production alias is live; synthetic presentation accounts seeded; email remains |
 | Private certificate storage | Deployed / Partial | Local plus private Vercel Blob adapters |
 | Resident authentication | Implemented | Hashed passwords and revocable sessions |
 | Admin authentication | Implemented | Main Admin and Barangay Secretary roles |
@@ -428,7 +437,7 @@ is not an active operating or deployment guide.
 - Email notifications are not active because SMTP credentials were not
   supplied; the application skips notification delivery without failing the
   main action.
-- Production contains synthetic thesis-demo identities only; real operator
+- Production contains synthetic presentation identities only; real operator
   credentials and a controlled account replacement remain pending.
 - Approved Captain identity, signature/seal assets, print approval, report
   format, retention policy, and payment policy still require client input.

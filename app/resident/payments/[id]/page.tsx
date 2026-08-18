@@ -8,7 +8,7 @@ export default async function ResidentPaymentPage({ params }: { params: Promise<
   const { request, payment, payments } = await getResidentDemoPayment(id);
   if (!request) redirect("/resident/my-requests?error=Payment%20request%20not%20found.");
   return <div className="mx-auto max-w-2xl space-y-5">
-    <div><h1 className="text-3xl font-bold">Online Payment Simulation</h1><p className="text-base-content/70">No actual funds are transferred. This thesis/demo checkout stands in for a future online payment provider.</p></div>
+    <div><h1 className="text-3xl font-bold">Payment Simulation</h1><p className="text-base-content/70">No actual funds are transferred. This checkout is a simulation and is not connected to a real payment provider.</p></div>
     <div className="alert alert-warning"><span>SIMULATED PAYMENT - NO ACTUAL FUNDS TRANSFERRED</span></div>
     <section className="rounded-lg border border-base-300 bg-base-100 p-5"><dl className="grid gap-3 sm:grid-cols-2"><div><dt className="text-sm text-base-content/60">Request</dt><dd>{request.request_number}</dd></div><div><dt className="text-sm text-base-content/60">Certificate</dt><dd>{certificateLabel(request.certificate_type)}</dd></div><div><dt className="text-sm text-base-content/60">Fee</dt><dd>{formatCurrency(request.fee_amount)}</dd></div><div><dt className="text-sm text-base-content/60">Payment status</dt><dd>{request.payment_status}</dd></div></dl></section>
     {request.payment_status === "free" ? <div className="alert alert-success"><span>This certificate is free and does not require checkout.</span></div> : null}

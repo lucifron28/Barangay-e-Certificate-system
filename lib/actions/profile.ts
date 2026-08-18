@@ -15,7 +15,7 @@ export async function updateResidentProfileAction(formData: FormData) {
   const context = await requireResident();
 
   if (context.setupMissing) {
-    redirectWithError("/resident/account", "Supabase is not configured yet.");
+    redirectWithError("/resident/account", "This service is temporarily unavailable.");
   }
 
   const parsed = profileUpdateSchema.safeParse({

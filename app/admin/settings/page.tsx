@@ -41,7 +41,7 @@ export default async function AdminSettingsPage({ searchParams }: { searchParams
           </div>
           <div>
             <dt className="text-sm text-base-content/60">Payment Recording</dt>
-            <dd className="font-medium">Online demo payment status records: unpaid, paid, or free.</dd>
+            <dd className="font-medium">Payment status records: unpaid, paid, or free.</dd>
           </div>
         </div>
         <p className="mt-5 text-sm text-base-content/70">The signer name is rendered as a consistent visual placeholder in both HTML preview and PDF. It is not a legally verified digital signature.</p>

@@ -1,6 +1,7 @@
 # Vercel And Turso Deployment Guide
 
-This guide records the controlled Vercel/Turso rollout for the thesis/demo.
+This guide records the controlled Vercel/Turso rollout for the presentation
+deployment.
 Do not use a local SQLite file as a production database and do not import
 `data/dev.sqlite`.
 
@@ -16,7 +17,7 @@ The Vercel project is linked and the production deployment is live:
 - Storage: private Vercel Blob store linked to Production, Preview, and
   Development.
 
-This is a controlled thesis/demo deployment. Synthetic demo accounts are
+This is a controlled presentation deployment. Synthetic demo accounts are
 present for presentation testing. SMTP delivery and replacement with real
 operator accounts are still pending, so the deployment is not an operational
 barangay service.
@@ -84,8 +85,11 @@ Turso records:
 
 Do not use a public registration form to create an admin account. Before any
 operational use, replace the synthetic accounts through a controlled operator
-bootstrap and record the action in the handoff log. The demo password is
-`password123` and must not be reused for real accounts.
+bootstrap and record the action in the handoff log. Set `DEMO_ADMIN_PASSWORD`
+and `DEMO_RESIDENT_PASSWORD` in the trusted operator environment before
+running the seed command. Both values must be at least 14 characters and must
+not be stored in source control, screenshots, or handoff documents. The
+command revokes existing sessions for the seeded accounts.
 
 ## 7. Configure Gmail SMTP
 
@@ -99,11 +103,11 @@ The command reports missing variable names only. A successful result confirms en
 
 ## 9. Preview Acceptance
 
-Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, simulated online payment, PDF issuance, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist. The payment screen is a thesis/demo simulation and must not be treated as a real gateway.
+Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, simulated payment, PDF issuance, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist. The payment screen is a simulation and must not be treated as a real gateway.
 
 ## 10. Production Handoff Gate
 
-The Vercel production alias is already deployed for thesis/demo testing. Before
+The Vercel production alias is already deployed for presentation testing. Before
 operational use, confirm the final HTTPS domain, Vercel project and Turso
 database ownership, private Blob ownership, Gmail sender and test recipient,
 Main Admin and Barangay Secretary identities, Captain name and signature/seal
