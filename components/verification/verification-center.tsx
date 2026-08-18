@@ -85,7 +85,7 @@ export function VerificationCenter() {
   const handleStartCamera = async () => {
     stopCameraResources();
     setScannerError(null);
-    setScannerStatus("initializing");
+    setScannerStatus("scanning");
 
     if (
       typeof navigator === "undefined" ||
@@ -100,21 +100,27 @@ export function VerificationCenter() {
     }
 
     try {
-      // Dynamically import @zxing/browser only when requested
+      // Dynamically import @zxing/browser (client-only browser media library loaded only on user interaction)
       const { BrowserQRCodeReader } = await import("@zxing/browser");
       const reader = new BrowserQRCodeReader();
 
-      // Request media stream with rear camera preference
-      const constraints: MediaStreamConstraints = {
-        audio: false,
-        video: {
-          facingMode: { ideal: "environment" },
-        },
-      };
-
+      // Request media stream with rear camera preference and fallback
       let stream: MediaStream;
       try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+              facingMode: { ideal: "environment" },
+            },
+          });
+        } catch {
+          // Graceful fallback for mobile devices rejecting the ideal constraint
+          stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: true,
+          });
+        }
       } catch (mediaError: unknown) {
         const errorName =
           mediaError instanceof Error ? mediaError.name : String(mediaError);
@@ -150,21 +156,29 @@ export function VerificationCenter() {
 
       mediaStreamRef.current = stream;
 
-      if (!videoRef.current) {
+      let videoEl = videoRef.current;
+      if (!videoEl) {
+        // Wait a tick for React DOM commit
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        videoEl = videoRef.current;
+      }
+
+      if (!videoEl) {
         stopCameraResources();
         setScannerStatus("error");
         setScannerError("Camera preview element was not ready. Please try again.");
         return;
       }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play().catch(() => {});
-
-      setScannerStatus("scanning");
+      videoEl.srcObject = stream;
+      videoEl.setAttribute("playsinline", "true");
+      videoEl.setAttribute("autoplay", "true");
+      videoEl.muted = true;
+      await videoEl.play().catch(() => {});
 
       const controls = await reader.decodeFromStream(
         stream,
-        videoRef.current,
+        videoEl,
         (result, error) => {
           if (result) {
             const rawText = result.getText();
@@ -300,22 +314,14 @@ export function VerificationCenter() {
             </div>
           ) : null}
 
-          {scannerStatus === "initializing" ? (
-            <div className="flex flex-col items-center justify-center rounded-lg border border-base-300 bg-base-200/50 p-8 text-center">
-              <Loader2 className="size-10 animate-spin text-primary" aria-hidden />
-              <p className="mt-3 font-medium text-base-content">
-                Starting camera...
-              </p>
-            </div>
-          ) : null}
-
-          {scannerStatus === "scanning" ? (
+          {scannerStatus === "scanning" || scannerStatus === "initializing" ? (
             <div className="space-y-4">
               <div className="relative mx-auto aspect-square max-w-sm overflow-hidden rounded-lg border-2 border-primary bg-black">
                 <video
                   ref={videoRef}
                   playsInline
                   muted
+                  autoPlay
                   className="size-full object-cover"
                 />
                 {/* Scan Area Overlay */}
