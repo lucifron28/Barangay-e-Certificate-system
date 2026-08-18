@@ -86,7 +86,10 @@ function asNumber(value: unknown) {
 }
 
 function rowsAffected(result: unknown) {
-  return Number((result as { rowsAffected?: number } | undefined)?.rowsAffected ?? 0);
+  const mutation = result as
+    | { changes?: number; rowsAffected?: number }
+    | undefined;
+  return Number(mutation?.rowsAffected ?? mutation?.changes ?? 0);
 }
 
 function profileFromRow(row: Row | undefined): Profile | null {
