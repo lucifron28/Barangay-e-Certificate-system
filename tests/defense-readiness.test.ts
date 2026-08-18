@@ -36,14 +36,15 @@ const residentId = "00000000-0000-4000-8000-000000000003";
 const adminId = "00000000-0000-4000-8000-000000000001";
 const paymentResidentId = residentId;
 const acceptedUnpaidRequestId = "10000000-0000-4000-8000-000000000002";
+const testPassword = "local-seed-key-2026-strong";
 
 describe("local authentication and authorization boundaries", () => {
   it("hashes passwords and rejects invalid credentials", async () => {
-    const passwordHash = hashPassword("password123");
+    const passwordHash = hashPassword(testPassword);
 
-    expect(verifyPassword("password123", passwordHash)).toBe(true);
+    expect(verifyPassword(testPassword, passwordHash)).toBe(true);
     expect(verifyPassword("wrong-password", passwordHash)).toBe(false);
-    expect((await authenticateLocalUser("admin@example.com", "password123"))?.role).toBe(
+    expect((await authenticateLocalUser("admin@example.com", testPassword))?.role).toBe(
       "main_admin",
     );
     expect(await authenticateLocalUser("mainadmin", "wrong-password")).toBeNull();

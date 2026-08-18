@@ -1,5 +1,6 @@
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { connect, type Connection } from "@tursodatabase/serverless";
+import { assertStrongDemoPassword } from "@/lib/auth/demo-password-policy";
 
 type DemoAccount = {
   id: string;
@@ -37,7 +38,6 @@ type DemoRequest = {
 };
 
 const confirmation = "--confirm-thesis-demo";
-const defaultPassword = "password123";
 const currentYear = new Date().getFullYear();
 const timestamp = new Date().toISOString();
 
@@ -222,7 +222,10 @@ function getRequests(): DemoRequest[] {
   ];
 }
 
-function accountStatements(accounts: DemoAccount[], password: string) {
+function accountStatements(
+  accounts: DemoAccount[],
+  passwords: { admin: string; resident: string },
+) {
   return accounts.map((account) => ({
     sql: `
       INSERT INTO profiles (
@@ -256,7 +259,9 @@ function accountStatements(accounts: DemoAccount[], password: string) {
       account.occupation,
       account.email,
       account.username,
-      hashPassword(password),
+      hashPassword(
+        account.role === "resident" ? passwords.resident : passwords.admin,
+      ),
       account.role,
       timestamp,
       timestamp,
@@ -321,13 +326,32 @@ function activityStatements(requests: DemoRequest[]) {
 
 async function main() {
   const db = connectToTurso() as Connection;
-  const password = process.env.DEMO_PASSWORD?.trim() || defaultPassword;
+  const adminPassword = assertStrongDemoPassword(
+    "DEMO_ADMIN_PASSWORD",
+    process.env.DEMO_ADMIN_PASSWORD ?? "",
+  );
+  const residentPassword = assertStrongDemoPassword(
+    "DEMO_RESIDENT_PASSWORD",
+    process.env.DEMO_RESIDENT_PASSWORD ?? "",
+  );
   const accounts = getAccounts();
   const requests = getRequests();
 
   await db.batch(
     [
-      ...accountStatements(accounts, password),
+      ...accountStatements(accounts, {
+        admin: adminPassword,
+        resident: residentPassword,
+      }),
+      {
+        sql: `
+          UPDATE auth_sessions
+          SET revoked_at = ?
+          WHERE profile_id IN (?, ?, ?, ?)
+            AND revoked_at IS NULL
+        `,
+        args: [timestamp, ...accounts.map((account) => account.id)],
+      },
       ...requestStatements(requests),
       ...activityStatements(requests),
       {
