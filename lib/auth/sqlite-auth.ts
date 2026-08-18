@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createHmac, randomBytes, randomUUID, scryptSync, timingSafeEqual } from "node:crypto";
 import { env, hasSessionCookieSecret } from "@/lib/env";
@@ -69,7 +70,7 @@ export async function clearLocalSession() {
   cookieStore.delete(COOKIE_NAME);
 }
 
-export async function getLocalSessionProfile() {
+export const getLocalSessionProfile = cache(async function getLocalSessionProfile() {
   if (!hasLocalDemoSecret()) return null;
   const cookieStore = await cookies();
   const token = cookieStore.get(COOKIE_NAME)?.value;
@@ -78,7 +79,7 @@ export async function getLocalSessionProfile() {
   const profile = await getAuthSessionProfileByTokenHash(hash);
   if (profile) await touchAuthSession(hash);
   return profile;
-}
+});
 
 export async function authenticateLocalUser(login: string, password: string) {
   const profile = await findProfileByLogin(login);

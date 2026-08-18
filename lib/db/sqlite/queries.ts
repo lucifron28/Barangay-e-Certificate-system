@@ -8,6 +8,7 @@ import {
 } from "@/lib/services/business-rules";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
+import type { RequestStats } from "@/lib/utils/dashboard";
 import type { CertificateDownloadResult } from "@/lib/certificates/certificate-download";
 import type {
   CertificateRecord,
@@ -36,6 +37,13 @@ export type RequestWithResident = CertificateRequest & {
 export type ScheduleWithRequest = PickupSchedule & {
   request: RequestWithResident | null;
 };
+export type DashboardData = {
+  stats: RequestStats;
+  mostRequested: CertificateType | null;
+  recentRequests: RequestWithResident[];
+  monthlyCount: number;
+};
+
 
 export type ActivityLogWithUser = {
   action: string;
@@ -216,7 +224,6 @@ function notificationLogFromRow(row: Row | undefined): NotificationLog | null {
     subject: String(row.subject),
   };
 }
-
 function getSchedulesForRequest(requestId: string) {
   return getSqliteDb()
     .prepare("SELECT * FROM pickup_schedules WHERE request_id = ? ORDER BY pickup_date ASC")
@@ -225,16 +232,67 @@ function getSchedulesForRequest(requestId: string) {
     .filter((row): row is PickupSchedule => Boolean(row));
 }
 
-function getResidentForRequest(request: CertificateRequest) {
-  return getProfileById(request.resident_id);
+
+const REQUEST_WITH_RESIDENT_SELECT = `
+  SELECT
+    r.*,
+    p.id AS resident_profile_id,
+    p.auth_user_id AS resident_auth_user_id,
+    p.full_name AS resident_full_name,
+    p.email AS resident_email,
+    p.username AS resident_username,
+    p.contact_number AS resident_contact_number,
+    p.address_sitio AS resident_address_sitio,
+    p.age AS resident_age,
+    p.gender AS resident_gender,
+    p.civil_status AS resident_civil_status,
+    p.date_of_birth AS resident_date_of_birth,
+    p.occupation AS resident_occupation,
+    p.password_hash AS resident_password_hash,
+    p.role AS resident_role,
+    p.created_at AS resident_created_at,
+    p.updated_at AS resident_updated_at
+  FROM certificate_requests r
+  LEFT JOIN profiles p ON p.id = r.resident_id
+`;
+
+function requestWithResidentFromJoinedRow(row: Row | undefined): RequestWithResident | null {
+  if (!row) return null;
+  const request = requestFromRow(row);
+  if (!request) return null;
+
+  const residentId = asText(row.resident_profile_id) ?? asText(row.resident_id);
+  const resident: Profile | null = row.resident_full_name
+    ? {
+        address_sitio: asText(row.resident_address_sitio),
+        age: asNumber(row.resident_age),
+        auth_user_id: asText(row.resident_auth_user_id),
+        civil_status: asText(row.resident_civil_status),
+        contact_number: asText(row.resident_contact_number) ?? "",
+        created_at: String(row.resident_created_at ?? request.created_at),
+        date_of_birth: asText(row.resident_date_of_birth),
+        email: String(row.resident_email ?? ""),
+        full_name: String(row.resident_full_name),
+        gender: asText(row.resident_gender),
+        id: String(residentId),
+        occupation: asText(row.resident_occupation),
+        password_hash: asText(row.resident_password_hash),
+        role: (String(row.resident_role ?? "resident")) as ProfileRole,
+        updated_at: String(row.resident_updated_at ?? request.updated_at),
+        username: asText(row.resident_username),
+      }
+    : null;
+
+  return {
+    ...request,
+    pickup_schedules: [],
+    resident,
+  };
 }
 
 function withRelations(request: CertificateRequest): RequestWithResident {
-  return {
-    ...request,
-    pickup_schedules: getSchedulesForRequest(request.id),
-    resident: getResidentForRequest(request),
-  };
+  const resident = getProfileById(request.resident_id);
+  return { ...request, pickup_schedules: [], resident };
 }
 
 export function getProfileById(id: string) {
@@ -566,25 +624,147 @@ export function createCertificateRequest(input: {
   return getRequestById(id);
 }
 
-export function listResidentRequests(residentId: string) {
+export function listResidentRequests(residentId: string): RequestWithResident[] {
   return getSqliteDb()
     .prepare(
-      "SELECT * FROM certificate_requests WHERE resident_id = ? ORDER BY date_requested DESC",
+      `${REQUEST_WITH_RESIDENT_SELECT} WHERE r.resident_id = ? ORDER BY r.date_requested DESC`,
     )
     .all(residentId)
-    .map((row) => requestFromRow(row as Row))
-    .filter((row): row is CertificateRequest => Boolean(row))
-    .map(withRelations);
+    .map((row) => requestWithResidentFromJoinedRow(row as Row))
+    .filter((row): row is RequestWithResident => Boolean(row));
 }
 
-export function listAllRequests() {
+export function listAllRequests(): RequestWithResident[] {
   return getSqliteDb()
-    .prepare("SELECT * FROM certificate_requests ORDER BY date_requested DESC")
+    .prepare(`${REQUEST_WITH_RESIDENT_SELECT} ORDER BY r.date_requested DESC`)
     .all()
-    .map((row) => requestFromRow(row as Row))
-    .filter((row): row is CertificateRequest => Boolean(row))
-    .map(withRelations);
+    .map((row) => requestWithResidentFromJoinedRow(row as Row))
+    .filter((row): row is RequestWithResident => Boolean(row));
 }
+
+export function getAdminDashboardData(monthPrefix?: string): DashboardData {
+  const db = getSqliteDb();
+  const month = monthPrefix || new Date().toISOString().slice(0, 7);
+  const monthPattern = `${month}%`;
+
+  const aggregateRow = db
+    .prepare(
+      `SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted,
+        SUM(CASE WHEN status = 'ready_for_download' THEN 1 ELSE 0 END) AS ready_for_download,
+        SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
+        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled,
+        SUM(CASE WHEN date_requested LIKE ? THEN 1 ELSE 0 END) AS monthly_count
+      FROM certificate_requests`,
+    )
+    .get(monthPattern) as Row | undefined;
+
+  const typeCountRows = db
+    .prepare(
+      `SELECT certificate_type, COUNT(*) AS count
+       FROM certificate_requests
+       GROUP BY certificate_type
+       ORDER BY count DESC
+       LIMIT 1`,
+    )
+    .all() as Row[];
+
+  const recentRows = db
+    .prepare(`${REQUEST_WITH_RESIDENT_SELECT} ORDER BY r.date_requested DESC LIMIT 6`)
+    .all() as Row[];
+
+  const stats: RequestStats = {
+    accepted: asNumber(aggregateRow?.accepted),
+    cancelled: asNumber(aggregateRow?.cancelled),
+    done: asNumber(aggregateRow?.done),
+    pending: asNumber(aggregateRow?.pending),
+    ready_for_download: asNumber(aggregateRow?.ready_for_download),
+    rejected: asNumber(aggregateRow?.rejected),
+    total: asNumber(aggregateRow?.total),
+  };
+
+  const mostRequested = typeCountRows[0]
+    ? (String(typeCountRows[0].certificate_type) as CertificateType)
+    : null;
+
+  const recentRequests = recentRows
+    .map((row) => requestWithResidentFromJoinedRow(row))
+    .filter((row): row is RequestWithResident => Boolean(row));
+
+  const monthlyCount = asNumber(aggregateRow?.monthly_count);
+
+  return {
+    stats,
+    mostRequested,
+    recentRequests,
+    monthlyCount,
+  };
+}
+
+export function getResidentDashboardData(residentId: string): DashboardData {
+  const db = getSqliteDb();
+
+  const aggregateRow = db
+    .prepare(
+      `SELECT
+        COUNT(*) AS total,
+        SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending,
+        SUM(CASE WHEN status = 'accepted' THEN 1 ELSE 0 END) AS accepted,
+        SUM(CASE WHEN status = 'ready_for_download' THEN 1 ELSE 0 END) AS ready_for_download,
+        SUM(CASE WHEN status = 'done' THEN 1 ELSE 0 END) AS done,
+        SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) AS rejected,
+        SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled
+      FROM certificate_requests
+      WHERE resident_id = ?`,
+    )
+    .get(residentId) as Row | undefined;
+
+  const typeCountRows = db
+    .prepare(
+      `SELECT certificate_type, COUNT(*) AS count
+       FROM certificate_requests
+       WHERE resident_id = ?
+       GROUP BY certificate_type
+       ORDER BY count DESC
+       LIMIT 1`,
+    )
+    .all(residentId) as Row[];
+
+  const recentRows = db
+    .prepare(
+      `${REQUEST_WITH_RESIDENT_SELECT} WHERE r.resident_id = ? ORDER BY r.date_requested DESC LIMIT 5`,
+    )
+    .all(residentId) as Row[];
+
+  const stats: RequestStats = {
+    accepted: asNumber(aggregateRow?.accepted),
+    cancelled: asNumber(aggregateRow?.cancelled),
+    done: asNumber(aggregateRow?.done),
+    pending: asNumber(aggregateRow?.pending),
+    ready_for_download: asNumber(aggregateRow?.ready_for_download),
+    rejected: asNumber(aggregateRow?.rejected),
+    total: asNumber(aggregateRow?.total),
+  };
+
+  const mostRequested = typeCountRows[0]
+    ? (String(typeCountRows[0].certificate_type) as CertificateType)
+    : null;
+
+  const recentRequests = recentRows
+    .map((row) => requestWithResidentFromJoinedRow(row))
+    .filter((row): row is RequestWithResident => Boolean(row));
+
+  return {
+    stats,
+    mostRequested,
+    recentRequests,
+    monthlyCount: 0,
+  };
+}
+
 
 export function getRequestById(id: string) {
   const request = requestFromRow(
@@ -1054,6 +1234,26 @@ export function getCertificateRecordByRequestId(requestId: string) {
       .prepare("SELECT * FROM certificate_records WHERE request_id = ? ORDER BY issued_at DESC LIMIT 1")
       .get(requestId) as Row | undefined,
   );
+}
+
+export function getCertificateRecordsByRequestIds(
+  requestIds: string[],
+): Map<string, CertificateRecord> {
+  if (requestIds.length === 0) return new Map();
+  const placeholders = requestIds.map(() => "?").join(", ");
+  const rows = getSqliteDb()
+    .prepare(
+      `SELECT * FROM certificate_records WHERE request_id IN (${placeholders}) ORDER BY issued_at DESC`,
+    )
+    .all(...requestIds) as Row[];
+  const map = new Map<string, CertificateRecord>();
+  for (const row of rows) {
+    const record = certificateRecordFromRow(row);
+    if (record && !map.has(record.request_id)) {
+      map.set(record.request_id, record);
+    }
+  }
+  return map;
 }
 
 export function getIssuedCertificateRecordByRequestId(requestId: string) {

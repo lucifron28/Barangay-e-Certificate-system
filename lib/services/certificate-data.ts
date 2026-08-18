@@ -2,8 +2,10 @@ import "server-only";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
+  getAdminDashboardData as getDbAdminDashboardData,
   getProfileById,
   getRequestById,
+  getResidentDashboardData as getDbResidentDashboardData,
   getResidentRequestById,
   getSystemSettings as getSqliteSystemSettings,
   listActivityLogs as listSqliteActivityLogs,
@@ -12,13 +14,15 @@ import {
   listResidentRequests as listSqliteResidentRequests,
   listResidents as listSqliteResidents,
   type ActivityLogWithUser,
+  type DashboardData,
   type RequestWithResident,
   type SystemSettings,
 } from "@/lib/db/queries";
+import { summarizeRequests } from "@/lib/utils/dashboard";
 import { getDatabaseProvider } from "@/lib/db/provider";
 import type { Database, Profile } from "@/types/database";
 
-export type { ActivityLogWithUser, RequestWithResident, SystemSettings };
+export type { ActivityLogWithUser, DashboardData, RequestWithResident, SystemSettings };
 
 type Supabase = SupabaseClient<Database> | null;
 
@@ -58,6 +62,48 @@ export async function listAdminRequests(supabase: Supabase) {
 
   return (data ?? []) as RequestWithResident[];
 }
+export async function getAdminDashboard(
+  supabase: Supabase,
+  monthPrefix?: string,
+): Promise<DashboardData> {
+  if (getDatabaseProvider() !== "supabase") {
+    return getDbAdminDashboardData(monthPrefix);
+  }
+
+  const requests = await listAdminRequests(supabase);
+  const { stats, mostRequested } = summarizeRequests(requests);
+  const month = monthPrefix || new Date().toISOString().slice(0, 7);
+  const monthlyCount = requests.filter((request) =>
+    request.date_requested.startsWith(month),
+  ).length;
+
+  return {
+    stats,
+    mostRequested,
+    recentRequests: requests.slice(0, 6),
+    monthlyCount,
+  };
+}
+
+export async function getResidentDashboard(
+  residentId: string,
+  supabase: Supabase,
+): Promise<DashboardData> {
+  if (getDatabaseProvider() !== "supabase") {
+    return getDbResidentDashboardData(residentId);
+  }
+
+  const requests = await listResidentRequests(residentId, supabase);
+  const { stats, mostRequested } = summarizeRequests(requests);
+
+  return {
+    stats,
+    mostRequested,
+    recentRequests: requests.slice(0, 5),
+    monthlyCount: 0,
+  };
+}
+
 
 export async function getResidentRequest(
   id: string,

@@ -15,8 +15,7 @@ import { SetupRequired } from "@/components/ui/setup-required";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAdmin } from "@/lib/auth/guards";
-import { listAdminRequests } from "@/lib/services/certificate-data";
-import { summarizeRequests } from "@/lib/utils/dashboard";
+import { getAdminDashboard } from "@/lib/services/certificate-data";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
 import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
@@ -27,13 +26,8 @@ export default async function AdminDashboardPage() {
     return <SetupRequired missingEnv={context.missingEnv} />;
   }
 
-  const requests = await listAdminRequests(context.supabase);
-  const { stats } = summarizeRequests(requests);
-  const recentRequests = requests.slice(0, 6);
-  const thisMonth = new Date().toISOString().slice(0, 7);
-  const monthlyCount = requests.filter((request) =>
-    request.date_requested.startsWith(thisMonth),
-  ).length;
+  const { stats, recentRequests, monthlyCount } =
+    await getAdminDashboard(context.supabase);
   const copy = getCertificateDeliveryCopy();
 
   return (

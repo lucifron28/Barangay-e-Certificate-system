@@ -15,8 +15,7 @@ import { SetupRequired } from "@/components/ui/setup-required";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireResident } from "@/lib/auth/guards";
-import { listResidentRequests } from "@/lib/services/certificate-data";
-import { summarizeRequests } from "@/lib/utils/dashboard";
+import { getResidentDashboard } from "@/lib/services/certificate-data";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
 import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 
@@ -27,9 +26,10 @@ export default async function ResidentDashboardPage() {
     return <SetupRequired missingEnv={context.missingEnv} />;
   }
 
-  const requests = await listResidentRequests(context.profile.id, context.supabase);
-  const { stats } = summarizeRequests(requests);
-  const recentRequests = requests.slice(0, 5);
+  const { stats, recentRequests } = await getResidentDashboard(
+    context.profile.id,
+    context.supabase,
+  );
   const copy = getCertificateDeliveryCopy();
 
   return (
