@@ -416,6 +416,7 @@ through MCP only after explicit confirmation.
 - [Vercel and Turso deployment guide](docs/deployment-vercel-turso.md)
 - [Client acceptance checklist](docs/client-acceptance-checklist.md)
 - [Client acceptance runbook](docs/client-acceptance-runbook.md)
+- [Certificate QR scanner test gallery](docs/scanner-test-samples.md)
 - [Operations guide](docs/operations.md)
 - [Certificate template alignment notes](docs/certificate-template-alignment.md)
 
