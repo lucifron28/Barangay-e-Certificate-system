@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, UserPlus } from "lucide-react";
+import { PasswordInput } from "@/components/forms/password-input";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { registerResidentAction } from "@/lib/actions/auth";
@@ -94,16 +95,14 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             <span className="label">
               <span className="label-text">Password</span>
             </span>
-            <input className="input input-bordered" name="password" type="password" required />
+            <PasswordInput name="password" required />
           </label>
           <label className="form-control">
             <span className="label">
               <span className="label-text">Confirm Password</span>
             </span>
-            <input
-              className="input input-bordered"
+            <PasswordInput
               name="confirm_password"
-              type="password"
               required
             />
           </label>

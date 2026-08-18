@@ -26,7 +26,7 @@ import {
   formatDate,
 } from "@/lib/utils/format";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
-import { getCertificateRecordByRequestId } from "@/lib/db/queries";
+import { getCertificateRecordsByRequestIds } from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
 
 type CertificateRequestsPageProps = {
@@ -55,15 +55,15 @@ export default async function AdminCertificateRequestsPage({
     await listAdminRequests(context.supabase),
     params,
   );
-  const requestRows = await Promise.all(
-    requests.map(async (request) => ({
-      certificateRecord:
-        getDatabaseProvider() === "supabase"
-          ? null
-          : await getCertificateRecordByRequestId(request.id),
-      request,
-    })),
-  );
+  const certificateRecordsMap =
+    getDatabaseProvider() === "supabase" || requests.length === 0
+      ? new Map()
+      : await getCertificateRecordsByRequestIds(requests.map((request) => request.id));
+
+  const requestRows = requests.map((request) => ({
+    certificateRecord: certificateRecordsMap.get(request.id) ?? null,
+    request,
+  }));
 
   return (
     <div className="space-y-6">

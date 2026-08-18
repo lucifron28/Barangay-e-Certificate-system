@@ -50,11 +50,19 @@
   body {
     min-height: 100vh;
   }
-
   .form-control {
     display: grid;
     width: 100%;
   }
+}
+
+.form-control > .input,
+.form-control > .select,
+.form-control > .textarea,
+.form-control .input,
+.form-control .select,
+.form-control .textarea {
+  width: 100%;
 }
 
 @media print {

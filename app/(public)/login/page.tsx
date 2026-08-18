@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft, LogIn } from "lucide-react";
+import { PasswordInput } from "@/components/forms/password-input";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { loginAction } from "@/lib/actions/auth";
@@ -26,26 +27,24 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </p>
         </div>
         <form action={loginAction} className="space-y-4">
-          <label className="form-control">
+          <label className="form-control w-full">
             <span className="label">
-              <span className="label-text">Email or Username</span>
+              <span className="label-text font-medium">Email or Username</span>
             </span>
             <input
-              className="input input-bordered"
+              className="input input-bordered w-full"
               name="login"
               type="text"
               placeholder="juan@example.com"
               required
             />
           </label>
-          <label className="form-control">
+          <label className="form-control w-full">
             <span className="label">
-              <span className="label-text">Password</span>
+              <span className="label-text font-medium">Password</span>
             </span>
-            <input
-              className="input input-bordered"
+            <PasswordInput
               name="password"
-              type="password"
               required
             />
           </label>

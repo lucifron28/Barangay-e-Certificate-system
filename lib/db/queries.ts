@@ -9,6 +9,7 @@ export type RequestWithResident = sqlite.RequestWithResident;
 export type ScheduleWithRequest = sqlite.ScheduleWithRequest;
 export type ActivityLogWithUser = sqlite.ActivityLogWithUser;
 export type SystemSettings = sqlite.SystemSettings;
+export type DashboardData = sqlite.DashboardData;
 
 function assertSupported() {
   if (getDatabaseProvider() === "supabase") {
@@ -105,6 +106,14 @@ export async function listResidentRequests(residentId: string) {
 export async function listAllRequests() {
   return (await loadProviderModule()).listAllRequests();
 }
+export async function getAdminDashboardData(monthPrefix?: string) {
+  return (await loadProviderModule()).getAdminDashboardData(monthPrefix);
+}
+
+export async function getResidentDashboardData(residentId: string) {
+  return (await loadProviderModule()).getResidentDashboardData(residentId);
+}
+
 
 export async function getRequestById(id: string) {
   return (await loadProviderModule()).getRequestById(id);
@@ -185,6 +194,10 @@ export async function persistIssuedCertificate(
 export async function getCertificateRecordByRequestId(requestId: string) {
   return (await loadProviderModule()).getCertificateRecordByRequestId(requestId);
 }
+export async function getCertificateRecordsByRequestIds(requestIds: string[]) {
+  return (await loadProviderModule()).getCertificateRecordsByRequestIds(requestIds);
+}
+
 
 export async function getIssuedCertificateRecordByRequestId(requestId: string) {
   return (await loadProviderModule()).getIssuedCertificateRecordByRequestId(requestId);
