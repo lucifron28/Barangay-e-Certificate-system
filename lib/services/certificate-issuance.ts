@@ -287,10 +287,23 @@ export async function issueCertificate(input: {
       verificationUrl,
     } satisfies CertificateIssuanceResult;
   } catch (error) {
-    if (storedPdf) {
-      await removeStoredCertificatePdf(storedPdf);
+    // Cleanup must never replace the original issuance error. Blob deletion is
+    // best effort, but releasing the reservation must still be attempted so a
+    // later request can retry after a transient storage or database failure.
+    try {
+      if (storedPdf) {
+        await removeStoredCertificatePdf(storedPdf);
+      }
+    } catch {
+      // The uploaded artifact may be cleaned up by a later retention job.
+    } finally {
+      try {
+        await releaseCertificateIssuanceReservation(certificateRecordId);
+      } catch {
+        // Preserve the original issuance error; operators can reconcile a
+        // release failure from the reservation state and database logs.
+      }
     }
-    await releaseCertificateIssuanceReservation(certificateRecordId);
 
     if (error instanceof CertificateIssuanceError) {
       throw error;

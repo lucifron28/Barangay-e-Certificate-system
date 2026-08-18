@@ -4,6 +4,7 @@ import path from "node:path";
 import { randomBytes, randomUUID, scryptSync } from "node:crypto";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 import { getDatabaseProvider } from "@/lib/db/provider";
+import { assertStrongDemoPassword } from "@/lib/auth/demo-password-policy";
 import {
   createCertificateDownloadLog,
   getRequestById,
@@ -20,7 +21,6 @@ const dbPath = path.resolve(
   root,
   databaseUrl.startsWith("file:") ? databaseUrl.slice("file:".length) : databaseUrl,
 );
-const password = process.env.LOCAL_DEMO_ADMIN_PASSWORD ?? "password123";
 const year = new Date().getFullYear();
 
 function hashPassword(value: string) {
@@ -194,6 +194,10 @@ async function main() {
   if (getDatabaseProvider() !== "sqlite") {
     throw new Error("demo:reset is SQLite-only and refuses to reset a remote database.");
   }
+  const password = assertStrongDemoPassword(
+    "LOCAL_DEMO_ADMIN_PASSWORD",
+    process.env.LOCAL_DEMO_ADMIN_PASSWORD ?? "",
+  );
   clearDatabaseFiles();
   const db = getSqliteDb();
   const timestamp = new Date().toISOString();
@@ -313,7 +317,6 @@ async function main() {
 
   db.prepare("UPDATE rate_limit_attempts SET attempts = 0").run();
   process.stdout.write(`SQLite local demo reset complete at ${dbPath}\n`);
-  process.stdout.write(`Demo password: ${password}\n`);
   for (const sample of issuedSamples) {
     process.stdout.write(`${sample.label}: ${sample.certificateNumber} ${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/verify/${sample.token}\n`);
   }

@@ -57,7 +57,7 @@ export async function loginAction(formData: FormData) {
   const supabase = await createClient();
 
   if (!supabase) {
-    redirectWithError(LOGIN_PATH, "Supabase is not configured yet.");
+    redirectWithError(LOGIN_PATH, "This service is temporarily unavailable.");
   }
 
   let email = parsed.data.login.trim();
@@ -175,7 +175,7 @@ export async function registerResidentAction(formData: FormData) {
   const supabase = await createClient();
 
   if (!supabase) {
-    redirectWithError(REGISTER_PATH, "Supabase is not configured yet.");
+    redirectWithError(REGISTER_PATH, "This service is temporarily unavailable.");
   }
 
   const serviceRole = createServiceRoleClient();

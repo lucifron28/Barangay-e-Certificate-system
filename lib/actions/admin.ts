@@ -42,7 +42,7 @@ async function getAdminContextOrRedirect(path: string) {
   const context = await requireAdmin();
 
   if (context.setupMissing) {
-    redirectWithError(path, "Supabase is not configured yet.");
+    redirectWithError(path, "This service is temporarily unavailable.");
   }
 
   return context;
@@ -404,7 +404,7 @@ export async function updateSystemSettingsAction(formData: FormData) {
 
   const context = await requireMainAdmin();
   if (context.setupMissing) {
-    redirectWithError("/admin/settings", "Supabase is not configured yet.");
+    redirectWithError("/admin/settings", "This service is temporarily unavailable.");
   }
   if (isSqliteProvider()) {
     await setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);

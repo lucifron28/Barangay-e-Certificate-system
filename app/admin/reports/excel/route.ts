@@ -14,7 +14,7 @@ export async function GET(request: Request) {
 
   if (context.setupMissing) {
     return NextResponse.json(
-      { error: "Supabase is not configured yet." },
+      { error: "This service is temporarily unavailable." },
       { status: 503 },
     );
   }

@@ -56,7 +56,7 @@ export default function HomePage() {
             </div>
             <div className="alert border-base-300 bg-base-100">
               <Banknote className="size-5" aria-hidden />
-              <span>Certificate fees are shown before checkout. The thesis/demo payment flow transfers no actual funds.</span>
+              <span>Certificate fees are shown before checkout. Payment is simulated; no actual funds are transferred.</span>
             </div>
             <div className="alert border-base-300 bg-base-100">
               <PenLine className="size-5" aria-hidden />

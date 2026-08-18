@@ -12,8 +12,17 @@ const env = {
   SMTP_USER: "",
   SMTP_PASS: "",
   EMAIL_FROM: "",
+  TURSO_DATABASE_URL: "",
+  TURSO_AUTH_TOKEN: "",
+  BLOB_READ_WRITE_TOKEN: "",
+  NEXT_PUBLIC_SUPABASE_URL: "",
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "",
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: "",
+  SUPABASE_SECRET_KEY: "",
+  SUPABASE_SERVICE_ROLE_KEY: "",
   SESSION_COOKIE_SECRET: "test-session-cookie-secret-that-is-long-enough",
   LOCAL_DEMO_SECRET: "test-local-demo-secret-that-is-long-enough",
+  LOCAL_DEMO_ADMIN_PASSWORD: "local-seed-key-2026-strong",
   CERTIFICATE_STORAGE_PROVIDER: "local",
 };
 

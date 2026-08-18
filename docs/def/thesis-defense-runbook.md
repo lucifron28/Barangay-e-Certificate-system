@@ -35,10 +35,10 @@ accounts and sample records only. The default demo mode is
    such as `http://192.168.1.20:3000`, and set `NEXT_PUBLIC_APP_URL` to that
    reachable address before resetting the demo.
 
-3. Log in as `resident@example.com` with password `password123`.
+3. Log in as `resident@example.com` with the privately supplied presentation password.
 4. Open Request Certificate and submit a request. Select the certificate type
    to show that only the relevant fields are displayed.
-5. Log out and log in as `admin@example.com` with password `password123`.
+5. Log out and log in as `admin@example.com` with the privately supplied presentation password.
 6. Open Certificate Requests and accept the new pending request after checking
    its submitted information.
 7. Log out and log in again as `resident@example.com`.

@@ -4,8 +4,8 @@
 
 1. Resident submits a request with saved profile data and certificate-specific fields.
 2. Admin reviews completeness and accepts or rejects with remarks.
-3. Accepted paid requests complete the clearly labeled online thesis/demo payment
-   simulation; Indigency requests are free.
+3. Accepted paid requests complete the clearly labeled payment simulation;
+   Indigency requests are free. No actual funds are transferred.
 4. Admin issues the certificate, reviews the generated PDF, and confirms the
    notification attempt.
 5. Residents download through the authenticated route. A successful download
@@ -34,8 +34,8 @@ approval process.
 
 ## Payment Boundary
 
-The current payment screen is a thesis/demo simulation and does not process
-cards, bank transfers, or real online funds. The status values are `unpaid`,
+The current payment screen is a simulation and does not process cards, bank
+transfers, or real online funds. The status values are `unpaid`,
 `paid`, and `free`. Any real payment provider requires a separate client
 decision, credentials, security review, and implementation goal.
 
