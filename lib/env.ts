@@ -37,7 +37,7 @@ export const env = {
   sessionCookieSecret: process.env.SESSION_COOKIE_SECRET?.trim() ?? "",
   emailFrom: process.env.EMAIL_FROM?.trim() ?? "",
   localDemoAdminEmail:
-    process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",
+    process.env.LOCAL_DEMO_ADMIN_EMAIL?.trim() || "admin@example.com",
   localDemoSecret: process.env.LOCAL_DEMO_SECRET ?? "",
   trustProxy: process.env.TRUST_PROXY === "true",
   smtpHost: process.env.SMTP_HOST?.trim() || "smtp.gmail.com",

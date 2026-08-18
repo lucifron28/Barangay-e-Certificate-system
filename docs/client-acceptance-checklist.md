@@ -18,7 +18,7 @@ Use synthetic names and records until the client authorizes real data. Record th
 - [ ] Residency request submits Name, Age, Birthdate, Sitio, Years of Residency, and Purpose.
 - [ ] Fee and payment state display correctly for every type.
 - [ ] Request number and Clearance control number are generated correctly.
-- [ ] Resident sees only their own requests, schedules, and certificates.
+- [ ] Resident sees only their own requests and certificates.
 - [ ] Resident can cancel a pending request.
 - [ ] Resident cannot cancel an accepted request.
 - [ ] Resident can edit and resubmit a rejected request.

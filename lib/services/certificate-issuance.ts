@@ -22,7 +22,7 @@ import {
   reserveCertificateIssuance,
 } from "@/lib/db/queries";
 import { sha256Hex } from "@/lib/security/document-hash";
-import { env } from "@/lib/env";
+import { buildVerificationUrl } from "@/lib/certificates/verification-url";
 import { issuanceMode } from "@/lib/services/issuance-mode";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import type { RequestWithResident } from "@/lib/db/queries";
@@ -181,6 +181,20 @@ export async function issueCertificate(input: {
     issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
   const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
+  const verificationToken = generateVerificationToken();
+  const shortVerificationCode = getShortVerificationCode();
+  const tokenHash = createHash("sha256").update(verificationToken).digest("hex");
+  let verificationUrl: string;
+  try {
+    verificationUrl = buildVerificationUrl(verificationToken);
+  } catch (error) {
+    throw new CertificateIssuanceError(
+      "PERSISTENCE_FAILED",
+      error instanceof Error ? error.message : "Invalid verification URL configuration.",
+      { cause: error },
+    );
+  }
+
   const certificateRecordId = randomUUID();
   let certificateNumber: string;
   try {
@@ -210,10 +224,6 @@ export async function issueCertificate(input: {
       { cause: error },
     );
   }
-  const verificationToken = generateVerificationToken();
-  const shortVerificationCode = getShortVerificationCode();
-  const tokenHash = createHash("sha256").update(verificationToken).digest("hex");
-  const verificationUrl = `${env.appUrl.replace(/\/$/, "")}/verify/${verificationToken}`;
   const snapshot = createCertificateSnapshot({
     authorizedOfficialName: input.settings.barangayCaptainName,
     certificateNumber,

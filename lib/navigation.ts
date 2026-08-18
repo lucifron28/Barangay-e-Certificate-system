@@ -5,6 +5,7 @@ import {
   Home,
   LayoutDashboard,
   Printer,
+  QrCode,
   Settings,
   UserRound,
   UsersRound,
@@ -89,6 +90,11 @@ export const publicNavItems = [
     href: "/",
     label: "Home",
     icon: Home,
+  },
+  {
+    href: "/verify",
+    label: "Verify Certificate",
+    icon: QrCode,
   },
   {
     href: "/about",

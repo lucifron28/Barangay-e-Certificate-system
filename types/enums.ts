@@ -40,7 +40,7 @@ export type MockPaymentStatus = (typeof MOCK_PAYMENT_STATUSES)[number];
 
 export const CERTIFICATE_TYPE_LABELS: Record<CertificateType, string> = {
   barangay_clearance: "Barangay Clearance",
-  barangay_certificate: "Barangay Certificate",
+  barangay_certificate: "Barangay Certificate / PAGPAPATUNAY",
   barangay_indigency: "Barangay Indigency",
   barangay_residency: "Barangay Residency",
 };

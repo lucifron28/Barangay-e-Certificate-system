@@ -214,7 +214,7 @@ async function main() {
     contact_number: "09000000001",
     created_at: timestamp,
     date_of_birth: "1991-01-01",
-    email: process.env.LOCAL_DEMO_ADMIN_EMAIL ?? "admin@example.com",
+    email: process.env.LOCAL_DEMO_ADMIN_EMAIL?.trim() || "admin@example.com",
     full_name: "Demo Main Admin",
     gender: "N/A",
     id: adminId,

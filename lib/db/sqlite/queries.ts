@@ -1187,6 +1187,51 @@ export function getCertificateVerificationByToken(token: string) {
   } as const;
 }
 
+export function getCertificateVerificationByShortCode(rawShortCode: string) {
+  const normalized = rawShortCode.trim().toUpperCase();
+  if (!/^BB-[0-9A-F]{8}$/.test(normalized)) {
+    return null;
+  }
+  const row = getSqliteDb().prepare(
+    `SELECT v.*, c.certificate_number, c.certificate_type, c.date_issued, c.status AS certificate_status,
+            c.pdf_sha256, c.certificate_snapshot, c.replacement_record_id
+     FROM certificate_verifications v
+      JOIN certificate_records c ON c.id = v.certificate_record_id
+      WHERE v.short_verification_code = ?`,
+  ).get(normalized) as Row | undefined;
+  if (!row) return null;
+  const rawSnapshot = parseJson(row.certificate_snapshot);
+  const snapshot =
+    rawSnapshot && typeof rawSnapshot === "object" && !Array.isArray(rawSnapshot)
+      ? (rawSnapshot as Record<string, unknown>)
+      : {};
+  const snapshotText = (key: string, fallback: string) =>
+    typeof snapshot[key] === "string" && snapshot[key]
+      ? String(snapshot[key])
+      : fallback;
+  const expiresAt = String(row.expires_at);
+  const revoked = row.revoked_at !== null || row.certificate_status === "revoked";
+  const expired = row.status === "expired" || isVerificationExpired(expiresAt);
+  const replacementRecordId = asText(row.replacement_record_id);
+  return {
+    certificateNumber: snapshotText("certificate_number", String(row.certificate_number)),
+    certificateType: snapshotText("certificate_type", String(row.certificate_type)) as CertificateType,
+    dateIssued: snapshotText("date_issued", String(row.date_issued)),
+    expiresAt,
+    fullName: snapshotText("holder_full_name", "Unavailable"),
+    pdfSha256: asText(row.pdf_sha256),
+    replacementRecordId,
+    shortCode: String(row.short_verification_code),
+    status: replacementRecordId
+      ? "replaced"
+      : revoked
+        ? "revoked"
+        : expired
+          ? "expired"
+          : "valid",
+  } as const;
+}
+
 export function createActivityLog(input: {
   action: string;
   affected_record_id?: string | null;

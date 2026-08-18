@@ -7,16 +7,15 @@ import {
   FileText,
   LogIn,
   PenLine,
+  QrCode,
   UserPlus,
 } from "lucide-react";
 import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
+import { CERTIFICATE_TYPE_LABELS, CERTIFICATE_TYPES } from "@/types/enums";
 
-const certificateTypes = [
-  "Barangay Clearance",
-  "Barangay Certificate",
-  "Barangay Indigency",
-  "Barangay Residency",
-];
+const certificateTypes = CERTIFICATE_TYPES.map(
+  (type) => CERTIFICATE_TYPE_LABELS[type],
+);
 
 export default function HomePage() {
   const copy = getCertificateDeliveryCopy();
@@ -47,6 +46,10 @@ export default function HomePage() {
             <Link href="/resident/request-certificate" className="btn btn-accent">
               <FileText className="size-4" aria-hidden />
               Request Certificate
+            </Link>
+            <Link href="/verify" className="btn btn-outline">
+              <QrCode className="size-4" aria-hidden />
+              Verify Certificate
             </Link>
           </div>
           <div className="mt-8 grid gap-3 sm:grid-cols-3">

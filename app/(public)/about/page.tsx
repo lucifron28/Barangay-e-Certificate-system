@@ -1,11 +1,7 @@
 import { CheckCircle2, FileText, Info, Landmark } from "lucide-react";
+import { CERTIFICATE_TYPE_LABELS, CERTIFICATE_TYPES } from "@/types/enums";
 
-const covered = [
-  "Barangay Clearance",
-  "Barangay Certificate",
-  "Barangay Indigency",
-  "Barangay Residency",
-];
+const covered = CERTIFICATE_TYPES.map((type) => CERTIFICATE_TYPE_LABELS[type]);
 
 export default function AboutPage() {
   return (
