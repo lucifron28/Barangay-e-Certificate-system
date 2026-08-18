@@ -1139,24 +1139,27 @@ export async function createActivityLog(input: {
 }
 
 export async function listActivityLogs() {
-  const rows = await allTurso<Row>("SELECT * FROM activity_logs ORDER BY created_at DESC");
-  return Promise.all(
-    rows.map(async (log): Promise<ActivityLogWithUser> => {
-      const userId = asText(log.user_id);
-      const user = userId ? await getProfileById(userId) : null;
-      return {
-        action: String(log.action),
-        affected_record_id: asText(log.affected_record_id),
-        affected_table: asText(log.affected_table),
-        created_at: String(log.created_at),
-        id: String(log.id),
-        remarks: asText(log.remarks),
-        role: String(log.role),
-        user: user ? { email: user.email, full_name: user.full_name } : null,
-        user_id: userId,
-      };
-    }),
+  const rows = await allTurso<Row>(
+    `SELECT a.*, p.full_name AS user_full_name, p.email AS user_email
+     FROM activity_logs a
+     LEFT JOIN profiles p ON p.id = a.user_id
+     ORDER BY a.created_at DESC`,
   );
+  return rows.map((log): ActivityLogWithUser => {
+    const userEmail = asText(log.user_email);
+    const userFullName = asText(log.user_full_name);
+    return {
+      action: String(log.action),
+      affected_record_id: asText(log.affected_record_id),
+      affected_table: asText(log.affected_table),
+      created_at: String(log.created_at),
+      id: String(log.id),
+      remarks: asText(log.remarks),
+      role: String(log.role),
+      user: userEmail && userFullName ? { email: userEmail, full_name: userFullName } : null,
+      user_id: asText(log.user_id),
+    };
+  });
 }
 
 export async function createNotificationLog(input: {
