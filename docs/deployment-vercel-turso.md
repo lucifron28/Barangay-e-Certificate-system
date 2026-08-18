@@ -16,9 +16,10 @@ The Vercel project is linked and the production deployment is live:
 - Storage: private Vercel Blob store linked to Production, Preview, and
   Development.
 
-This is a controlled thesis/demo deployment. SMTP delivery and production
-admin account bootstrap are still pending, so the deployment is not yet an
-operational barangay service.
+This is a controlled thesis/demo deployment. Synthetic demo accounts are
+present for presentation testing. SMTP delivery and replacement with real
+operator accounts are still pending, so the deployment is not an operational
+barangay service.
 
 ## 1. Prepare Accounts And Resources
 
@@ -72,9 +73,19 @@ Expected files are 0000_initial_schema.sql, 0001_client_deployment.sql, and
 0002_full_online_workflow.sql. The runner creates schema_migrations, applies
 files in order, and does not drop existing production tables.
 
-## 6. Bootstrap The First Admin
+## 6. Seed Thesis-Demo Accounts
 
-Do not use a public registration form to create an admin account. Use a controlled operator bootstrap against the approved Preview database, create the Main Admin and Barangay Secretary identities, and record the action in the handoff log. A bootstrap script should be added or approved for the selected resource before live use; local seeded accounts are not production credentials.
+For the thesis presentation only, the repository includes an idempotent
+production demo seed command. It creates the synthetic Main Admin, Barangay
+Secretary, and resident accounts plus sample requests without deleting existing
+Turso records:
+
+    node --env-file=.env node_modules/tsx/dist/cli.mjs --tsconfig scripts/tsconfig.json scripts/turso-demo-seed.ts --confirm-thesis-demo
+
+Do not use a public registration form to create an admin account. Before any
+operational use, replace the synthetic accounts through a controlled operator
+bootstrap and record the action in the handoff log. The demo password is
+`password123` and must not be reused for real accounts.
 
 ## 7. Configure Gmail SMTP
 

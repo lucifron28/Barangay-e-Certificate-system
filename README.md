@@ -126,9 +126,10 @@ but their role values remain separate for future permission refinement.
 - The default Vercel HTTPS domain is live; a custom domain, Captain identity,
   signature/seal assets, retention policy, and print approval remain client
   handoff items.
-- Main Admin and Barangay Secretary production identities must be created
-  through a controlled bootstrap; public registration cannot create admin
-  roles.
+- Synthetic Main Admin, Barangay Secretary, and resident identities are seeded
+  in the current Turso thesis-demo database. Public registration still cannot
+  create admin roles, and real operator identities must replace the demo users
+  before operational use.
 - A real online payment gateway, provider credentials, refunds, and financial
   reconciliation remain outside this thesis/demo scope.
 - Blob orphan cleanup is best-effort on issuance failure; a scheduled
@@ -162,10 +163,35 @@ The thesis/demo deployment is live on Vercel:
   Preview, and Development.
 
 The deployment is suitable for controlled thesis/demo testing. Email delivery
-is intentionally disabled until approved SMTP credentials are added, and the
-Main Admin and Barangay Secretary accounts still require a controlled
-operator bootstrap with real credentials. Do not use the local demo accounts
-as production credentials.
+is intentionally disabled until approved SMTP credentials are added. The
+current production database contains only synthetic thesis-demo records; do
+not use these accounts as operational credentials.
+
+### Production Thesis-Demo Accounts
+
+The current Vercel deployment is seeded with synthetic accounts so the thesis
+presentation can be demonstrated against the real production stack:
+
+| Role | Email | Username | Password |
+| --- | --- | --- | --- |
+| Main Admin | `admin@example.com` | `mainadmin` | `password123` |
+| Barangay Secretary | `secretary@example.com` | `secretary` | `password123` |
+| Resident | `resident@example.com` | `juanresident` | `password123` |
+| Resident | `maria.resident@example.com` | `mariaresident` | `password123` |
+
+These accounts and the three sample requests are synthetic demo data only.
+The idempotent seed command is protected by an explicit confirmation flag and
+does not delete existing Turso records:
+
+```bash
+node --env-file=.env node_modules/tsx/dist/cli.mjs \
+  --tsconfig scripts/tsconfig.json scripts/turso-demo-seed.ts \
+  --confirm-thesis-demo
+```
+
+Run it only from a trusted operator machine with `DATABASE_PROVIDER=turso`,
+`TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN` loaded. Use a separate controlled
+bootstrap with real credentials before any non-demo deployment.
 
 ## Environment Variables
 
@@ -380,7 +406,7 @@ is not an active operating or deployment guide.
 | Public pages | Implemented | Home, About, Login, Register |
 | Local SQLite mode | Implemented | Persistent local database and synthetic seed |
 | Turso deployment mode | Deployed / Partial | Async provider, migrations applied, fail-closed credentials |
-| Vercel deployment | Deployed / Partial | Production alias is live; email and admin bootstrap remain |
+| Vercel deployment | Deployed / Partial | Production alias is live; synthetic demo accounts seeded; email remains |
 | Private certificate storage | Deployed / Partial | Local plus private Vercel Blob adapters |
 | Resident authentication | Implemented | Hashed passwords and revocable sessions |
 | Admin authentication | Implemented | Main Admin and Barangay Secretary roles |
@@ -402,18 +428,18 @@ is not an active operating or deployment guide.
 - Email notifications are not active because SMTP credentials were not
   supplied; the application skips notification delivery without failing the
   main action.
-- Production admin identities have not been created because no real operator
-  credentials were supplied.
+- Production contains synthetic thesis-demo identities only; real operator
+  credentials and a controlled account replacement remain pending.
 - Approved Captain identity, signature/seal assets, print approval, report
   format, retention policy, and payment policy still require client input.
 - The visual signature is not cryptographically or legally verified.
 - A scheduled Blob orphan reconciliation job can be added after the production
   storage account is approved.
 
-Next: bootstrap the two admin-side identities through a controlled process,
-configure and test the approved SMTP sender, run the client acceptance
-checklist with synthetic records, and obtain print, email, report, and
-certificate-template approval before treating the deployment as operational.
+Next: replace the synthetic identities through a controlled process, configure
+and test the approved SMTP sender, run the client acceptance checklist with
+synthetic records, and obtain print, email, report, and certificate-template
+approval before treating the deployment as operational.
 
 ## Data Notice
 
