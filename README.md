@@ -18,9 +18,8 @@ provider.
 | Vercel preview/production | Turso | Vercel Private Blob | Gmail SMTP via App Password |
 
 Supabase utilities and migrations remain available as a separate deployment
-option. The active presentation deployment uses Turso, Vercel Private Blob,
+option. The active client QA deployment uses Turso, Vercel Private Blob,
 and provider-neutral application services.
-
 ## Tech Stack And Versions
 
 - Next.js 16.3.0 App Router with React 19.2.8
@@ -65,7 +64,7 @@ versioned migrations, and client handoff documentation.
   cancels pending requests, resubmits rejected requests, and views their own
   certificates.
 - `main_admin`: full admin-side workflow access and system settings access.
-- `barangay_secretary`: admin-side request, schedule, certificate, report, and
+- `barangay_secretary`: admin-side request, certificate, report, and
   activity-log access. System settings remain view-only.
 
 Main Admin and Barangay Secretary share the initial operational permissions,
@@ -90,7 +89,8 @@ but their role values remain separate for future permission refinement.
 
 ## Features Implemented
 
-- Public Home, About, Login, and Register pages.
+- Public Home, About, Login, Register, and Certificate Verification pages.
+- Public QR camera scanner, image QR decoder, and manual short-code verification at `/verify`.
 - Responsive resident/admin layouts with theme switching.
 - SQLite authentication with scrypt password hashes and opaque, server-side,
   revocable sessions.
@@ -169,11 +169,16 @@ is intentionally disabled until approved SMTP credentials are added. The
 current production database contains only synthetic presentation records; do
 not use these accounts as operational credentials.
 
-### Production Presentation Accounts
+### Production QA Accounts And Canonical Samples
 
-The current Vercel deployment is seeded with synthetic accounts so the
-presentation can be demonstrated against the real deployment stack. Passwords
-are intentionally not stored in this repository or documentation.
+The current Vercel deployment is seeded with synthetic accounts and canonical sample requests for all four supported certificate types:
+
+1. Barangay Clearance (`REQ-YYYY-9002`)
+2. Barangay Certificate / PAGPAPATUNAY (`REQ-YYYY-9004`)
+3. Barangay Indigency (`REQ-YYYY-9001`)
+4. Barangay Residency (`REQ-YYYY-9003`)
+
+Passwords are intentionally not stored in this repository or documentation.
 
 | Role | Email | Username |
 | --- | --- | --- |
@@ -182,26 +187,36 @@ are intentionally not stored in this repository or documentation.
 | Resident | `resident@example.com` | `juanresident` |
 | Resident | `maria.resident@example.com` | `mariaresident` |
 
-These accounts and the three sample requests are synthetic presentation data
-only. The seed command requires two privately supplied passwords and revokes
-existing sessions for the seeded profiles before updating their password
-hashes.
-The idempotent seed command is protected by an explicit confirmation flag and
-does not delete existing Turso records:
+These accounts and the four canonical sample requests are synthetic client QA data
+only.
+
+### Safe Requests-Only Sample Maintenance
+
+To maintain or update canonical QA request fixtures without rotating account passwords or revoking existing active sessions:
 
 ```bash
-node --env-file=.env node_modules/tsx/dist/cli.mjs \
-  --tsconfig scripts/tsconfig.json scripts/turso-demo-seed.ts \
-  --confirm-thesis-demo
+DATABASE_PROVIDER=turso npm run db:seed:turso-qa-requests -- --confirm-client-qa
 ```
 
-Run it only from a trusted operator machine with `DATABASE_PROVIDER=turso`,
-`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `DEMO_ADMIN_PASSWORD`, and
-`DEMO_RESIDENT_PASSWORD` loaded. Both password values must be at least 14
-characters, must not be predictable, and must never be printed or committed.
-Use a separate controlled bootstrap with real credentials before any
-non-presentation deployment.
+The requests-only seed command:
+- requires `DATABASE_PROVIDER=turso`, `TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN`
+- requires explicit confirmation (`--confirm-client-qa`)
+- verifies known synthetic resident IDs exist in the database
+- inserts canonical QA request fixtures idempotently
+- NEVER updates profiles or password hashes
+- NEVER revokes `auth_sessions`
+- NEVER deletes existing records or resets the database
+- does NOT require `DEMO_ADMIN_PASSWORD` or `DEMO_RESIDENT_PASSWORD`
 
+### Full Account Bootstrap Seed
+
+To seed or reset accounts on a fresh database only:
+
+```bash
+DATABASE_PROVIDER=turso npm run db:seed:turso-demo -- --confirm-client-qa
+```
+
+The full account seed requires privately supplied `DEMO_ADMIN_PASSWORD` and `DEMO_RESIDENT_PASSWORD` (each at least 14 characters) and revokes existing sessions for the seeded profiles before updating password hashes.
 ## Environment Variables
 
 Copy `.env.example` to `.env.local`. Use placeholders until client resources

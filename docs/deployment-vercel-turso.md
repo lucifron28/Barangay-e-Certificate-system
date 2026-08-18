@@ -74,23 +74,23 @@ Expected files are 0000_initial_schema.sql, 0001_client_deployment.sql, and
 0002_full_online_workflow.sql. The runner creates schema_migrations, applies
 files in order, and does not drop existing production tables.
 
-## 6. Seed Thesis-Demo Accounts
+## 6. Seed QA Sample Requests And Accounts
 
-For the thesis presentation only, the repository includes an idempotent
-production demo seed command. It creates the synthetic Main Admin, Barangay
-Secretary, and resident accounts plus sample requests without deleting existing
-Turso records:
+### Safe Requests-Only Sample Maintenance
 
-    node --env-file=.env node_modules/tsx/dist/cli.mjs --tsconfig scripts/tsconfig.json scripts/turso-demo-seed.ts --confirm-thesis-demo
+To maintain or add canonical QA request fixtures (all four certificate types) without rotating account passwords or revoking active sessions:
 
-Do not use a public registration form to create an admin account. Before any
-operational use, replace the synthetic accounts through a controlled operator
-bootstrap and record the action in the handoff log. Set `DEMO_ADMIN_PASSWORD`
-and `DEMO_RESIDENT_PASSWORD` in the trusted operator environment before
-running the seed command. Both values must be at least 14 characters and must
-not be stored in source control, screenshots, or handoff documents. The
-command revokes existing sessions for the seeded accounts.
+    DATABASE_PROVIDER=turso npm run db:seed:turso-qa-requests -- --confirm-client-qa
 
+This operation is idempotent and does not touch profiles, password hashes, or sessions.
+
+### Full Account Bootstrap Seed
+
+For a fresh QA environment only, the repository includes an idempotent production account seed command:
+
+    DATABASE_PROVIDER=turso npm run db:seed:turso-demo -- --confirm-client-qa
+
+Set `DEMO_ADMIN_PASSWORD` and `DEMO_RESIDENT_PASSWORD` (each at least 14 characters) in the trusted operator environment before running this command. It revokes existing sessions for seeded accounts.
 ## 7. Configure Gmail SMTP
 
 Enable two-step verification on the approved Gmail account and create an App Password. The App Password is not the normal Gmail password. Configure port 465 with secure SMTP. Send first to an approved synthetic recipient, verify the message and notification log, then test accepted, rejected, and certificate-ready events.

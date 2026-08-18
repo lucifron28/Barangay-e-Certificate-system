@@ -30,3 +30,4 @@ docs/client-assets/certificate-templates/original/
 tmp/
 .vercel
 .env*.local
+.artifacts/
