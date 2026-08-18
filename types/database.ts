@@ -158,6 +158,18 @@ export type SystemSetting = {
   updated_at: string;
 };
 
+export type CertificateVerificationDto = {
+  certificateNumber: string;
+  certificateType: CertificateType;
+  dateIssued: string;
+  expiresAt: string;
+  fullName: string;
+  pdfSha256: string | null;
+  replacementRecordId: string | null;
+  shortCode: string;
+  status: "valid" | "expired" | "revoked" | "replaced";
+};
+
 type TableDefinition<Row, Insert, Update> = {
   Row: Row;
   Insert: Insert;

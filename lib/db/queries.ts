@@ -230,6 +230,10 @@ export async function getCertificateVerificationByToken(token: string) {
   return (await loadProviderModule()).getCertificateVerificationByToken(token);
 }
 
+export async function getCertificateVerificationByShortCode(shortCode: string) {
+  return (await loadProviderModule()).getCertificateVerificationByShortCode(shortCode);
+}
+
 export async function createActivityLog(
   input: Parameters<typeof sqlite.createActivityLog>[0],
 ) {
