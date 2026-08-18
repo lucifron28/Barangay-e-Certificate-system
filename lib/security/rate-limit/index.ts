@@ -11,12 +11,41 @@ const POLICIES: Record<RateLimitAction, RateLimitPolicy> = {
   verification: { limit: 30, windowMs: 10 * 60 * 1000 },
 };
 
+function normalizeHeader(value: string | null) {
+  const normalized = value?.split(",", 1)[0]?.trim();
+  if (!normalized || normalized.length > 128) return null;
+  return normalized;
+}
+
+export function resolveClientFingerprint(
+  requestHeaders: Headers,
+  options: { isVercel: boolean; trustProxy: boolean },
+) {
+  const userAgent = normalizeHeader(requestHeaders.get("user-agent")) ?? "unknown";
+
+  if (options.isVercel) {
+    const vercelForwarded = normalizeHeader(
+      requestHeaders.get("x-vercel-forwarded-for"),
+    );
+    return vercelForwarded
+      ? `vercel-ip:${vercelForwarded}`
+      : `vercel-ua:${userAgent}`;
+  }
+
+  if (options.trustProxy) {
+    const forwarded = normalizeHeader(requestHeaders.get("x-forwarded-for"));
+    return forwarded ? `proxy-ip:${forwarded}` : `proxy-ua:${userAgent}`;
+  }
+
+  return `ua:${userAgent}`;
+}
+
 async function clientFingerprint() {
   const requestHeaders = await headers();
-  const forwarded = env.trustProxy
-    ? requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim()
-    : null;
-  return forwarded || requestHeaders.get("user-agent") || "local-demo";
+  return resolveClientFingerprint(requestHeaders, {
+    isVercel: process.env.VERCEL === "1",
+    trustProxy: env.trustProxy,
+  });
 }
 
 export async function consumeRateLimit(action: RateLimitAction, identifier: string) {
