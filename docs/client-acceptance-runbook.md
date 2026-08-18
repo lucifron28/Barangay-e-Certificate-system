@@ -54,8 +54,7 @@ This runbook turns the checklist into a repeatable Preview session. Use only syn
 2. Redeploy the Preview branch through Vercel.
 3. Confirm records remain in Turso.
 4. Confirm private PDFs remain in Blob and still download through the app.
-5. Scan one QR using a physical phone and confirm the deployed HTTPS domain is used.
-
+5. Scan QR codes using a physical phone from the [Scanner Test Gallery](scanner-test-samples.md) and confirm all four certificate types, revoked, and replaced states verify correctly.
 ## Closeout
 
 1. Attach the completed checklist and visual comparison notes.
