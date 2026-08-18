@@ -8,6 +8,7 @@
     "check:production-env": "node scripts/check-production-env.mjs",
     "db:migrate": "tsx --tsconfig scripts/tsconfig.json scripts/db-migrate.ts",
     "db:migrate:turso": "tsx --tsconfig scripts/tsconfig.json scripts/db-migrate-turso.ts",
+    "db:seed:turso-demo": "tsx --tsconfig scripts/tsconfig.json scripts/turso-demo-seed.ts",
     "db:status": "tsx --tsconfig scripts/tsconfig.json scripts/db-status.ts",
     "db:sqlite:reset": "tsx --tsconfig scripts/tsconfig.json scripts/demo-reset-entry.ts",
     "db:sqlite:seed": "tsx --tsconfig scripts/tsconfig.json scripts/demo-reset-entry.ts",
