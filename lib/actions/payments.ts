@@ -12,6 +12,7 @@ import {
   submitPaymentProof,
 } from "@/lib/db/queries";
 import {
+  deletePrivatePaymentFile,
   detectImageFormat,
   MAX_PAYMENT_FILE_BYTES,
   storePaymentProofImage,
@@ -69,6 +70,8 @@ export async function submitPaymentProofAction(formData: FormData) {
   if (request.fee_amount <= 0) {
     redirectWithError(path, "This certificate is free and does not require payment.");
   }
+  const previousPayment = await getLatestPaymentForRequest(request.id);
+  const isResubmission = previousPayment?.status === "failed";
 
   const settings = await getSystemSettings();
   const paymentConfig = settings.paymentReceiving[provider];
@@ -111,6 +114,14 @@ export async function submitPaymentProofAction(formData: FormData) {
       transactionDatetime,
     });
   } catch (error) {
+    try {
+      await deletePrivatePaymentFile({
+        key: storedFile.key,
+        provider: storedFile.provider,
+      });
+    } catch {
+      // Best effort cleanup
+    }
     redirectWithError(
       path,
       error instanceof Error
@@ -120,18 +131,27 @@ export async function submitPaymentProofAction(formData: FormData) {
   }
 
   if (!payment) {
+    try {
+      await deletePrivatePaymentFile({
+        key: storedFile.key,
+        provider: storedFile.provider,
+      });
+    } catch {
+      // Best effort cleanup
+    }
     redirectWithError(path, "Unable to record payment proof.");
   }
 
   await logActivity({
-    action: "Payment proof submitted",
+    action: isResubmission ? "Payment proof resubmitted" : "Payment proof submitted",
     affectedRecordId: payment.id,
     affectedTable: "payments",
     profile: context.profile,
-    remarks: `Submitted ${provider.toUpperCase()} payment reference ${referenceNumber} for verification.`,
+    remarks: isResubmission
+      ? `Resubmitted ${provider.toUpperCase()} payment reference ${referenceNumber} for verification.`
+      : `Submitted ${provider.toUpperCase()} payment reference ${referenceNumber} for verification.`,
     supabase: context.supabase,
   });
-
   redirectWithMessage(
     path,
     "Your payment proof was submitted successfully. Barangay staff will verify the transaction before certificate issuance.",

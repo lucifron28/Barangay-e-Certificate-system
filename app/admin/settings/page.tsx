@@ -132,7 +132,7 @@ export default async function AdminSettingsPage({
                     <div className="relative aspect-square max-w-[180px] overflow-hidden rounded-lg border border-base-300 bg-base-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/api/payments/merchant-qr/gcash"
+                        src="/api/payments/merchant-qr/gcash?preview=true"
                         alt="Official GCash QR"
                         className="size-full object-contain p-2"
                       />
@@ -238,7 +238,7 @@ export default async function AdminSettingsPage({
                     <div className="relative aspect-square max-w-[180px] overflow-hidden rounded-lg border border-base-300 bg-base-200">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src="/api/payments/merchant-qr/maya"
+                        src="/api/payments/merchant-qr/maya?preview=true"
                         alt="Official Maya QR"
                         className="size-full object-contain p-2"
                       />

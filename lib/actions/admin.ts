@@ -22,8 +22,10 @@ import {
   updateRequestStatus,
 } from "@/lib/db/queries";
 import {
+  computeSha256,
   detectImageFormat,
   MAX_PAYMENT_FILE_BYTES,
+  readPrivatePaymentFile,
   storeMerchantQrImage,
 } from "@/lib/payments/storage";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
@@ -530,12 +532,39 @@ export async function confirmPaymentAction(formData: FormData) {
     redirectWithError("/admin/payments", "This payment is not awaiting verification.");
   }
 
+  if (!payment.proof_storage_key || !payment.proof_sha256) {
+    redirectWithError(
+      `/admin/payments/${paymentId}`,
+      "Payment proof screenshot or verification checksum is missing from the record.",
+    );
+  }
+
+  // Load private proof object and verify file existence + SHA-256 integrity
+  const proofFile = await readPrivatePaymentFile({
+    key: payment.proof_storage_key,
+    provider: payment.proof_storage_provider || "local",
+  });
+
+  if (!proofFile || !proofFile.bytes || proofFile.bytes.length === 0) {
+    redirectWithError(
+      `/admin/payments/${paymentId}`,
+      "Payment proof file is missing from private storage. Verification cannot proceed.",
+    );
+  }
+
+  const computedChecksum = computeSha256(proofFile.bytes);
+  if (computedChecksum !== payment.proof_sha256) {
+    redirectWithError(
+      `/admin/payments/${paymentId}`,
+      "Payment proof file integrity verification failed. Checksum mismatch.",
+    );
+  }
+
   const confirmed = await confirmPaymentProof({
     paymentId,
     remarks: remarks || null,
     reviewerId: context.profile.id,
   });
-
   if (!confirmed) {
     redirectWithError(
       `/admin/payments/${paymentId}`,
