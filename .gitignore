@@ -22,6 +22,8 @@ data/*.sqlite-wal
 data/*verification-samples.json
 data/certificates/
 data/certificates-test/
+data/payment-proofs/
+data/merchant-qrs/
 data/.local-demo-session-secret
 docs/client-assets/certificate-templates/original/
 .tmp-template-images/

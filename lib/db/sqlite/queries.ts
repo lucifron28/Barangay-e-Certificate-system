@@ -17,14 +17,18 @@ import type {
   Json,
   NotificationLog,
   Payment,
+  PaymentEvent,
+  PaymentMethodConfig,
+  PaymentReceivingSettings,
+  PaymentWithDetails,
   PickupSchedule,
   Profile,
   SystemSetting,
 } from "@/types/database";
 import type {
   CertificateType,
+  PaymentRecordStatus,
   PaymentStatus,
-  MockPaymentStatus,
   ProfileRole,
   RequestStatus,
 } from "@/types/enums";
@@ -59,8 +63,57 @@ export type ActivityLogWithUser = {
 
 export type SystemSettings = {
   barangayCaptainName: string;
+  paymentReceiving: PaymentReceivingSettings;
   signatureImagePath: string | null;
 };
+
+export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
+  gcash: {
+    enabled: false,
+    merchantName: "Barangay Bato Official",
+    qrStorageKey: null,
+    qrStorageProvider: null,
+    qrUpdatedAt: null,
+  },
+  maya: {
+    enabled: false,
+    merchantName: "Barangay Bato Official",
+    qrStorageKey: null,
+    qrStorageProvider: null,
+    qrUpdatedAt: null,
+  },
+};
+
+function parsePaymentMethodConfig(
+  val: unknown,
+  defaultName = "Barangay Bato Official",
+): PaymentMethodConfig {
+  if (!val || typeof val !== "object") {
+    return {
+      enabled: false,
+      merchantName: defaultName,
+      qrStorageKey: null,
+      qrStorageProvider: null,
+      qrUpdatedAt: null,
+    };
+  }
+  const obj = val as Record<string, unknown>;
+  return {
+    enabled: Boolean(obj.enabled),
+    merchantName:
+      typeof obj.merchantName === "string" && obj.merchantName.trim()
+        ? obj.merchantName.trim()
+        : defaultName,
+    qrStorageKey: typeof obj.qrStorageKey === "string" ? obj.qrStorageKey : null,
+    qrStorageProvider:
+      obj.qrStorageProvider === "vercel_blob"
+        ? "vercel_blob"
+        : obj.qrStorageProvider === "local"
+          ? "local"
+          : null,
+    qrUpdatedAt: typeof obj.qrUpdatedAt === "string" ? obj.qrUpdatedAt : null,
+  };
+}
 
 type Row = Record<string, unknown>;
 
@@ -202,14 +255,35 @@ function paymentFromRow(row: Row | undefined): Payment | null {
     expires_at: asText(row.expires_at),
     id: String(row.id),
     paid_at: asText(row.paid_at),
+    proof_sha256: asText(row.proof_sha256),
+    proof_storage_key: asText(row.proof_storage_key),
+    proof_storage_provider:
+      (asText(row.proof_storage_provider) as "local" | "vercel_blob" | null) ?? null,
     provider: String(row.provider),
     provider_transaction_id: String(row.provider_transaction_id),
     request_id: String(row.request_id),
     resident_id: String(row.resident_id),
-    status: String(row.status) as MockPaymentStatus,
+    review_remarks: asText(row.review_remarks),
+    reviewed_at: asText(row.reviewed_at),
+    reviewed_by: asText(row.reviewed_by),
+    status: String(row.status) as PaymentRecordStatus,
+    submitted_at: asText(row.submitted_at),
+    transaction_datetime: asText(row.transaction_datetime),
     updated_at: String(row.updated_at),
   };
 }
+
+function paymentEventFromRow(row: Row | undefined): PaymentEvent | null {
+  if (!row) return null;
+  return {
+    created_at: String(row.created_at),
+    event_type: String(row.event_type),
+    id: String(row.id),
+    payload: parseJson(row.payload),
+    payment_id: String(row.payment_id),
+  };
+}
+
 
 function notificationLogFromRow(row: Row | undefined): NotificationLog | null {
   if (!row) return null;
@@ -848,73 +922,493 @@ export function hasSuccessfulPayment(requestId: string, residentId: string) {
   return Boolean(
     getSqliteDb()
       .prepare(
-        "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' LIMIT 1",
+        "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' AND provider IN ('gcash', 'maya') AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL LIMIT 1",
       )
       .get(requestId, residentId),
   );
 }
 
-export function createMockPayment(input: {
-  amount: number;
-  request_id: string;
-  resident_id: string;
+export function submitPaymentProof(input: {
+  proofSha256: string;
+  proofStorageKey: string;
+  proofStorageProvider: "local" | "vercel_blob";
+  provider: "gcash" | "maya";
+  referenceNumber: string;
+  requestId: string;
+  residentId: string;
+  transactionDatetime: string;
 }) {
   const db = getSqliteDb();
+  const normalizedRef = input.referenceNumber.trim().toUpperCase();
+
   return db.transaction(() => {
-    const request = getRequestById(input.request_id);
+    const request = getRequestById(input.requestId);
     if (
       !request ||
-      request.resident_id !== input.resident_id ||
+      request.resident_id !== input.residentId ||
       request.status !== "accepted" ||
-      request.payment_status !== "unpaid"
+      request.payment_status !== "unpaid" ||
+      request.fee_amount <= 0
     ) {
       return null;
     }
-    const latest = getLatestPaymentForRequest(input.request_id);
-    if (latest && ["pending", "processing"].includes(latest.status)) {
-      return null;
+
+    const existingRef = db
+      .prepare(
+        "SELECT id, request_id FROM payments WHERE provider_transaction_id = ? AND request_id != ?",
+      )
+      .get(normalizedRef, input.requestId) as { id: string; request_id: string } | undefined;
+    if (existingRef) {
+      throw new Error("This reference number has already been submitted for another request.");
     }
+
     const timestamp = nowIso();
     const id = randomUUID();
-    const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
-    const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+
+    const pendingPayment = db
+      .prepare("SELECT id FROM payments WHERE request_id = ? AND status = 'pending'")
+      .get(input.requestId) as { id: string } | undefined;
+
+    if (pendingPayment) {
+      db.prepare(
+        `UPDATE payments
+         SET provider = ?, provider_transaction_id = ?, amount = ?, currency = 'PHP',
+             submitted_at = ?, transaction_datetime = ?, proof_storage_provider = ?,
+             proof_storage_key = ?, proof_sha256 = ?, updated_at = ?
+         WHERE id = ?`,
+      ).run(
+        input.provider,
+        normalizedRef,
+        request.fee_amount,
+        timestamp,
+        input.transactionDatetime,
+        input.proofStorageProvider,
+        input.proofStorageKey,
+        input.proofSha256,
+        timestamp,
+        pendingPayment.id,
+      );
+
+      db.prepare(
+        "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+      ).run(
+        randomUUID(),
+        pendingPayment.id,
+        "payment_proof_submitted",
+        stringifyJson({
+          provider: input.provider,
+          reference: normalizedRef,
+          sha256: input.proofSha256,
+        }),
+        timestamp,
+      );
+
+      return getLatestPaymentForRequest(input.requestId);
+    }
+
     db.prepare(
-      `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'simulated_local', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
-    ).run(id, input.request_id, input.resident_id, transactionId, input.amount, expiresAt, timestamp, timestamp);
+      `INSERT INTO payments (
+        id, request_id, resident_id, provider, provider_transaction_id, amount,
+        currency, status, submitted_at, transaction_datetime, proof_storage_provider,
+        proof_storage_key, proof_sha256, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'PHP', 'pending', ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(
+      id,
+      input.requestId,
+      input.residentId,
+      input.provider,
+      normalizedRef,
+      request.fee_amount,
+      timestamp,
+      input.transactionDatetime,
+      input.proofStorageProvider,
+      input.proofStorageKey,
+      input.proofSha256,
+      timestamp,
+      timestamp,
+    );
+
     db.prepare(
       "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
-    ).run(randomUUID(), id, "payment_initiated", stringifyJson({ simulated: true }), timestamp);
-    return getLatestPaymentForRequest(input.request_id);
+    ).run(
+      randomUUID(),
+      id,
+      "payment_proof_submitted",
+      stringifyJson({
+        provider: input.provider,
+        reference: normalizedRef,
+        sha256: input.proofSha256,
+      }),
+      timestamp,
+    );
+
+    return getLatestPaymentForRequest(input.requestId);
   })();
 }
 
-export function resolveMockPayment(input: {
-  payment_id: string;
-  resident_id: string;
-  status: Extract<MockPaymentStatus, "paid" | "failed" | "cancelled">;
+export function confirmPaymentProof(input: {
+  paymentId: string;
+  reviewerId: string;
+  remarks?: string | null;
 }) {
   const db = getSqliteDb();
   return db.transaction(() => {
-    const existing = paymentFromRow(
-      db.prepare("SELECT * FROM payments WHERE id = ? AND resident_id = ?").get(input.payment_id, input.resident_id) as Row | undefined,
-    );
-    if (!existing) return null;
-    if (existing.status === "paid" && input.status === "paid") return existing;
-    if (["failed", "cancelled", "expired", "refunded", "free"].includes(existing.status)) return existing;
-    if (existing.status !== "pending") return null;
-    const timestamp = nowIso();
-    if (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now()) {
-      db.prepare("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'")
-        .run(timestamp, input.payment_id);
-      return paymentFromRow({ ...existing, status: "expired" });
+    const paymentRow = db
+      .prepare("SELECT * FROM payments WHERE id = ?")
+      .get(input.paymentId) as Row | undefined;
+    const payment = paymentFromRow(paymentRow);
+    if (!payment || payment.status !== "pending") return null;
+
+    const request = getRequestById(payment.request_id);
+    if (
+      !request ||
+      request.status !== "accepted" ||
+      request.fee_amount <= 0 ||
+      request.fee_amount !== payment.amount
+    ) {
+      return null;
     }
-    db.prepare("UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ? AND status = 'pending'")
-      .run(input.status, input.status === "paid" ? timestamp : null, timestamp, input.payment_id);
-    db.prepare("INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(randomUUID(), input.payment_id, `mock_payment_${input.status}`, stringifyJson({ simulated: true }), timestamp);
-    return getLatestPaymentForRequest(existing.request_id);
+
+    const timestamp = nowIso();
+
+    db.prepare(
+      `UPDATE payments
+       SET status = 'paid', paid_at = ?, reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+    ).run(
+      timestamp,
+      timestamp,
+      input.reviewerId,
+      input.remarks ?? null,
+      timestamp,
+      input.paymentId,
+    );
+
+    db.prepare(
+      `UPDATE certificate_requests
+       SET payment_status = 'paid', updated_at = ?
+       WHERE id = ?`,
+    ).run(timestamp, payment.request_id);
+
+    db.prepare(
+      "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(
+      randomUUID(),
+      input.paymentId,
+      "payment_verified",
+      stringifyJson({
+        remarks: input.remarks ?? null,
+        reviewer_id: input.reviewerId,
+        verified_at: timestamp,
+      }),
+      timestamp,
+    );
+
+    return getPaymentById(input.paymentId);
   })();
+}
+
+export function rejectPaymentProof(input: {
+  paymentId: string;
+  rejectionReason: string;
+  reviewerId: string;
+}) {
+  const db = getSqliteDb();
+  if (!input.rejectionReason.trim()) {
+    throw new Error("A rejection reason is required.");
+  }
+
+  return db.transaction(() => {
+    const paymentRow = db
+      .prepare("SELECT * FROM payments WHERE id = ?")
+      .get(input.paymentId) as Row | undefined;
+    const payment = paymentFromRow(paymentRow);
+    if (!payment || payment.status !== "pending") return null;
+
+    const timestamp = nowIso();
+
+    db.prepare(
+      `UPDATE payments
+       SET status = 'failed', reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+    ).run(
+      timestamp,
+      input.reviewerId,
+      input.rejectionReason.trim(),
+      timestamp,
+      input.paymentId,
+    );
+
+    db.prepare(
+      `UPDATE certificate_requests
+       SET payment_status = 'unpaid', updated_at = ?
+       WHERE id = ?`,
+    ).run(timestamp, payment.request_id);
+
+    db.prepare(
+      "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+    ).run(
+      randomUUID(),
+      input.paymentId,
+      "payment_rejected",
+      stringifyJson({
+        reason: input.rejectionReason.trim(),
+        rejected_at: timestamp,
+        reviewer_id: input.reviewerId,
+      }),
+      timestamp,
+    );
+
+    return getPaymentById(input.paymentId);
+  })();
+}
+
+export function getPaymentEvents(paymentId: string): PaymentEvent[] {
+  const db = getSqliteDb();
+  return db
+    .prepare(
+      "SELECT * FROM payment_events WHERE payment_id = ? ORDER BY created_at ASC, rowid ASC",
+    )
+    .all(paymentId)
+    .map((row) => paymentEventFromRow(row as Row))
+    .filter((event): event is PaymentEvent => Boolean(event));
+}
+
+export function getPaymentById(paymentId: string): PaymentWithDetails | null {
+  const db = getSqliteDb();
+  const row = db
+    .prepare(
+      `SELECT
+        p.*,
+        r.request_number AS req_request_number,
+        r.certificate_type AS req_certificate_type,
+        r.purpose AS req_purpose,
+        r.status AS req_status,
+        r.fee_amount AS req_fee_amount,
+        r.payment_status AS req_payment_status,
+        r.date_requested AS req_date_requested,
+        r.date_accepted AS req_date_accepted,
+        r.resident_id AS req_resident_id,
+        res.full_name AS res_full_name,
+        res.email AS res_email,
+        res.contact_number AS res_contact_number,
+        res.address_sitio AS res_address_sitio,
+        rev.full_name AS rev_full_name,
+        rev.email AS rev_email,
+        rev.role AS rev_role
+      FROM payments p
+      LEFT JOIN certificate_requests r ON r.id = p.request_id
+      LEFT JOIN profiles res ON res.id = p.resident_id
+      LEFT JOIN profiles rev ON rev.id = p.reviewed_by
+      WHERE p.id = ?`,
+    )
+    .get(paymentId) as Row | undefined;
+
+  if (!row) return null;
+  const payment = paymentFromRow(row);
+  if (!payment) return null;
+
+  const events = getPaymentEvents(paymentId);
+
+  const request: CertificateRequest | undefined = row.req_request_number
+    ? {
+        cancelled_at: null,
+        certificate_type: String(row.req_certificate_type) as CertificateType,
+        control_number: null,
+        created_at: String(row.created_at),
+        date_accepted: asText(row.req_date_accepted),
+        date_released: null,
+        date_requested: String(row.req_date_requested),
+        fee_amount: asNumber(row.req_fee_amount),
+        id: String(row.request_id),
+        payment_status: String(row.req_payment_status) as PaymentStatus,
+        purpose: String(row.req_purpose),
+        remarks: null,
+        request_number: String(row.req_request_number),
+        resident_id: String(row.req_resident_id),
+        status: String(row.req_status) as RequestStatus,
+        submitted_data: null,
+        updated_at: String(row.updated_at),
+      }
+    : undefined;
+
+  const resident: Profile | undefined = row.res_full_name
+    ? {
+        address_sitio: asText(row.res_address_sitio),
+        age: null,
+        auth_user_id: null,
+        civil_status: null,
+        contact_number: asText(row.res_contact_number),
+        created_at: String(row.created_at),
+        date_of_birth: null,
+        email: String(row.res_email),
+        full_name: String(row.res_full_name),
+        gender: null,
+        id: String(row.resident_id),
+        occupation: null,
+        password_hash: null,
+        role: "resident",
+        updated_at: String(row.updated_at),
+        username: null,
+      }
+    : undefined;
+
+  const reviewer: Profile | null = row.rev_full_name
+    ? {
+        address_sitio: null,
+        age: null,
+        auth_user_id: null,
+        civil_status: null,
+        contact_number: null,
+        created_at: String(row.created_at),
+        date_of_birth: null,
+        email: String(row.rev_email),
+        full_name: String(row.rev_full_name),
+        gender: null,
+        id: String(row.reviewed_by),
+        occupation: null,
+        password_hash: null,
+        role: String(row.rev_role) as ProfileRole,
+        updated_at: String(row.updated_at),
+        username: null,
+      }
+    : null;
+
+  return {
+    ...payment,
+    events,
+    request,
+    resident,
+    reviewer,
+  };
+}
+
+export function listPaymentsForVerification(
+  statusFilter?: PaymentRecordStatus | "all",
+): PaymentWithDetails[] {
+  const db = getSqliteDb();
+  const filterClause =
+    statusFilter && statusFilter !== "all" ? "WHERE p.status = ?" : "";
+  const params = statusFilter && statusFilter !== "all" ? [statusFilter] : [];
+
+  const rows = db
+    .prepare(
+      `SELECT
+        p.*,
+        r.request_number AS req_request_number,
+        r.certificate_type AS req_certificate_type,
+        r.purpose AS req_purpose,
+        r.status AS req_status,
+        r.fee_amount AS req_fee_amount,
+        r.payment_status AS req_payment_status,
+        r.date_requested AS req_date_requested,
+        r.date_accepted AS req_date_accepted,
+        r.resident_id AS req_resident_id,
+        res.full_name AS res_full_name,
+        res.email AS res_email,
+        res.contact_number AS res_contact_number,
+        res.address_sitio AS res_address_sitio,
+        rev.full_name AS rev_full_name,
+        rev.email AS rev_email,
+        rev.role AS rev_role
+      FROM payments p
+      LEFT JOIN certificate_requests r ON r.id = p.request_id
+      LEFT JOIN profiles res ON res.id = p.resident_id
+      LEFT JOIN profiles rev ON rev.id = p.reviewed_by
+      ${filterClause}
+      ORDER BY
+        CASE WHEN p.status = 'pending' THEN 0 ELSE 1 END,
+        p.created_at DESC`,
+    )
+    .all(...params) as Row[];
+
+  return rows.map((row) => {
+    const payment = paymentFromRow(row)!;
+    const request: CertificateRequest | undefined = row.req_request_number
+      ? {
+          cancelled_at: null,
+          certificate_type: String(row.req_certificate_type) as CertificateType,
+          control_number: null,
+          created_at: String(row.created_at),
+          date_accepted: asText(row.req_date_accepted),
+          date_released: null,
+          date_requested: String(row.req_date_requested),
+          fee_amount: asNumber(row.req_fee_amount),
+          id: String(row.request_id),
+          payment_status: String(row.req_payment_status) as PaymentStatus,
+          purpose: String(row.req_purpose),
+          remarks: null,
+          request_number: String(row.req_request_number),
+          resident_id: String(row.req_resident_id),
+          status: String(row.req_status) as RequestStatus,
+          submitted_data: null,
+          updated_at: String(row.updated_at),
+        }
+      : undefined;
+
+    const resident: Profile | undefined = row.res_full_name
+      ? {
+          address_sitio: asText(row.res_address_sitio),
+          age: null,
+          auth_user_id: null,
+          civil_status: null,
+          contact_number: asText(row.res_contact_number),
+          created_at: String(row.created_at),
+          date_of_birth: null,
+          email: String(row.res_email),
+          full_name: String(row.res_full_name),
+          gender: null,
+          id: String(row.resident_id),
+          occupation: null,
+          password_hash: null,
+          role: "resident",
+          updated_at: String(row.updated_at),
+          username: null,
+        }
+      : undefined;
+
+    const reviewer: Profile | null = row.rev_full_name
+      ? {
+          address_sitio: null,
+          age: null,
+          auth_user_id: null,
+          civil_status: null,
+          contact_number: null,
+          created_at: String(row.created_at),
+          date_of_birth: null,
+          email: String(row.rev_email),
+          full_name: String(row.rev_full_name),
+          gender: null,
+          id: String(row.reviewed_by),
+          occupation: null,
+          password_hash: null,
+          role: String(row.rev_role) as ProfileRole,
+          updated_at: String(row.updated_at),
+          username: null,
+        }
+      : null;
+
+    return {
+      ...payment,
+      request,
+      resident,
+      reviewer,
+    };
+  });
+}
+
+export function countPendingPayments(): number {
+  const row = getSqliteDb()
+    .prepare("SELECT COUNT(*) AS count FROM payments WHERE status = 'pending'")
+    .get() as { count: number } | undefined;
+  return row ? Number(row.count) : 0;
+}
+
+export function updatePaymentReceivingConfig(
+  provider: "gcash" | "maya",
+  config: PaymentMethodConfig,
+) {
+  setSystemSetting(`payment_receiving_${provider}`, config as unknown as Json);
 }
 
 export function cancelRequest(id: string, residentId: string) {
@@ -1528,16 +2022,18 @@ export function getSystemSettings(): SystemSettings {
       value: parseJson(row.value),
     });
   }
-
   return {
     barangayCaptainName:
       (settings.get("barangay_captain_name")?.value as string | undefined) ??
       "Authorized Barangay Official",
+    paymentReceiving: {
+      gcash: parsePaymentMethodConfig(settings.get("payment_receiving_gcash")?.value),
+      maya: parsePaymentMethodConfig(settings.get("payment_receiving_maya")?.value),
+    },
     signatureImagePath:
       (settings.get("signature_image_path")?.value as string | undefined) ?? null,
   };
 }
-
 export function setSystemSetting(key: string, value: Json) {
   const timestamp = nowIso();
   getSqliteDb()

@@ -1,6 +1,7 @@
 import {
   Activity,
   ClipboardList,
+  CreditCard,
   FileText,
   Home,
   LayoutDashboard,
@@ -10,7 +11,6 @@ import {
   UserRound,
   UsersRound,
 } from "lucide-react";
-
 const residentNavItems = [
   {
     href: "/resident/dashboard",
@@ -49,6 +49,11 @@ const adminNavItems = [
     href: "/admin/certificate-requests",
     label: "Certificate Requests",
     icon: ClipboardList,
+  },
+  {
+    href: "/admin/payments",
+    label: "Payment Verification",
+    icon: CreditCard,
   },
   {
     href: "/admin/resident-records",

@@ -253,7 +253,7 @@ export default async function AdminRequestDetailsPage({
             >
               Reject Request
             </SubmitButton>
-            {issuanceEligible || reissueEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />{reissueEligible ? "Reissue Certificate" : "Generate Certificate"}</Link> : <span className="text-sm text-base-content/60">{hasActiveCertificate ? "Certificate already issued. Revoke it before reissuing." : request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Complete the simulated payment before issuing in online test mode."}</span>}
+            {issuanceEligible || reissueEligible ? <Link href={`/admin/generate-certificate/${request.id}`} className="btn btn-primary"><Printer className="size-4" aria-hidden />{reissueEligible ? "Reissue Certificate" : "Generate Certificate"}</Link> : <span className="text-sm text-base-content/60">{hasActiveCertificate ? "Certificate already issued. Revoke it before reissuing." : request.status !== "accepted" ? "Certificate issuance requires an accepted request." : "Verify the GCash or Maya payment in Payment Verification before certificate issuance."}</span>}
           </div>
         </form>
       </section>

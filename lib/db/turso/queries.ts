@@ -17,13 +17,17 @@ import type {
   Json,
   NotificationLog,
   Payment,
+  PaymentEvent,
+  PaymentMethodConfig,
+  PaymentReceivingSettings,
+  PaymentWithDetails,
   PickupSchedule,
   Profile,
   SystemSetting,
 } from "@/types/database";
 import type {
   CertificateType,
-  MockPaymentStatus,
+  PaymentRecordStatus,
   PaymentStatus,
   ProfileRole,
   RequestStatus,
@@ -59,8 +63,57 @@ export type ActivityLogWithUser = {
 
 export type SystemSettings = {
   barangayCaptainName: string;
+  paymentReceiving: PaymentReceivingSettings;
   signatureImagePath: string | null;
 };
+
+export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
+  gcash: {
+    enabled: false,
+    merchantName: "Barangay Bato Official",
+    qrStorageKey: null,
+    qrStorageProvider: null,
+    qrUpdatedAt: null,
+  },
+  maya: {
+    enabled: false,
+    merchantName: "Barangay Bato Official",
+    qrStorageKey: null,
+    qrStorageProvider: null,
+    qrUpdatedAt: null,
+  },
+};
+
+function parsePaymentMethodConfig(
+  val: unknown,
+  defaultName = "Barangay Bato Official",
+): PaymentMethodConfig {
+  if (!val || typeof val !== "object") {
+    return {
+      enabled: false,
+      merchantName: defaultName,
+      qrStorageKey: null,
+      qrStorageProvider: null,
+      qrUpdatedAt: null,
+    };
+  }
+  const obj = val as Record<string, unknown>;
+  return {
+    enabled: Boolean(obj.enabled),
+    merchantName:
+      typeof obj.merchantName === "string" && obj.merchantName.trim()
+        ? obj.merchantName.trim()
+        : defaultName,
+    qrStorageKey: typeof obj.qrStorageKey === "string" ? obj.qrStorageKey : null,
+    qrStorageProvider:
+      obj.qrStorageProvider === "vercel_blob"
+        ? "vercel_blob"
+        : obj.qrStorageProvider === "local"
+          ? "local"
+          : null,
+    qrUpdatedAt: typeof obj.qrUpdatedAt === "string" ? obj.qrUpdatedAt : null,
+  };
+}
 
 type Row = Record<string, unknown>;
 type Executor = {
@@ -198,14 +251,35 @@ function paymentFromRow(row: Row | undefined): Payment | null {
     expires_at: asText(row.expires_at),
     id: String(row.id),
     paid_at: asText(row.paid_at),
+    proof_sha256: asText(row.proof_sha256),
+    proof_storage_key: asText(row.proof_storage_key),
+    proof_storage_provider:
+      (asText(row.proof_storage_provider) as "local" | "vercel_blob" | null) ?? null,
     provider: String(row.provider),
     provider_transaction_id: String(row.provider_transaction_id),
     request_id: String(row.request_id),
     resident_id: String(row.resident_id),
-    status: String(row.status) as MockPaymentStatus,
+    review_remarks: asText(row.review_remarks),
+    reviewed_at: asText(row.reviewed_at),
+    reviewed_by: asText(row.reviewed_by),
+    status: String(row.status) as PaymentRecordStatus,
+    submitted_at: asText(row.submitted_at),
+    transaction_datetime: asText(row.transaction_datetime),
     updated_at: String(row.updated_at),
   };
 }
+
+function paymentEventFromRow(row: Row | undefined): PaymentEvent | null {
+  if (!row) return null;
+  return {
+    created_at: String(row.created_at),
+    event_type: String(row.event_type),
+    id: String(row.id),
+    payload: parseJson(row.payload),
+    payment_id: String(row.payment_id),
+  };
+}
+
 
 function notificationLogFromRow(row: Row | undefined): NotificationLog | null {
   if (!row) return null;
@@ -830,95 +904,494 @@ export async function listNotificationLogsForRequest(requestId: string) {
 export async function hasSuccessfulPayment(requestId: string, residentId: string) {
   return Boolean(
     await prepareTurso<Row>(
-      "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' LIMIT 1",
+      "SELECT id FROM payments WHERE request_id = ? AND resident_id = ? AND status = 'paid' AND provider IN ('gcash', 'maya') AND reviewed_by IS NOT NULL AND reviewed_at IS NOT NULL LIMIT 1",
       [requestId, residentId],
     ),
   );
 }
 
-export async function createMockPayment(input: {
-  amount: number;
-  request_id: string;
-  resident_id: string;
+export async function submitPaymentProof(input: {
+  proofSha256: string;
+  proofStorageKey: string;
+  proofStorageProvider: "local" | "vercel_blob";
+  provider: "gcash" | "maya";
+  referenceNumber: string;
+  requestId: string;
+  residentId: string;
+  transactionDatetime: string;
 }) {
   const id = randomUUID();
-  const transactionId = `DEMO-PAY-${new Date().getFullYear()}-${randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase()}`;
   const timestamp = nowIso();
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const normalizedRef = input.referenceNumber.trim().toUpperCase();
+
+  const existingRef = await prepareTurso<Row>(
+    "SELECT id FROM payments WHERE provider_transaction_id = ? AND request_id != ?",
+    [normalizedRef, input.requestId],
+  );
+  if (existingRef) {
+    throw new Error("This reference number has already been submitted for another request.");
+  }
+
   const run = getTursoDb().transactionAsync(async (tx) => {
     const request = requestFromRow(
-      (await tx.get("SELECT * FROM certificate_requests WHERE id = ?", input.request_id)) as Row | undefined,
+      (await tx.get(
+        "SELECT * FROM certificate_requests WHERE id = ?",
+        input.requestId,
+      )) as Row | undefined,
     );
-    if (!request || request.resident_id !== input.resident_id || request.status !== "accepted" || request.payment_status !== "unpaid") return false;
-    const latest = paymentFromRow(
-      (await tx.get("SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1", input.request_id)) as Row | undefined,
-    );
-    if (latest && ["pending", "processing"].includes(latest.status)) return false;
+    if (
+      !request ||
+      request.resident_id !== input.residentId ||
+      request.status !== "accepted" ||
+      request.payment_status !== "unpaid" ||
+      request.fee_amount <= 0
+    ) {
+      return false;
+    }
+
+    const pendingPayment = (await tx.get(
+      "SELECT id FROM payments WHERE request_id = ? AND status = 'pending'",
+      input.requestId,
+    )) as Row | undefined;
+
+    if (pendingPayment) {
+      await tx.run(
+        `UPDATE payments
+         SET provider = ?, provider_transaction_id = ?, amount = ?, currency = 'PHP',
+             submitted_at = ?, transaction_datetime = ?, proof_storage_provider = ?,
+             proof_storage_key = ?, proof_sha256 = ?, updated_at = ?
+         WHERE id = ?`,
+        input.provider,
+        normalizedRef,
+        request.fee_amount,
+        timestamp,
+        input.transactionDatetime,
+        input.proofStorageProvider,
+        input.proofStorageKey,
+        input.proofSha256,
+        timestamp,
+        String(pendingPayment.id),
+      );
+
+      await tx.run(
+        "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+        randomUUID(),
+        String(pendingPayment.id),
+        "payment_proof_submitted",
+        stringifyJson({
+          provider: input.provider,
+          reference: normalizedRef,
+          sha256: input.proofSha256,
+        }),
+        timestamp,
+      );
+      return true;
+    }
+
     await tx.run(
-      `INSERT INTO payments (id, request_id, resident_id, provider, provider_transaction_id, amount, currency, status, paid_at, expires_at, created_at, updated_at)
-       VALUES (?, ?, ?, 'simulated_remote', ?, ?, 'PHP', 'pending', NULL, ?, ?, ?)`,
+      `INSERT INTO payments (
+        id, request_id, resident_id, provider, provider_transaction_id, amount,
+        currency, status, submitted_at, transaction_datetime, proof_storage_provider,
+        proof_storage_key, proof_sha256, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'PHP', 'pending', ?, ?, ?, ?, ?, ?, ?)`,
       id,
-      input.request_id,
-      input.resident_id,
-      transactionId,
-      input.amount,
-      expiresAt,
+      input.requestId,
+      input.residentId,
+      input.provider,
+      normalizedRef,
+      request.fee_amount,
+      timestamp,
+      input.transactionDatetime,
+      input.proofStorageProvider,
+      input.proofStorageKey,
+      input.proofSha256,
       timestamp,
       timestamp,
     );
+
     await tx.run(
       "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
       randomUUID(),
       id,
-      "payment_initiated",
-      stringifyJson({ simulated: true }),
+      "payment_proof_submitted",
+      stringifyJson({
+        provider: input.provider,
+        reference: normalizedRef,
+        sha256: input.proofSha256,
+      }),
       timestamp,
     );
     return true;
   });
+
   if (!(await run())) return null;
-  return getLatestPaymentForRequest(input.request_id);
+  return getLatestPaymentForRequest(input.requestId);
 }
 
-export async function resolveMockPayment(input: {
-  payment_id: string;
-  resident_id: string;
-  status: Extract<MockPaymentStatus, "paid" | "failed" | "cancelled">;
+export async function confirmPaymentProof(input: {
+  paymentId: string;
+  reviewerId: string;
+  remarks?: string | null;
 }) {
   const timestamp = nowIso();
   const run = getTursoDb().transactionAsync(async (tx) => {
-    const existing = paymentFromRow(
-      (await tx.get("SELECT * FROM payments WHERE id = ? AND resident_id = ?", input.payment_id, input.resident_id)) as Row | undefined,
+    const paymentRow = (await tx.get(
+      "SELECT * FROM payments WHERE id = ?",
+      input.paymentId,
+    )) as Row | undefined;
+    const payment = paymentFromRow(paymentRow);
+    if (!payment || payment.status !== "pending") return false;
+
+    const request = requestFromRow(
+      (await tx.get(
+        "SELECT * FROM certificate_requests WHERE id = ?",
+        payment.request_id,
+      )) as Row | undefined,
     );
-    if (!existing) return false;
-    if (existing.status === "paid" && input.status === "paid") return true;
-    if (["failed", "cancelled", "expired", "refunded", "free"].includes(existing.status)) return true;
-    if (existing.status !== "pending") return false;
-    if (existing.expires_at && new Date(existing.expires_at).getTime() <= Date.now()) {
-      await tx.run("UPDATE payments SET status = 'expired', updated_at = ? WHERE id = ? AND status = 'pending'", timestamp, input.payment_id);
-      return true;
+    if (
+      !request ||
+      request.status !== "accepted" ||
+      request.fee_amount <= 0 ||
+      request.fee_amount !== payment.amount
+    ) {
+      return false;
     }
+
     await tx.run(
-      "UPDATE payments SET status = ?, paid_at = ?, updated_at = ? WHERE id = ? AND status = 'pending'",
-      input.status,
-      input.status === "paid" ? timestamp : null,
+      `UPDATE payments
+       SET status = 'paid', paid_at = ?, reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
       timestamp,
-      input.payment_id,
+      timestamp,
+      input.reviewerId,
+      input.remarks ?? null,
+      timestamp,
+      input.paymentId,
     );
+
+    await tx.run(
+      `UPDATE certificate_requests
+       SET payment_status = 'paid', updated_at = ?
+       WHERE id = ?`,
+      timestamp,
+      payment.request_id,
+    );
+
     await tx.run(
       "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
       randomUUID(),
-      input.payment_id,
-      `mock_payment_${input.status}`,
-      stringifyJson({ simulated: true }),
+      input.paymentId,
+      "payment_verified",
+      stringifyJson({
+        remarks: input.remarks ?? null,
+        reviewer_id: input.reviewerId,
+        verified_at: timestamp,
+      }),
       timestamp,
     );
     return true;
   });
+
   if (!(await run())) return null;
-  return getLatestPaymentForRequest(
-    String((await prepareTurso<Row>("SELECT request_id FROM payments WHERE id = ?", [input.payment_id]))?.request_id ?? ""),
+  return getPaymentById(input.paymentId);
+}
+
+export async function rejectPaymentProof(input: {
+  paymentId: string;
+  rejectionReason: string;
+  reviewerId: string;
+}) {
+  if (!input.rejectionReason.trim()) {
+    throw new Error("A rejection reason is required.");
+  }
+  const timestamp = nowIso();
+  const run = getTursoDb().transactionAsync(async (tx) => {
+    const paymentRow = (await tx.get(
+      "SELECT * FROM payments WHERE id = ?",
+      input.paymentId,
+    )) as Row | undefined;
+    const payment = paymentFromRow(paymentRow);
+    if (!payment || payment.status !== "pending") return false;
+
+    await tx.run(
+      `UPDATE payments
+       SET status = 'failed', reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
+       WHERE id = ? AND status = 'pending'`,
+      timestamp,
+      input.reviewerId,
+      input.rejectionReason.trim(),
+      timestamp,
+      input.paymentId,
+    );
+
+    await tx.run(
+      `UPDATE certificate_requests
+       SET payment_status = 'unpaid', updated_at = ?
+       WHERE id = ?`,
+      timestamp,
+      payment.request_id,
+    );
+
+    await tx.run(
+      "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
+      randomUUID(),
+      input.paymentId,
+      "payment_rejected",
+      stringifyJson({
+        reason: input.rejectionReason.trim(),
+        rejected_at: timestamp,
+        reviewer_id: input.reviewerId,
+      }),
+      timestamp,
+    );
+    return true;
+  });
+
+  if (!(await run())) return null;
+  return getPaymentById(input.paymentId);
+}
+
+export async function getPaymentEvents(paymentId: string): Promise<PaymentEvent[]> {
+  const rows = await allTurso<Row>(
+    "SELECT * FROM payment_events WHERE payment_id = ? ORDER BY created_at ASC",
+    [paymentId],
   );
+  return rows
+    .map(paymentEventFromRow)
+    .filter((event): event is PaymentEvent => Boolean(event));
+}
+
+export async function getPaymentById(paymentId: string): Promise<PaymentWithDetails | null> {
+  const row = await prepareTurso<Row>(
+    `SELECT
+      p.*,
+      r.request_number AS req_request_number,
+      r.certificate_type AS req_certificate_type,
+      r.purpose AS req_purpose,
+      r.status AS req_status,
+      r.fee_amount AS req_fee_amount,
+      r.payment_status AS req_payment_status,
+      r.date_requested AS req_date_requested,
+      r.date_accepted AS req_date_accepted,
+      r.resident_id AS req_resident_id,
+      res.full_name AS res_full_name,
+      res.email AS res_email,
+      res.contact_number AS res_contact_number,
+      res.address_sitio AS res_address_sitio,
+      rev.full_name AS rev_full_name,
+      rev.email AS rev_email,
+      rev.role AS rev_role
+    FROM payments p
+    LEFT JOIN certificate_requests r ON r.id = p.request_id
+    LEFT JOIN profiles res ON res.id = p.resident_id
+    LEFT JOIN profiles rev ON rev.id = p.reviewed_by
+    WHERE p.id = ?`,
+    [paymentId],
+  );
+
+  if (!row) return null;
+  const payment = paymentFromRow(row);
+  if (!payment) return null;
+
+  const events = await getPaymentEvents(paymentId);
+
+  const request: CertificateRequest | undefined = row.req_request_number
+    ? {
+        cancelled_at: null,
+        certificate_type: String(row.req_certificate_type) as CertificateType,
+        control_number: null,
+        created_at: String(row.created_at),
+        date_accepted: asText(row.req_date_accepted),
+        date_released: null,
+        date_requested: String(row.req_date_requested),
+        fee_amount: asNumber(row.req_fee_amount),
+        id: String(row.request_id),
+        payment_status: String(row.req_payment_status) as PaymentStatus,
+        purpose: String(row.req_purpose),
+        remarks: null,
+        request_number: String(row.req_request_number),
+        resident_id: String(row.req_resident_id),
+        status: String(row.req_status) as RequestStatus,
+        submitted_data: null,
+        updated_at: String(row.updated_at),
+      }
+    : undefined;
+
+  const resident: Profile | undefined = row.res_full_name
+    ? {
+        address_sitio: asText(row.res_address_sitio),
+        age: null,
+        auth_user_id: null,
+        civil_status: null,
+        contact_number: asText(row.res_contact_number),
+        created_at: String(row.created_at),
+        date_of_birth: null,
+        email: String(row.res_email),
+        full_name: String(row.res_full_name),
+        gender: null,
+        id: String(row.resident_id),
+        occupation: null,
+        password_hash: null,
+        role: "resident",
+        updated_at: String(row.updated_at),
+        username: null,
+      }
+    : undefined;
+
+  const reviewer: Profile | null = row.rev_full_name
+    ? {
+        address_sitio: null,
+        age: null,
+        auth_user_id: null,
+        civil_status: null,
+        contact_number: null,
+        created_at: String(row.created_at),
+        date_of_birth: null,
+        email: String(row.rev_email),
+        full_name: String(row.rev_full_name),
+        gender: null,
+        id: String(row.reviewed_by),
+        occupation: null,
+        password_hash: null,
+        role: String(row.rev_role) as ProfileRole,
+        updated_at: String(row.updated_at),
+        username: null,
+      }
+    : null;
+
+  return {
+    ...payment,
+    events,
+    request,
+    resident,
+    reviewer,
+  };
+}
+
+export async function listPaymentsForVerification(
+  statusFilter?: PaymentRecordStatus | "all",
+): Promise<PaymentWithDetails[]> {
+  const filterClause =
+    statusFilter && statusFilter !== "all" ? "WHERE p.status = ?" : "";
+  const params = statusFilter && statusFilter !== "all" ? [statusFilter] : [];
+
+  const rows = await allTurso<Row>(
+    `SELECT
+      p.*,
+      r.request_number AS req_request_number,
+      r.certificate_type AS req_certificate_type,
+      r.purpose AS req_purpose,
+      r.status AS req_status,
+      r.fee_amount AS req_fee_amount,
+      r.payment_status AS req_payment_status,
+      r.date_requested AS req_date_requested,
+      r.date_accepted AS req_date_accepted,
+      r.resident_id AS req_resident_id,
+      res.full_name AS res_full_name,
+      res.email AS res_email,
+      res.contact_number AS res_contact_number,
+      res.address_sitio AS res_address_sitio,
+      rev.full_name AS rev_full_name,
+      rev.email AS rev_email,
+      rev.role AS rev_role
+    FROM payments p
+    LEFT JOIN certificate_requests r ON r.id = p.request_id
+    LEFT JOIN profiles res ON res.id = p.resident_id
+    LEFT JOIN profiles rev ON rev.id = p.reviewed_by
+    ${filterClause}
+    ORDER BY
+      CASE WHEN p.status = 'pending' THEN 0 ELSE 1 END,
+      p.created_at DESC`,
+    params,
+  );
+
+  return rows.map((row) => {
+    const payment = paymentFromRow(row)!;
+    const request: CertificateRequest | undefined = row.req_request_number
+      ? {
+          cancelled_at: null,
+          certificate_type: String(row.req_certificate_type) as CertificateType,
+          control_number: null,
+          created_at: String(row.created_at),
+          date_accepted: asText(row.req_date_accepted),
+          date_released: null,
+          date_requested: String(row.req_date_requested),
+          fee_amount: asNumber(row.req_fee_amount),
+          id: String(row.request_id),
+          payment_status: String(row.req_payment_status) as PaymentStatus,
+          purpose: String(row.req_purpose),
+          remarks: null,
+          request_number: String(row.req_request_number),
+          resident_id: String(row.req_resident_id),
+          status: String(row.req_status) as RequestStatus,
+          submitted_data: null,
+          updated_at: String(row.updated_at),
+        }
+      : undefined;
+
+    const resident: Profile | undefined = row.res_full_name
+      ? {
+          address_sitio: asText(row.res_address_sitio),
+          age: null,
+          auth_user_id: null,
+          civil_status: null,
+          contact_number: asText(row.res_contact_number),
+          created_at: String(row.created_at),
+          date_of_birth: null,
+          email: String(row.res_email),
+          full_name: String(row.res_full_name),
+          gender: null,
+          id: String(row.resident_id),
+          occupation: null,
+          password_hash: null,
+          role: "resident",
+          updated_at: String(row.updated_at),
+          username: null,
+        }
+      : undefined;
+
+    const reviewer: Profile | null = row.rev_full_name
+      ? {
+          address_sitio: null,
+          age: null,
+          auth_user_id: null,
+          civil_status: null,
+          contact_number: null,
+          created_at: String(row.created_at),
+          date_of_birth: null,
+          email: String(row.rev_email),
+          full_name: String(row.rev_full_name),
+          gender: null,
+          id: String(row.reviewed_by),
+          occupation: null,
+          password_hash: null,
+          role: String(row.rev_role) as ProfileRole,
+          updated_at: String(row.updated_at),
+          username: null,
+        }
+      : null;
+
+    return {
+      ...payment,
+      request,
+      resident,
+      reviewer,
+    };
+  });
+}
+
+export async function countPendingPayments(): Promise<number> {
+  const row = await prepareTurso<{ count: number }>(
+    "SELECT COUNT(*) AS count FROM payments WHERE status = 'pending'",
+  );
+  return row ? Number(row.count) : 0;
+}
+
+export async function updatePaymentReceivingConfig(
+  provider: "gcash" | "maya",
+  config: PaymentMethodConfig,
+) {
+  await setSystemSetting(`payment_receiving_${provider}`, config as unknown as Json);
 }
 
 export async function cancelRequest(id: string, residentId: string) {
@@ -1389,8 +1862,15 @@ export async function getSystemSettings(): Promise<SystemSettings> {
     });
   }
   return {
-    barangayCaptainName: (settings.get("barangay_captain_name")?.value as string | undefined) ?? "Authorized Barangay Official",
-    signatureImagePath: (settings.get("signature_image_path")?.value as string | undefined) ?? null,
+    barangayCaptainName:
+      (settings.get("barangay_captain_name")?.value as string | undefined) ??
+      "Authorized Barangay Official",
+    paymentReceiving: {
+      gcash: parsePaymentMethodConfig(settings.get("payment_receiving_gcash")?.value),
+      maya: parsePaymentMethodConfig(settings.get("payment_receiving_maya")?.value),
+    },
+    signatureImagePath:
+      (settings.get("signature_image_path")?.value as string | undefined) ?? null,
   };
 }
 

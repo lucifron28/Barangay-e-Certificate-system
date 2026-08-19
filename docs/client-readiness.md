@@ -65,9 +65,7 @@ The application never falls back from Turso to SQLite when remote credentials ar
 - Admin downloads require current admin authorization.
 - Certificate bytes are hash-checked before streaming.
 - Failed issuance removes a newly uploaded object on a best-effort basis and releases the retryable reservation; it cannot mark a request issued by itself.
-- The production workflow uses the same clearly labeled simulated payment path
-  as the thesis demo; it is not a real payment provider and must be replaced
-  before financial production use.
+- The payment workflow uses manual GCash and Maya verification against official merchant records. No automated payment gateway API or webhook integration is used.
 
 ## Validation Commands
 

@@ -5,6 +5,7 @@ import {
   getTursoQaRequests,
   buildTursoQaAccountStatements,
   buildTursoQaRequestStatements,
+  buildTursoQaPaymentStatements,
   buildTursoQaActivityStatements,
   buildTursoQaSystemSettingStatements,
 } from "@/lib/seed/turso-qa-fixtures";
@@ -71,6 +72,7 @@ async function main() {
         args: [timestamp, ...accounts.map((account) => account.id)],
       },
       ...buildTursoQaRequestStatements(requests),
+      ...buildTursoQaPaymentStatements(requests, timestamp),
       ...buildTursoQaActivityStatements(requests),
       ...buildTursoQaSystemSettingStatements(timestamp),
     ],

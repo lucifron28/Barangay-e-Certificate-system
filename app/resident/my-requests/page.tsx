@@ -134,7 +134,7 @@ export default async function MyRequestsPage() {
                         </Link>
                       ) : request.status === "accepted" && request.payment_status === "unpaid" ? (
                         <Link href={`/resident/payments/${request.id}`} className="btn btn-primary btn-xs">
-                          Pay simulated fee
+                          Pay Certificate Fee
                         </Link>
                       ) : (
                         <span className="text-xs text-base-content/60">None</span>

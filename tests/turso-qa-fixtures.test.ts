@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getTursoQaRequests,
   buildTursoQaRequestStatements,
+  buildTursoQaPaymentStatements,
   buildTursoQaActivityStatements,
   buildTursoQaSystemSettingStatements,
 } from "@/lib/seed/turso-qa-fixtures";
@@ -66,15 +67,16 @@ describe("Turso QA sample fixtures", () => {
 
   it("generates request-only statements without profile/password/session updates", () => {
     const requestStatements = buildTursoQaRequestStatements(requests);
+    const paymentStatements = buildTursoQaPaymentStatements(requests);
     const activityStatements = buildTursoQaActivityStatements(requests);
     const systemStatements = buildTursoQaSystemSettingStatements();
 
     const allStatements = [
       ...requestStatements,
+      ...paymentStatements,
       ...activityStatements,
       ...systemStatements,
     ];
-
     for (const statement of allStatements) {
       expect(statement.sql).not.toContain("UPDATE profiles");
       expect(statement.sql).not.toContain("password_hash");

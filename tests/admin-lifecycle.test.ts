@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-  createMockPayment,
   createNotificationLog,
   listNotificationLogsForRequest,
   listPaymentsForRequest,
-  resolveMockPayment,
+  rejectPaymentProof,
+  submitPaymentProof,
 } from "@/lib/db/sqlite/queries";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 
@@ -24,18 +24,38 @@ describe("admin lifecycle views", () => {
       ).run(requestId);
     })();
 
-    const failed = createMockPayment({ amount: 50, request_id: requestId, resident_id: residentId });
-    resolveMockPayment({ payment_id: failed?.id ?? "", resident_id: residentId, status: "failed" });
-    const cancelled = createMockPayment({ amount: 50, request_id: requestId, resident_id: residentId });
-    resolveMockPayment({ payment_id: cancelled?.id ?? "", resident_id: residentId, status: "cancelled" });
-    createMockPayment({ amount: 50, request_id: requestId, resident_id: residentId });
+    const submitted1 = submitPaymentProof({
+      proofSha256: "test-sha-1",
+      proofStorageKey: "payment-proofs/test1.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: "GCASH-TEST-FAILED1",
+      requestId,
+      residentId,
+      transactionDatetime: new Date().toISOString(),
+    });
+    rejectPaymentProof({
+      paymentId: submitted1?.id ?? "",
+      rejectionReason: "Reference not found",
+      reviewerId: "00000000-0000-4000-8000-000000000002",
+    });
 
+    submitPaymentProof({
+      proofSha256: "test-sha-2",
+      proofStorageKey: "payment-proofs/test2.png",
+      proofStorageProvider: "local",
+      provider: "maya",
+      referenceNumber: "MAYA-TEST-PENDING1",
+      requestId,
+      residentId,
+      transactionDatetime: new Date().toISOString(),
+    });
     const attempts = listPaymentsForRequest(requestId);
 
     expect(attempts.length).toBeGreaterThan(0);
     expect(attempts.every((payment) => payment.request_id === requestId)).toBe(true);
     expect(attempts.map((payment) => payment.status)).toEqual(
-      expect.arrayContaining(["failed", "cancelled", "pending"]),
+      expect.arrayContaining(["failed", "pending"]),
     );
   });
 

@@ -140,14 +140,14 @@ export async function issueCertificate(input: {
     );
   }
 
-  if (
-    request.payment_status === "paid" &&
-    !(await hasSuccessfulPayment(request.id, request.resident_id))
-  ) {
-    throw new CertificateIssuanceError(
-      "PAYMENT_NOT_SETTLED",
-      "A successful payment record is required before issuing this certificate.",
-    );
+  if (request.fee_amount > 0) {
+    const isSettled = await hasSuccessfulPayment(request.id, request.resident_id);
+    if (!isSettled) {
+      throw new CertificateIssuanceError(
+        "PAYMENT_NOT_SETTLED",
+        "A staff-verified GCash or Maya payment record is required before issuing this certificate.",
+      );
+    }
   }
 
   const previousRecord = await getCertificateRecordByRequestId(request.id);

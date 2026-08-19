@@ -157,7 +157,7 @@ export function CertificateRequestForm({
       </div>
       <div className="alert alert-info md:col-span-2">
         <span>
-          Accepted requests can use simulated online payment and verified PDF delivery.
+          Accepted requests can proceed to fee payment via GCash/Maya and verified PDF delivery.
         </span>
       </div>
       <div className="flex flex-wrap gap-3 md:col-span-2">

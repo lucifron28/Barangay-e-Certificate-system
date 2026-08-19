@@ -141,7 +141,7 @@ export default async function GenerateCertificatePage({
       ) : !canPreview ? (
         <div className="no-print alert alert-warning">
           Certificate issuance is unavailable until the request is accepted and its
-          simulated fee is paid, or the request is marked free.
+          fee is verified by staff, or the request is marked free.
         </div>
       ) : null}
     </div>

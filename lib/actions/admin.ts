@@ -10,12 +10,22 @@ import {
 } from "@/lib/actions/helpers";
 import { isSqliteProvider } from "@/lib/db/provider";
 import {
+  confirmPaymentProof,
   createNotificationLog,
   getCertificateRecordById,
+  getPaymentById,
+  getSystemSettings as getSystemSettingsDirect,
+  rejectPaymentProof,
   revokeCertificateRecord,
   setSystemSetting,
+  updatePaymentReceivingConfig,
   updateRequestStatus,
 } from "@/lib/db/queries";
+import {
+  detectImageFormat,
+  MAX_PAYMENT_FILE_BYTES,
+  storeMerchantQrImage,
+} from "@/lib/payments/storage";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
 import { canRejectRequest } from "@/lib/services/business-rules";
 import { getAdminRequest } from "@/lib/services/certificate-data";
@@ -423,4 +433,222 @@ export async function updateSystemSettingsAction(formData: FormData) {
     supabase: context.supabase,
   });
   redirectWithMessage("/admin/settings", "Certificate signer settings updated.");
+}
+
+export async function updatePaymentMethodSettingsAction(formData: FormData) {
+  const context = await requireMainAdmin();
+  if (context.setupMissing) {
+    redirectWithError("/admin/settings", "This service is temporarily unavailable.");
+  }
+
+  const provider = String(formData.get("provider") ?? "");
+  if (provider !== "gcash" && provider !== "maya") {
+    redirectWithError("/admin/settings", "Invalid payment provider.");
+  }
+
+  const enabled =
+    formData.get("enabled") === "on" || formData.get("enabled") === "true";
+  const merchantName = String(formData.get("merchant_name") ?? "").trim();
+  if (!merchantName) {
+    redirectWithError("/admin/settings", "Merchant name is required.");
+  }
+
+  const qrFile = formData.get("qr_image") as File | null;
+  const currentSettings = await getSystemSettingsDirect();
+  const currentConfig = currentSettings.paymentReceiving[provider];
+
+  let newQrKey = currentConfig.qrStorageKey;
+  let newQrProvider = currentConfig.qrStorageProvider;
+  let newQrUpdatedAt = currentConfig.qrUpdatedAt;
+
+  if (qrFile && qrFile.size > 0) {
+    if (qrFile.size > MAX_PAYMENT_FILE_BYTES) {
+      redirectWithError("/admin/settings", "QR code image must be 5 MB or smaller.");
+    }
+    const bytes = new Uint8Array(await qrFile.arrayBuffer());
+    const format = detectImageFormat(bytes);
+    if (!format) {
+      redirectWithError(
+        "/admin/settings",
+        "QR code image must be a valid JPEG, PNG, or WebP file.",
+      );
+    }
+    const stored = await storeMerchantQrImage(provider, bytes, format);
+    newQrKey = stored.key;
+    newQrProvider = stored.provider;
+    newQrUpdatedAt = new Date().toISOString();
+  }
+
+  if (enabled && !newQrKey) {
+    redirectWithError(
+      "/admin/settings",
+      "CLIENT PAYMENT QR CONFIGURATION REQUIRED: Upload an official payment QR code before enabling this method.",
+    );
+  }
+
+  const newConfig = {
+    enabled,
+    merchantName,
+    qrStorageKey: newQrKey,
+    qrStorageProvider: newQrProvider,
+    qrUpdatedAt: newQrUpdatedAt,
+  };
+
+  await updatePaymentReceivingConfig(provider, newConfig);
+
+  await logActivity({
+    action: "Payment settings updated",
+    affectedTable: "system_settings",
+    profile: context.profile,
+    remarks: `Updated ${provider.toUpperCase()} payment receiving settings (enabled: ${enabled}).`,
+    supabase: context.supabase,
+  });
+
+  redirectWithMessage(
+    "/admin/settings",
+    `${provider.toUpperCase()} payment settings updated successfully.`,
+  );
+}
+
+export async function confirmPaymentAction(formData: FormData) {
+  const context = await requireAdmin();
+  if (context.setupMissing) {
+    redirectWithError("/admin/payments", "This service is temporarily unavailable.");
+  }
+
+  const paymentId = String(formData.get("payment_id") ?? "");
+  const remarks = String(formData.get("remarks") ?? "").trim();
+  if (!paymentId) {
+    redirectWithError("/admin/payments", "Payment ID is required.");
+  }
+
+  const payment = await getPaymentById(paymentId);
+  if (!payment || payment.status !== "pending") {
+    redirectWithError("/admin/payments", "This payment is not awaiting verification.");
+  }
+
+  const confirmed = await confirmPaymentProof({
+    paymentId,
+    remarks: remarks || null,
+    reviewerId: context.profile.id,
+  });
+
+  if (!confirmed) {
+    redirectWithError(
+      `/admin/payments/${paymentId}`,
+      "Unable to confirm payment. Ensure the request is still eligible.",
+    );
+  }
+
+  await logActivity({
+    action: "Payment verified",
+    affectedRecordId: paymentId,
+    affectedTable: "payments",
+    profile: context.profile,
+    remarks: `Payment for request ${payment.request?.request_number ?? payment.request_id} verified.`,
+    supabase: context.supabase,
+  });
+
+  if (payment.resident?.email) {
+    const certLabel = payment.request
+      ? certificateLabel(payment.request.certificate_type)
+      : "Certificate";
+    await notifyAndLog({
+      message: `Dear ${payment.resident.full_name},
+
+Good day.
+
+Your payment for ${certLabel} (Request ${payment.request?.request_number ?? ""}) has been verified and confirmed by Barangay Bato staff.
+
+Your certificate will now proceed for final processing and issuance.
+
+Thank you.
+
+Barangay Bato e-Certificate System
+Barangay Bato, Mauban, Quezon`,
+      requestId: payment.request_id,
+      subject: "Payment Verified - Certificate Request",
+      supabase: context.supabase,
+      to: payment.resident.email,
+    });
+  }
+
+  redirectWithMessage(
+    "/admin/payments",
+    `Payment for ${payment.request?.request_number ?? "request"} verified successfully.`,
+  );
+}
+
+export async function rejectPaymentAction(formData: FormData) {
+  const context = await requireAdmin();
+  if (context.setupMissing) {
+    redirectWithError("/admin/payments", "This service is temporarily unavailable.");
+  }
+
+  const paymentId = String(formData.get("payment_id") ?? "");
+  const reason = String(formData.get("reason") ?? "").trim();
+  const customRemarks = String(formData.get("remarks") ?? "").trim();
+  const finalReason = customRemarks ? `${reason}: ${customRemarks}` : reason;
+
+  if (!paymentId || !reason) {
+    redirectWithError(
+      paymentId ? `/admin/payments/${paymentId}` : "/admin/payments",
+      "A rejection reason is required.",
+    );
+  }
+
+  const payment = await getPaymentById(paymentId);
+  if (!payment || payment.status !== "pending") {
+    redirectWithError("/admin/payments", "This payment is not awaiting verification.");
+  }
+
+  const rejected = await rejectPaymentProof({
+    paymentId,
+    rejectionReason: finalReason,
+    reviewerId: context.profile.id,
+  });
+
+  if (!rejected) {
+    redirectWithError(`/admin/payments/${paymentId}`, "Unable to reject payment.");
+  }
+
+  await logActivity({
+    action: "Payment proof rejected",
+    affectedRecordId: paymentId,
+    affectedTable: "payments",
+    profile: context.profile,
+    remarks: `Payment for request ${payment.request?.request_number ?? payment.request_id} rejected. Reason: ${finalReason}`,
+    supabase: context.supabase,
+  });
+
+  if (payment.resident?.email) {
+    const certLabel = payment.request
+      ? certificateLabel(payment.request.certificate_type)
+      : "Certificate";
+    await notifyAndLog({
+      message: `Dear ${payment.resident.full_name},
+
+Good day.
+
+Your submitted payment proof for ${certLabel} (Request ${payment.request?.request_number ?? ""}) could not be verified by Barangay Bato staff.
+
+Reason: ${finalReason}
+
+Please sign in to the e-Certificate System to review and resubmit your payment details.
+
+Thank you.
+
+Barangay Bato e-Certificate System
+Barangay Bato, Mauban, Quezon`,
+      requestId: payment.request_id,
+      subject: "Payment Proof Rejected - Action Required",
+      supabase: context.supabase,
+      to: payment.resident.email,
+    });
+  }
+
+  redirectWithMessage(
+    "/admin/payments",
+    `Payment proof rejected for ${payment.request?.request_number ?? "request"}.`,
+  );
 }

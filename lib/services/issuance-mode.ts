@@ -8,9 +8,9 @@ export function getIssuanceModeLabel() {
 export function getCertificateDeliveryCopy() {
   return {
     requestDescription:
-      "Submit online, complete the simulated payment when accepted, and download your verified certificate PDF.",
+      "Submit online, pay fee via GCash/Maya when accepted, and download your verified certificate PDF.",
     dashboardDescription:
-      "Track reviews, simulated payments, verified PDF certificates, and QR status.",
+      "Track reviews, payment verifications, verified PDF certificates, and QR status.",
     issuedDescription:
       "Issued certificates are available as secure PDF downloads for 72 hours from issuance.",
     emailDelivery:

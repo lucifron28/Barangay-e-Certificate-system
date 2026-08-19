@@ -20,6 +20,7 @@ function migrationFiles() {
     "0000_initial_schema.sql",
     "0001_client_deployment.sql",
     "0002_full_online_workflow.sql",
+    "0003_manual_payment_verification.sql",
   ];
 }
 
@@ -45,6 +46,11 @@ function readMigration(version: string) {
     case "0002_full_online_workflow.sql":
       return readFileSync(
         path.join(process.cwd(), "database", "migrations", "0002_full_online_workflow.sql"),
+        "utf8",
+      );
+    case "0003_manual_payment_verification.sql":
+      return readFileSync(
+        path.join(process.cwd(), "database", "migrations", "0003_manual_payment_verification.sql"),
         "utf8",
       );
     default:

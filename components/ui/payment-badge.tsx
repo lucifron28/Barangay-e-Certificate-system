@@ -1,16 +1,39 @@
-import { paymentStatusLabel } from "@/lib/utils/format";
-import type { PaymentStatus } from "@/types/enums";
+import type { PaymentRecordStatus, PaymentStatus } from "@/types/enums";
 
-const badgeClass: Record<PaymentStatus, string> = {
-  free: "badge-info",
-  paid: "badge-success",
-  unpaid: "badge-warning",
-};
-
-export function PaymentBadge({ status }: { status: PaymentStatus }) {
+export function PaymentBadge({
+  recordStatus,
+  status,
+}: {
+  status: PaymentStatus;
+  recordStatus?: PaymentRecordStatus | null;
+}) {
+  if (status === "free") {
+    return <span className="badge badge-info badge-sm whitespace-nowrap">Free</span>;
+  }
+  if (status === "paid" || recordStatus === "paid") {
+    return (
+      <span className="badge badge-success badge-sm whitespace-nowrap text-white">
+        Verified / Paid
+      </span>
+    );
+  }
+  if (recordStatus === "pending") {
+    return (
+      <span className="badge badge-warning badge-sm whitespace-nowrap">
+        Pending Verification
+      </span>
+    );
+  }
+  if (recordStatus === "failed") {
+    return (
+      <span className="badge badge-error badge-sm whitespace-nowrap text-white">
+        Rejected
+      </span>
+    );
+  }
   return (
-    <span className={`badge ${badgeClass[status]} badge-sm whitespace-nowrap`}>
-      {paymentStatusLabel(status)}
+    <span className="badge badge-warning badge-sm whitespace-nowrap">
+      Awaiting Payment
     </span>
   );
 }

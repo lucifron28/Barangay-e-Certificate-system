@@ -103,7 +103,7 @@ The command reports missing variable names only. A successful result confirms en
 
 ## 9. Preview Acceptance
 
-Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, simulated payment, PDF issuance, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist. The payment screen is a simulation and must not be treated as a real gateway.
+Use only synthetic Preview records. Test registration, login/logout, all four request types, review decisions, manual payment proof verification, PDF issuance, PDF download, QR verification, expiry, revocation, reissue, reports, email, mobile navigation, and persistence after a Vercel redeploy. Follow the client acceptance checklist.
 
 ## 10. Production Handoff Gate
 

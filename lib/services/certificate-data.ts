@@ -17,6 +17,7 @@ import {
   type DashboardData,
   type RequestWithResident,
   type SystemSettings,
+  DEFAULT_PAYMENT_RECEIVING_SETTINGS,
 } from "@/lib/db/queries";
 import { summarizeRequests } from "@/lib/utils/dashboard";
 import { getDatabaseProvider } from "@/lib/db/provider";
@@ -203,6 +204,7 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
     barangayCaptainName:
       (map.get("barangay_captain_name") as string | undefined) ??
       "Authorized Barangay Official",
+    paymentReceiving: DEFAULT_PAYMENT_RECEIVING_SETTINGS,
     signatureImagePath:
       (map.get("signature_image_path") as string | undefined) ?? null,
   };
