@@ -116,28 +116,47 @@ function insertPayment(
     createdAt: string;
     expiresAt?: string | null;
     paidAt?: string | null;
+    provider?: string;
     transactionId: string;
+    reviewedBy?: string | null;
+    reviewedAt?: string | null;
+    reviewRemarks?: string | null;
+    submittedAt?: string | null;
+    transactionDatetime?: string | null;
+    proofStorageProvider?: string | null;
+    proofStorageKey?: string | null;
+    proofSha256?: string | null;
   },
 ) {
   db.prepare(
     `INSERT INTO payments (
       id, request_id, resident_id, provider, provider_transaction_id, amount,
-      currency, status, paid_at, expires_at, created_at, updated_at
-    ) VALUES (?, ?, ?, 'simulated_local', ?, ?, 'PHP', ?, ?, ?, ?, ?)`,
+      currency, status, submitted_at, transaction_datetime, proof_storage_provider,
+      proof_storage_key, proof_sha256, paid_at, expires_at, reviewed_at,
+      reviewed_by, review_remarks, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, 'PHP', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     input.id,
     input.requestId,
     input.residentId,
+    input.provider ?? "gcash",
     input.transactionId,
     input.amount,
     input.status,
+    input.submittedAt ?? input.createdAt,
+    input.transactionDatetime ?? input.createdAt,
+    input.proofStorageProvider ?? "local",
+    input.proofStorageKey ?? `payment-proofs/${input.id}.png`,
+    input.proofSha256 ?? "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
     input.paidAt ?? null,
     input.expiresAt ?? null,
+    input.reviewedAt ?? null,
+    input.reviewedBy ?? null,
+    input.reviewRemarks ?? null,
     input.createdAt,
     input.createdAt,
   );
 }
-
 function insertPaymentEvent(db: Database.Database, paymentId: string, eventType: string, createdAt: string) {
   db.prepare(
     "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
@@ -246,32 +265,44 @@ async function main() {
     db.prepare("INSERT INTO document_counters (id, counter_type, year, current_value, created_at, updated_at) VALUES (?, 'barangay_clearance_control_number', ?, 2, ?, ?)").run(randomUUID(), year, timestamp, timestamp);
 
     const failedPaymentId = randomUUID();
-    insertPayment(db, { id: failedPaymentId, requestId: requestIds[1], residentId, amount: 50, status: "failed", transactionId: `DEMO-PAY-${year}-FAILED1`, createdAt: dateOffset(-1) });
-    insertPaymentEvent(db, failedPaymentId, "mock_payment_failed", dateOffset(-1));
-    const cancelledPaymentId = randomUUID();
-    insertPayment(db, { id: cancelledPaymentId, requestId: requestIds[1], residentId, amount: 50, status: "cancelled", transactionId: `DEMO-PAY-${year}-CANCEL1`, createdAt: dateOffset(-1) });
-    insertPaymentEvent(db, cancelledPaymentId, "mock_payment_cancelled", dateOffset(-1));
+    insertPayment(db, { id: failedPaymentId, requestId: requestIds[1], residentId, amount: 50, status: "failed", provider: "gcash", transactionId: `GCASH-${year}-FAILED1`, createdAt: dateOffset(-1), reviewedBy: secretaryId, reviewedAt: dateOffset(-1), reviewRemarks: "Reference not found" });
+    insertPaymentEvent(db, failedPaymentId, "payment_rejected", dateOffset(-1));
     const pendingPaymentId = randomUUID();
-    insertPayment(db, { id: pendingPaymentId, requestId: requestIds[1], residentId, amount: 50, status: "pending", transactionId: `DEMO-PAY-${year}-PENDING1`, createdAt: timestamp, expiresAt: dateOffset(1) });
-    insertPaymentEvent(db, pendingPaymentId, "payment_initiated", timestamp);
+    insertPayment(db, { id: pendingPaymentId, requestId: requestIds[1], residentId, amount: 50, status: "pending", provider: "gcash", transactionId: `GCASH-${year}-PENDING1`, createdAt: timestamp, submittedAt: timestamp });
+    insertPaymentEvent(db, pendingPaymentId, "payment_proof_submitted", timestamp);
 
     const successfulPaymentId = randomUUID();
-    insertPayment(db, { id: successfulPaymentId, requestId: requestIds[2], residentId, amount: 50, status: "paid", transactionId: `DEMO-PAY-${year}-SUCCESS1`, createdAt: dateOffset(-3), paidAt: dateOffset(-3) });
-    insertPaymentEvent(db, successfulPaymentId, "mock_payment_paid", dateOffset(-3));
-    const oldFailedPaymentId = randomUUID();
-    insertPayment(db, { id: oldFailedPaymentId, requestId: requestIds[2], residentId, amount: 50, status: "failed", transactionId: `DEMO-PAY-${year}-FAILED2`, createdAt: dateOffset(-4) });
-    insertPaymentEvent(db, oldFailedPaymentId, "mock_payment_failed", dateOffset(-4));
+    insertPayment(db, { id: successfulPaymentId, requestId: requestIds[2], residentId, amount: 50, status: "paid", provider: "gcash", transactionId: `GCASH-${year}-SUCCESS1`, createdAt: dateOffset(-3), paidAt: dateOffset(-3), reviewedBy: secretaryId, reviewedAt: dateOffset(-3) });
+    insertPaymentEvent(db, successfulPaymentId, "payment_verified", dateOffset(-3));
 
     for (const [index, requestId] of [requestIds[4], requestIds[5]].entries()) {
       const paymentId = randomUUID();
-      insertPayment(db, { id: paymentId, requestId, residentId: requestId === requestIds[5] ? residentTwoId : residentId, amount: 50, status: "paid", transactionId: `DEMO-PAY-${year}-ISSUED${index + 1}`, createdAt: dateOffset(-5 - index), paidAt: dateOffset(-5 - index) });
-      insertPaymentEvent(db, paymentId, "mock_payment_paid", dateOffset(-5 - index));
+      insertPayment(db, { id: paymentId, requestId, residentId: requestId === requestIds[5] ? residentTwoId : residentId, amount: 50, status: "paid", provider: index === 0 ? "gcash" : "maya", transactionId: `GCASH-${year}-ISSUED${index + 1}`, createdAt: dateOffset(-5 - index), paidAt: dateOffset(-5 - index), reviewedBy: index === 0 ? adminId : secretaryId, reviewedAt: dateOffset(-5 - index) });
+      insertPaymentEvent(db, paymentId, "payment_verified", dateOffset(-5 - index));
     }
 
     insertActivity(db, { action: "Request submitted", recordId: requestIds[0], remarks: "Seeded synthetic request.", userId: residentTwoId, role: "resident", createdAt: dates[0] });
     insertActivity(db, { action: "Request accepted", recordId: requestIds[2], remarks: "Seeded accepted paid request.", userId: secretaryId, role: "barangay_secretary", createdAt: dates[2] });
-    insertActivity(db, { action: "Simulated payment paid", recordId: requestIds[2], remarks: "SIMULATED PAYMENT - no actual funds transferred.", userId: residentId, role: "resident", createdAt: dateOffset(-3) });
+    insertActivity(db, { action: "Payment verified", recordId: requestIds[2], remarks: "GCash payment verified.", userId: secretaryId, role: "barangay_secretary", createdAt: dateOffset(-3) });
     insertActivity(db, { action: "Request rejected", recordId: requestIds[0], remarks: "Seeded prior review history.", userId: secretaryId, role: "barangay_secretary", createdAt: dates[0] });
+
+    for (const [key, value] of [["barangay_captain_name", "Authorized Barangay Official"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
+      setSystemSetting(key, value);
+    }
+    setSystemSetting("payment_receiving_gcash", {
+      enabled: false,
+      merchantName: "Barangay Bato Official",
+      qrStorageKey: null,
+      qrStorageProvider: null,
+      qrUpdatedAt: null,
+    });
+    setSystemSetting("payment_receiving_maya", {
+      enabled: false,
+      merchantName: "Barangay Bato Official",
+      qrStorageKey: null,
+      qrStorageProvider: null,
+      qrUpdatedAt: null,
+    });
 
     for (const [key, value] of [["barangay_captain_name", "Authorized Barangay Official"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
       setSystemSetting(key, value);

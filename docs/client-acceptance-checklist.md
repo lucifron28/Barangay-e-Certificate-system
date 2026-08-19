@@ -33,7 +33,7 @@ Use synthetic names and records until the client authorizes real data. Record th
 - [ ] Admin can accept a complete pending request.
 - [ ] Admin rejection requires remarks.
 - [ ] Accepted requests cannot be rejected later.
-- [ ] Resident can complete the clearly labeled simulated online payment where applicable.
+- [ ] Resident pays via official GCash or Maya QR and submits proof/reference; staff verifies merchant history and confirms or rejects payment.
 - [ ] Admin can issue a paid or free certificate as a secure PDF.
 - [ ] Resident can download an issued PDF through the authenticated route.
 - [ ] A successful certificate download marks the request done.

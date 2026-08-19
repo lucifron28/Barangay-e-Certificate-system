@@ -23,3 +23,19 @@ export const revokeCertificateSchema = z.object({
 export const systemSettingsSchema = z.object({
   barangay_captain_name: z.string().trim().min(2, "Authorized official name is required."),
 });
+
+export const paymentMethodSettingsSchema = z.object({
+  enabled: z.boolean().default(false),
+  merchant_name: z.string().trim().min(2, "Merchant display name is required."),
+  provider: z.enum(["gcash", "maya"]),
+});
+
+export const confirmPaymentSchema = z.object({
+  payment_id: z.string().uuid(),
+  remarks: z.string().trim().optional(),
+});
+
+export const rejectPaymentSchema = z.object({
+  payment_id: z.string().uuid(),
+  remarks: z.string().trim().min(1, "A rejection reason is required."),
+});

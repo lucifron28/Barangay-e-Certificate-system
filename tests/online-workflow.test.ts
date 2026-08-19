@@ -4,9 +4,9 @@ import { PDFDocument } from "pdf-lib";
 import {
   getRequestById,
   getCertificateRecordByRequestId,
-  createMockPayment,
   listPaymentsForRequest,
-  resolveMockPayment,
+  rejectPaymentProof,
+  submitPaymentProof,
 } from "@/lib/db/sqlite/queries";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 import { generateCertificatePdf, normalizePdfText } from "@/lib/certificates/pdf-generator";
@@ -52,16 +52,21 @@ describe("online request and payment workflow", () => {
         "UPDATE certificate_requests SET status = 'accepted', payment_status = 'unpaid' WHERE id = ?",
       ).run("10000000-0000-4000-8000-000000000002");
     })();
-    const pending = createMockPayment({
-      amount: 50,
-      request_id: "10000000-0000-4000-8000-000000000002",
-      resident_id: "00000000-0000-4000-8000-000000000003",
+    const pending = submitPaymentProof({
+      proofSha256: "test-sha256-online",
+      proofStorageKey: "payment-proofs/online-1.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: "GCASH-ONLINE-001",
+      requestId: "10000000-0000-4000-8000-000000000002",
+      residentId: "00000000-0000-4000-8000-000000000003",
+      transactionDatetime: new Date().toISOString(),
     });
     expect(pending?.status).toBe("pending");
-    const failed = resolveMockPayment({
-      payment_id: pending?.id ?? "",
-      resident_id: "00000000-0000-4000-8000-000000000003",
-      status: "failed",
+    const failed = rejectPaymentProof({
+      paymentId: pending?.id ?? "",
+      rejectionReason: "Unreadable proof",
+      reviewerId: "00000000-0000-4000-8000-000000000002",
     });
     expect(failed?.status).toBe("failed");
     const attempts = listPaymentsForRequest("10000000-0000-4000-8000-000000000002");

@@ -27,7 +27,7 @@ This runbook turns the checklist into a repeatable Preview session. Use only syn
 2. Sign in as Barangay Secretary and confirm the workflow works but settings remain view-only.
 3. Accept a complete request and confirm the accepted notification attempt.
 4. Reject another request with a required reason and confirm the rejection notification attempt.
-5. Complete the simulated online payment for an accepted paid request.
+5. Submit GCash or Maya payment proof for an accepted paid request. Verify and confirm the payment in the admin queue, or test rejection and resubmission.
 6. Issue the certificate as an admin and download it as the owning resident.
 7. Confirm the successful download marks the request done and no office-pickup
    controls are offered.

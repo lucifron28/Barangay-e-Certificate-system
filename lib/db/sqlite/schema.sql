@@ -144,14 +144,23 @@ CREATE TABLE IF NOT EXISTS payments (
   amount INTEGER NOT NULL,
   currency TEXT NOT NULL DEFAULT 'PHP',
   status TEXT NOT NULL CHECK (status IN ('pending', 'processing', 'paid', 'failed', 'cancelled', 'expired', 'refunded', 'free')),
+  submitted_at TEXT,
+  transaction_datetime TEXT,
+  proof_storage_provider TEXT CHECK (proof_storage_provider IN ('local', 'vercel_blob')),
+  proof_storage_key TEXT,
+  proof_sha256 TEXT,
   paid_at TEXT,
   expires_at TEXT,
+  reviewed_at TEXT,
+  reviewed_by TEXT REFERENCES profiles(id),
+  review_remarks TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS payments_request_id_idx ON payments (request_id, created_at DESC);
-
+CREATE INDEX IF NOT EXISTS payments_status_created_idx ON payments (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS payments_reviewed_by_idx ON payments (reviewed_by);
 CREATE TABLE IF NOT EXISTS payment_events (
   id TEXT PRIMARY KEY,
   payment_id TEXT NOT NULL REFERENCES payments(id),

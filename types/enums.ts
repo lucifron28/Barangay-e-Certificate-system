@@ -21,7 +21,8 @@ export const PROFILE_ROLES = [
 ] as const;
 
 export const PAYMENT_STATUSES = ["unpaid", "paid", "free"] as const;
-export const MOCK_PAYMENT_STATUSES = [
+export const PAYMENT_PROVIDERS = ["gcash", "maya"] as const;
+export const PAYMENT_RECORD_STATUSES = [
   "pending",
   "processing",
   "paid",
@@ -32,12 +33,23 @@ export const MOCK_PAYMENT_STATUSES = [
   "free",
 ] as const;
 
+export const PAYMENT_REJECTION_REASONS = [
+  "Reference not found",
+  "Incorrect amount",
+  "Wrong recipient",
+  "Unreadable proof",
+  "Duplicate transaction",
+  "Other",
+] as const;
+
 export type CertificateType = (typeof CERTIFICATE_TYPES)[number];
 export type RequestStatus = (typeof REQUEST_STATUSES)[number];
 export type ProfileRole = (typeof PROFILE_ROLES)[number];
 export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
-export type MockPaymentStatus = (typeof MOCK_PAYMENT_STATUSES)[number];
-
+export type PaymentProvider = (typeof PAYMENT_PROVIDERS)[number];
+export type PaymentRecordStatus = (typeof PAYMENT_RECORD_STATUSES)[number];
+export type MockPaymentStatus = PaymentRecordStatus;
+export type PaymentRejectionReason = (typeof PAYMENT_REJECTION_REASONS)[number];
 export const CERTIFICATE_TYPE_LABELS: Record<CertificateType, string> = {
   barangay_clearance: "Barangay Clearance",
   barangay_certificate: "Barangay Certificate / PAGPAPATUNAY",
@@ -59,6 +71,22 @@ export const PAYMENT_STATUS_LABELS: Record<PaymentStatus, string> = {
   paid: "Paid",
   free: "Free",
 };
+export const PAYMENT_PROVIDER_LABELS: Record<PaymentProvider, string> = {
+  gcash: "GCash",
+  maya: "Maya",
+};
+
+export const PAYMENT_RECORD_STATUS_LABELS: Record<PaymentRecordStatus, string> = {
+  pending: "Pending Verification",
+  processing: "Processing",
+  paid: "Verified / Paid",
+  failed: "Rejected",
+  cancelled: "Cancelled",
+  expired: "Expired",
+  refunded: "Refunded",
+  free: "Free",
+};
+
 
 export const CERTIFICATE_FEES: Record<CertificateType, number> = {
   barangay_clearance: 50,

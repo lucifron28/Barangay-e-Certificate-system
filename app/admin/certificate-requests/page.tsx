@@ -70,7 +70,7 @@ export default async function AdminCertificateRequestsPage({
       <div>
         <h1 className="text-3xl font-bold">Certificate Requests</h1>
         <p className="text-base-content/70">
-          Review submissions, confirm simulated online payment, and issue secure
+          Review submissions, verify GCash and Maya payments, and issue secure
           certificates.
         </p>
       </div>

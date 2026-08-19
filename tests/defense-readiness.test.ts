@@ -8,14 +8,15 @@ import {
   verifyPassword,
 } from "@/lib/auth/sqlite-auth";
 import {
-  createMockPayment,
+  confirmPaymentProof,
   generateCertificateNumber,
   generateClearanceControlNumber,
   generateRequestNumber,
   getCertificateRecordByRequestId,
   getCertificateVerificationByToken,
   getRequestById,
-  resolveMockPayment,
+  rejectPaymentProof,
+  submitPaymentProof,
 } from "@/lib/db/sqlite/queries";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 import {
@@ -88,42 +89,43 @@ describe("request, counter, and payment rules", () => {
         "UPDATE certificate_requests SET status = 'accepted', payment_status = 'unpaid' WHERE id = ?",
       ).run(acceptedUnpaidRequestId);
     })();
-    const first = createMockPayment({
-      amount: 50,
-      request_id: acceptedUnpaidRequestId,
-      resident_id: paymentResidentId,
+    const first = submitPaymentProof({
+      proofSha256: "test-sha256-first",
+      proofStorageKey: "payment-proofs/first.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: "GCASH-DEFENSE-001",
+      requestId: acceptedUnpaidRequestId,
+      residentId: paymentResidentId,
+      transactionDatetime: new Date().toISOString(),
     });
     expect(first).not.toBeNull();
-    resolveMockPayment({
-      payment_id: first?.id ?? "",
-      resident_id: paymentResidentId,
-      status: "failed",
+    rejectPaymentProof({
+      paymentId: first?.id ?? "",
+      rejectionReason: "Reference not found",
+      reviewerId: "00000000-0000-4000-8000-000000000002",
     });
 
-    const retry = createMockPayment({
-      amount: 50,
-      request_id: acceptedUnpaidRequestId,
-      resident_id: paymentResidentId,
+    const retry = submitPaymentProof({
+      proofSha256: "test-sha256-second",
+      proofStorageKey: "payment-proofs/second.png",
+      proofStorageProvider: "local",
+      provider: "maya",
+      referenceNumber: "MAYA-DEFENSE-002",
+      requestId: acceptedUnpaidRequestId,
+      residentId: paymentResidentId,
+      transactionDatetime: new Date().toISOString(),
     });
 
     expect(retry?.status).toBe("pending");
     expect(retry?.provider_transaction_id).not.toBe(first?.provider_transaction_id);
     expect(
-      resolveMockPayment({
-        payment_id: retry?.id ?? "",
-        resident_id: paymentResidentId,
-        status: "paid",
-      })?.status,
-    ).toBe("paid");
-    expect(
-      resolveMockPayment({
-        payment_id: retry?.id ?? "",
-        resident_id: paymentResidentId,
-        status: "paid",
+      confirmPaymentProof({
+        paymentId: retry?.id ?? "",
+        reviewerId: "00000000-0000-4000-8000-000000000002",
       })?.status,
     ).toBe("paid");
   });
-
   it("does not resolve an unknown verification token", () => {
     expect(getCertificateVerificationByToken("invalid-token-for-test")).toBeNull();
   });

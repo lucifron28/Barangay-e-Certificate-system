@@ -154,7 +154,7 @@ export function getTursoQaRequests(
       id: "10000000-0000-4000-8000-000000009002",
       paymentStatus: "paid",
       purpose: "Employment requirement",
-      remarks: "Synthetic client QA request. Payment is simulated.",
+      remarks: "Synthetic client QA request. Verified GCash payment.",
       requestNumber: `REQ-${year}-9002`,
       residentId: "00000000-0000-4000-8000-000000000003",
       status: "accepted",
@@ -339,6 +339,38 @@ export function buildTursoQaActivityStatements(
   }));
 }
 
+export function buildTursoQaPaymentStatements(
+  requests: TursoQaRequest[],
+  timestamp: string = new Date().toISOString(),
+): TursoQaStatement[] {
+  const paidFeeRequests = requests.filter((r) => r.paymentStatus === "paid" && r.feeAmount > 0);
+  return paidFeeRequests.map((r, index) => ({
+    sql: `
+      INSERT INTO payments (
+        id, request_id, resident_id, provider, provider_transaction_id, amount,
+        currency, status, submitted_at, transaction_datetime, proof_storage_provider,
+        proof_storage_key, proof_sha256, paid_at, reviewed_at, reviewed_by,
+        review_remarks, created_at, updated_at
+      ) VALUES (?, ?, ?, 'gcash', ?, ?, 'PHP', 'paid', ?, ?, 'local', ?, 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855', ?, ?, '00000000-0000-4000-8000-000000000002', 'Verified via GCash merchant ledger', ?, ?)
+      ON CONFLICT(provider_transaction_id) DO NOTHING
+    `,
+    args: [
+      `30000000-0000-4000-8000-${String(9001 + index).padStart(12, "0")}`,
+      r.id,
+      r.residentId,
+      `GCASH-QA-${String(9001 + index)}`,
+      r.feeAmount,
+      r.dateAccepted ?? timestamp,
+      r.dateAccepted ?? timestamp,
+      `payment-proofs/qa-${String(9001 + index)}.png`,
+      r.dateAccepted ?? timestamp,
+      r.dateAccepted ?? timestamp,
+      r.dateAccepted ?? timestamp,
+      r.dateAccepted ?? timestamp,
+    ],
+  }));
+}
+
 export function buildTursoQaSystemSettingStatements(
   timestamp: string = new Date().toISOString(),
 ): TursoQaStatement[] {
@@ -353,6 +385,46 @@ export function buildTursoQaSystemSettingStatements(
         randomUUID(),
         "barangay_captain_name",
         "Authorized Barangay Official",
+        timestamp,
+        timestamp,
+      ],
+    },
+    {
+      sql: `
+        INSERT INTO system_settings (id, key, value, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(key) DO NOTHING
+      `,
+      args: [
+        randomUUID(),
+        "payment_receiving_gcash",
+        JSON.stringify({
+          enabled: false,
+          merchantName: "Barangay Bato Official",
+          qrStorageKey: null,
+          qrStorageProvider: null,
+          qrUpdatedAt: null,
+        }),
+        timestamp,
+        timestamp,
+      ],
+    },
+    {
+      sql: `
+        INSERT INTO system_settings (id, key, value, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(key) DO NOTHING
+      `,
+      args: [
+        randomUUID(),
+        "payment_receiving_maya",
+        JSON.stringify({
+          enabled: false,
+          merchantName: "Barangay Bato Official",
+          qrStorageKey: null,
+          qrStorageProvider: null,
+          qrUpdatedAt: null,
+        }),
         timestamp,
         timestamp,
       ],

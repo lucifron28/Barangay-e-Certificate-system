@@ -10,7 +10,12 @@ export type ScheduleWithRequest = sqlite.ScheduleWithRequest;
 export type ActivityLogWithUser = sqlite.ActivityLogWithUser;
 export type SystemSettings = sqlite.SystemSettings;
 export type DashboardData = sqlite.DashboardData;
-
+export type {
+  PaymentWithDetails,
+  PaymentMethodConfig,
+  PaymentReceivingSettings,
+} from "@/types/database";
+export { DEFAULT_PAYMENT_RECEIVING_SETTINGS } from "@/lib/db/sqlite/queries";
 function assertSupported() {
   if (getDatabaseProvider() === "supabase") {
     throw new Error("The provider-neutral repository is for SQLite and Turso mode.");
@@ -145,12 +150,47 @@ export async function hasSuccessfulPayment(requestId: string, residentId: string
   return (await loadProviderModule()).hasSuccessfulPayment(requestId, residentId);
 }
 
-export async function createMockPayment(input: Parameters<typeof sqlite.createMockPayment>[0]) {
-  return (await loadProviderModule()).createMockPayment(input);
+export async function submitPaymentProof(
+  input: Parameters<typeof sqlite.submitPaymentProof>[0],
+) {
+  return (await loadProviderModule()).submitPaymentProof(input);
 }
 
-export async function resolveMockPayment(input: Parameters<typeof sqlite.resolveMockPayment>[0]) {
-  return (await loadProviderModule()).resolveMockPayment(input);
+export async function confirmPaymentProof(
+  input: Parameters<typeof sqlite.confirmPaymentProof>[0],
+) {
+  return (await loadProviderModule()).confirmPaymentProof(input);
+}
+
+export async function rejectPaymentProof(
+  input: Parameters<typeof sqlite.rejectPaymentProof>[0],
+) {
+  return (await loadProviderModule()).rejectPaymentProof(input);
+}
+
+export async function getPaymentById(paymentId: string) {
+  return (await loadProviderModule()).getPaymentById(paymentId);
+}
+
+export async function listPaymentsForVerification(
+  statusFilter?: Parameters<typeof sqlite.listPaymentsForVerification>[0],
+) {
+  return (await loadProviderModule()).listPaymentsForVerification(statusFilter);
+}
+
+export async function countPendingPayments() {
+  return (await loadProviderModule()).countPendingPayments();
+}
+
+export async function getPaymentEvents(paymentId: string) {
+  return (await loadProviderModule()).getPaymentEvents(paymentId);
+}
+
+export async function updatePaymentReceivingConfig(
+  provider: Parameters<typeof sqlite.updatePaymentReceivingConfig>[0],
+  config: Parameters<typeof sqlite.updatePaymentReceivingConfig>[1],
+) {
+  return (await loadProviderModule()).updatePaymentReceivingConfig(provider, config);
 }
 
 export async function cancelRequest(id: string, residentId: string) {

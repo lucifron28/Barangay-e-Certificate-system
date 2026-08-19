@@ -42,8 +42,8 @@ export default function AboutPage() {
             <Landmark className="mb-4 size-8 text-primary" aria-hidden />
             <h2 className="font-bold">Delivery workflow</h2>
             <p className="mt-2 text-sm text-base-content/70">
-              Residents submit requests online, complete the clearly labeled
-              payment simulation when required, and download the verified PDF after
+              Residents submit requests online, pay the fee via official GCash/Maya QR and
+              submit proof for manual verification, and download the verified PDF after
               approval. The displayed electronic signature is visual-only and is
               not a legally verified digital signature.
             </p>

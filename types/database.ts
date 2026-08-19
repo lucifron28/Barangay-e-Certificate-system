@@ -1,11 +1,10 @@
 import type {
   CertificateType,
+  PaymentRecordStatus,
   PaymentStatus,
-  MockPaymentStatus,
   ProfileRole,
   RequestStatus,
 } from "@/types/enums";
-
 export type Json =
   | string
   | number
@@ -143,11 +142,47 @@ export type Payment = {
   provider_transaction_id: string;
   amount: number;
   currency: string;
-  status: MockPaymentStatus;
+  status: PaymentRecordStatus;
+  submitted_at: string | null;
+  transaction_datetime: string | null;
+  proof_storage_provider: "local" | "vercel_blob" | null;
+  proof_storage_key: string | null;
+  proof_sha256: string | null;
   paid_at: string | null;
   expires_at: string | null;
+  reviewed_at: string | null;
+  reviewed_by: string | null;
+  review_remarks: string | null;
   created_at: string;
   updated_at: string;
+};
+
+export type PaymentEvent = {
+  id: string;
+  payment_id: string;
+  event_type: string;
+  payload: Json;
+  created_at: string;
+};
+
+export type PaymentMethodConfig = {
+  enabled: boolean;
+  merchantName: string;
+  qrStorageProvider: "local" | "vercel_blob" | null;
+  qrStorageKey: string | null;
+  qrUpdatedAt: string | null;
+};
+
+export type PaymentReceivingSettings = {
+  gcash: PaymentMethodConfig;
+  maya: PaymentMethodConfig;
+};
+
+export type PaymentWithDetails = Payment & {
+  request?: CertificateRequest;
+  resident?: Profile;
+  reviewer?: Profile | null;
+  events?: PaymentEvent[];
 };
 
 export type SystemSetting = {
@@ -157,7 +192,6 @@ export type SystemSetting = {
   created_at: string;
   updated_at: string;
 };
-
 export type CertificateVerificationDto = {
   certificateNumber: string;
   certificateType: CertificateType;
@@ -250,6 +284,26 @@ export type Database = {
           value: Json;
         },
         Partial<Omit<SystemSetting, "id" | "created_at">>
+      >;
+      payments: TableDefinition<
+        Payment,
+        Partial<Omit<Payment, "id" | "created_at" | "updated_at">> & {
+          amount: number;
+          provider: string;
+          provider_transaction_id: string;
+          request_id: string;
+          resident_id: string;
+          status: PaymentRecordStatus;
+        },
+        Partial<Omit<Payment, "id" | "created_at">>
+      >;
+      payment_events: TableDefinition<
+        PaymentEvent,
+        Partial<Omit<PaymentEvent, "id" | "created_at">> & {
+          event_type: string;
+          payment_id: string;
+        },
+        Partial<Omit<PaymentEvent, "id" | "created_at">>
       >;
     };
     Views: Record<string, never>;

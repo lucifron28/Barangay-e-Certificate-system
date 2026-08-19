@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   CheckCircle2,
   Clock3,
+  CreditCard,
   FileText,
   Inbox,
   ListChecks,
@@ -15,10 +16,10 @@ import { SetupRequired } from "@/components/ui/setup-required";
 import { StatCard } from "@/components/ui/stat-card";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { requireAdmin } from "@/lib/auth/guards";
+import { countPendingPayments } from "@/lib/db/queries";
 import { getAdminDashboard } from "@/lib/services/certificate-data";
 import { certificateLabel, formatDate } from "@/lib/utils/format";
 import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
-
 export default async function AdminDashboardPage() {
   const context = await requireAdmin();
 
@@ -28,8 +29,8 @@ export default async function AdminDashboardPage() {
 
   const { stats, recentRequests, monthlyCount } =
     await getAdminDashboard(context.supabase);
+  const pendingPaymentsCount = await countPendingPayments();
   const copy = getCertificateDeliveryCopy();
-
   return (
     <div className="space-y-6">
       <section className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -52,7 +53,15 @@ export default async function AdminDashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
         <StatCard icon={Inbox} label="Total Requests" value={stats.total} />
-        <StatCard icon={Clock3} label="Pending" tone="warning" value={stats.pending} />
+        <StatCard icon={Clock3} label="Pending Review" tone="warning" value={stats.pending} />
+        <Link href="/admin/payments?status=pending" className="block transition hover:opacity-90">
+          <StatCard
+            icon={CreditCard}
+            label="Pending Payment Verification"
+            tone={pendingPaymentsCount > 0 ? "warning" : "default"}
+            value={pendingPaymentsCount}
+          />
+        </Link>
         <StatCard icon={ThumbsUp} label="Accepted" tone="info" value={stats.accepted} />
         <StatCard icon={XCircle} label="Rejected" tone="error" value={stats.rejected} />
         <StatCard

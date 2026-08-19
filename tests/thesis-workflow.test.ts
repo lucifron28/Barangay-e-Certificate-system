@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
 import {
+  confirmPaymentProof,
   createCertificateRequest,
-  createMockPayment,
   getCertificateRecordById,
   getCertificateRecordByRequestId,
   getCertificateVerificationByToken,
   getRequestById,
-  resolveMockPayment,
   revokeCertificateRecord,
+  submitPaymentProof,
   updateRequestStatus,
 } from "@/lib/db/sqlite/queries";
 import { getSqliteDb } from "@/lib/db/sqlite/client";
@@ -44,24 +44,23 @@ describe("isolated thesis certificate workflow", () => {
         status: "accepted",
       });
 
-      const payment = createMockPayment({
-        amount: 50,
-        request_id: request!.id,
-        resident_id: residentId,
+      const payment = submitPaymentProof({
+        proofSha256: "test-sha256-thesis",
+        proofStorageKey: "payment-proofs/test-thesis.png",
+        proofStorageProvider: "local",
+        provider: "gcash",
+        referenceNumber: "GCASH-THESIS-001",
+        requestId: request!.id,
+        residentId: residentId,
+        transactionDatetime: new Date().toISOString(),
       });
       expect(payment?.status).toBe("pending");
-      const paidPayment = resolveMockPayment({
-        payment_id: payment?.id ?? "",
-        resident_id: residentId,
-        status: "paid",
+
+      const paidPayment = confirmPaymentProof({
+        paymentId: payment?.id ?? "",
+        reviewerId: adminId,
       });
       expect(paidPayment?.status).toBe("paid");
-      updateRequestStatus({
-        id: request!.id,
-        paymentStatus: "paid",
-        status: "accepted",
-      });
-
       const issued = await issueCertificate({
         dateIssued: "2026-08-08",
         preparedBy: "Demo Main Admin",

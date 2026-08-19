@@ -2,14 +2,13 @@
 
 Responsive web application for Barangay Bato, Mauban, Quezon. Residents can
 submit certificate requests and track status. Main Admin and Barangay
-Secretary users can review requests, complete the clearly labeled payment
-simulation, issue private certificates, review reports, and inspect activity
-history.
+Secretary users can review requests, verify GCash and Maya payment proofs,
+issue private certificates, review reports, and inspect activity history.
 
 This repository is prepared for client preview and deployment handoff. It does
-not automatically deploy, import resident data, or connect a real payment
-provider.
-
+not connect an automated payment gateway. Residents pay using their external
+GCash or Maya apps, submit transaction proof, and authorized barangay staff
+manually verify each transaction before certificate issuance.
 ## Current Deployment Target
 
 | Environment | Database | Certificate storage | Email |
@@ -76,10 +75,9 @@ but their role values remain separate for future permission refinement.
 - Four certificate types: Clearance, Certificate/Pagpapatunay, Indigency, and
   Residency.
 - Fees: PHP 50 for Clearance, Certificate, and Residency; Indigency is free.
-- Payment state is `unpaid`, `paid`, or `free`; the current payment screen is a
-  clearly labeled simulation and transfers no actual funds. A real payment
-  gateway remains out of scope.
-- Residents may cancel only before approval. Accepted requests cannot be
+- Payment state is `unpaid`, `paid`, or `free`. Payment is completed via manual
+  GCash or Maya verification where residents pay externally and submit proof
+  for staff review. No automated payment gateway or webhook integration is used.
   rejected or cancelled by residents.
 - Rejected requests can be resubmitted using the existing request record.
 - Electronic signature output is a visual placeholder, not a legally verified
@@ -101,8 +99,8 @@ but their role values remain separate for future permission refinement.
 - Year-scoped atomic counters for requests, controls, and certificates.
 - Acceptance, rejection with required remarks, cancellation, and rejected
   request resubmission.
-- Clearly labeled payment simulation for accepted requests, with payment records and
-  retryable attempts on SQLite and Turso.
+- Manual GCash and Maya payment proof submission and staff verification queue
+  with private proof image storage and duplicate-reference protection.
 - Printable certificate HTML and generated PDF layouts based on supplied
   official reference PDFs.
 - Private local PDF storage and a Vercel Private Blob adapter.
@@ -399,10 +397,11 @@ Reports support filtering, browser print, PDF download, and Excel export through
 `write-excel-file` 4.1.1. The monthly barangay format remains pending final
 client confirmation.
 
-Payment records support the payment simulation. No gateway, card
-data, bank data, or real funds transfer is implemented. Fees are displayed and
-the resident completes a simulated payment before the admin can issue a PDF.
-
+Payment records support manual GCash and Maya transaction verification. No
+automated payment gateway, card processing, or bank funds transfer API is used.
+Residents scan the official barangay QR code, pay in their external app, and
+submit their reference number and receipt screenshot. Authorized barangay staff
+cross-check merchant records and confirm payment before issuing certificates.
 ## Supabase MCP Status
 
 No Supabase MCP changes were applied for this deployment goal. Supabase files
@@ -439,9 +438,9 @@ is not an active operating or deployment guide.
 | Request cancellation/resubmission | Implemented | Pending cancellation and rejected resubmission |
 | Certificate generation | Implemented / Partial | Four printable layouts based on supplied PDFs |
 | PDF download | Implemented | Private retrieval, hash check, and audit log |
-| Online delivery | Implemented | Accepted requests proceed through payment simulation and secure PDF download |
-| Fees | Implemented | PHP 50 or free; no real gateway |
-| Payment status | Implemented / Demo | `unpaid`, `paid`, and `free`; simulation only |
+| Online delivery | Implemented | Accepted requests proceed through manual payment proof verification and secure PDF download |
+| Fees | Implemented | PHP 50 or free; manual GCash/Maya verification |
+| Payment status | Implemented | `unpaid`, `paid`, and `free`; verified by staff |
 | Email notifications | Prepared / Optional | Gmail SMTP pending approved credentials |
 | Reports | Implemented / Partial | Print, PDF, Excel; monthly format pending |
 | Activity logs | Implemented | Admin-only major action history |

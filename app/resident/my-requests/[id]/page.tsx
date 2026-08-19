@@ -9,6 +9,7 @@ import {
   resubmitCertificateRequestAction,
 } from "@/lib/actions/requests";
 import { requireResident } from "@/lib/auth/guards";
+import { getLatestPaymentForRequest } from "@/lib/db/queries";
 import { getResidentRequest } from "@/lib/services/certificate-data";
 import {
   certificateLabel,
@@ -60,8 +61,8 @@ export default async function ResidentRequestDetailsPage({
   if (context.setupMissing) {
     return <SetupRequired missingEnv={context.missingEnv} />;
   }
-
   const request = await getResidentRequest(id, context.profile.id, context.supabase);
+  const latestPayment = request ? await getLatestPaymentForRequest(request.id) : null;
 
   if (!request) {
     return (
@@ -115,11 +116,70 @@ export default async function ResidentRequestDetailsPage({
           </div>
           <div>
             <dt className="text-sm text-base-content/60">Payment Status</dt>
-            <dd className="font-medium">
-              <PaymentBadge status={request.payment_status} />
+            <dd className="mt-1 flex flex-wrap items-center gap-2 font-medium">
+              <PaymentBadge
+                status={request.payment_status}
+                recordStatus={latestPayment?.status}
+              />
+              {request.status === "pending" && request.fee_amount > 0 && (
+                <span className="text-xs text-base-content/60">
+                  (Payment available upon acceptance)
+                </span>
+              )}
             </dd>
           </div>
         </dl>
+
+        {/* Payment Action Bar */}
+        {request.fee_amount > 0 && (
+          <div className="mt-6 rounded-lg border border-base-200 bg-base-200/50 p-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">Certificate Fee Payment</h3>
+                {request.status === "pending" ? (
+                  <p className="text-xs text-base-content/70">
+                    Payment becomes available after the barangay accepts your request.
+                  </p>
+                ) : request.payment_status === "paid" ? (
+                  <p className="text-xs text-success">
+                    Payment verified. Certificate will proceed to issuance.
+                  </p>
+                ) : latestPayment?.status === "pending" ? (
+                  <p className="text-xs text-warning">
+                    Payment proof submitted. Awaiting verification by Barangay staff.
+                  </p>
+                ) : latestPayment?.status === "failed" ? (
+                  <p className="text-xs text-error font-medium">
+                    Proof rejected: {latestPayment.review_remarks || "Invalid details"}
+                  </p>
+                ) : (
+                  <p className="text-xs text-base-content/70">
+                    Pay ₱{request.fee_amount}.00 via GCash or Maya and submit payment proof.
+                  </p>
+                )}
+              </div>
+
+              {request.status === "accepted" && request.payment_status === "unpaid" && (
+                <Link
+                  href={`/resident/payments/${request.id}`}
+                  className={`btn btn-sm ${
+                    latestPayment?.status === "failed"
+                      ? "btn-warning"
+                      : latestPayment?.status === "pending"
+                        ? "btn-outline"
+                        : "btn-primary"
+                  }`}
+                >
+                  {latestPayment?.status === "failed"
+                    ? "Resubmit Payment Proof"
+                    : latestPayment?.status === "pending"
+                      ? "View Submitted Proof"
+                      : "Pay Certificate Fee"}
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mt-6 rounded-lg bg-base-200 p-4">
           <h2 className="font-semibold">Submitted Information</h2>
