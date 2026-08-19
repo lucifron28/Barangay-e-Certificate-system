@@ -27,6 +27,7 @@ export function getSqliteDb() {
   const db = new Database(dbPath);
   db.pragma("foreign_keys = ON");
   db.pragma("journal_mode = WAL");
+  migrateSqlite(db);
 
   const schemaPath = path.join(
     /* turbopackIgnore: true */ process.cwd(),
@@ -36,7 +37,6 @@ export function getSqliteDb() {
     "schema.sql",
   );
   db.exec(readFileSync(schemaPath, "utf8"));
-  migrateSqlite(db);
 
   cachedDb = db;
   return db;
