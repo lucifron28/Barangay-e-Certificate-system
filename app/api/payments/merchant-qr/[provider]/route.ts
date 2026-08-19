@@ -44,6 +44,15 @@ export async function GET(
     });
   }
 
+  const url = new URL(_request.url);
+  const isStaffPreview = isStaff && url.searchParams.get("preview") === "true";
+
+  if (!config.enabled && !isStaffPreview) {
+    return new Response("Merchant QR is currently disabled", {
+      headers: { "Cache-Control": "no-store" },
+      status: 404,
+    });
+  }
   const file = await readPrivatePaymentFile({
     key: config.qrStorageKey,
     provider: config.qrStorageProvider || "local",

@@ -70,9 +70,10 @@ Run the migration script from a trusted operator environment with Preview databa
     DATABASE_PROVIDER=turso npm run db:migrate:turso
     DATABASE_PROVIDER=turso npm run db:status
 
-Expected files are 0000_initial_schema.sql, 0001_client_deployment.sql, and
-0002_full_online_workflow.sql. The runner creates schema_migrations, applies
-files in order, and does not drop existing production tables.
+Expected files are 0000_initial_schema.sql, 0001_client_deployment.sql,
+0002_full_online_workflow.sql, and 0003_manual_payment_verification.sql. The
+runner creates schema_migrations, applies files in order, and does not drop
+existing production tables.
 
 ## 6. Seed QA Sample Requests And Accounts
 

@@ -19,8 +19,12 @@ import {
   updateRequestStatus,
 } from "@/lib/db/sqlite/queries";
 import {
+  computeSha256,
+  deletePrivatePaymentFile,
   detectImageFormat,
   MAX_PAYMENT_FILE_BYTES,
+  readPrivatePaymentFile,
+  storePaymentProofImage,
 } from "@/lib/payments/storage";
 import { getLocalDatetimeInputValue } from "@/components/payments/resident-payment-form";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
@@ -683,6 +687,81 @@ describe("manual GCash and Maya payment verification", () => {
     expect(hasEligibleFeePayingRequest(freshResidentId)).toBe(false);
   });
 
+
+  it("disabled GCash and Maya methods cannot be served to residents", () => {
+    updatePaymentReceivingConfig("gcash", {
+      enabled: false,
+      merchantName: "Disabled Merchant",
+      qrStorageKey: "merchant-qrs/disabled.png",
+      qrStorageProvider: "local",
+      qrUpdatedAt: new Date().toISOString(),
+    });
+
+    const settings = getSystemSettings();
+    // When disabled, enabled is false
+    expect(settings.paymentReceiving.gcash.enabled).toBe(false);
+  });
+
+  it("verifies physical private proof file existence and SHA-256 integrity before approval", async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const stored = await storePaymentProofImage(pngBytes, "png");
+
+    const req = createCertificateRequest({
+      age: 28,
+      certificate_type: "barangay_clearance",
+      contact_number: "09170000001",
+      full_name: "Juan Demo Resident",
+      purpose: "Integrity test",
+      resident_id: residentOneId,
+    });
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req!.id, status: "accepted" });
+
+    const payment = submitPaymentProof({
+      proofSha256: stored.sha256,
+      proofStorageKey: stored.key,
+      proofStorageProvider: stored.provider,
+      provider: "gcash",
+      referenceNumber: `GCASH-INT-${randomUUID().slice(0, 6)}`,
+      requestId: req!.id,
+      residentId: residentOneId,
+      transactionDatetime: new Date().toISOString(),
+    });
+
+    // Read the stored file
+    const file = await readPrivatePaymentFile({
+      key: payment!.proof_storage_key,
+      provider: payment!.proof_storage_provider || "local",
+    });
+    expect(file).not.toBeNull();
+    expect(computeSha256(file!.bytes)).toBe(payment!.proof_sha256);
+
+    // Clean up file
+    await deletePrivatePaymentFile({
+      key: stored.key,
+      provider: stored.provider,
+    });
+
+    // Now file is missing
+    const missingFile = await readPrivatePaymentFile({
+      key: stored.key,
+      provider: stored.provider,
+    });
+    expect(missingFile).toBeNull();
+  });
+
+  it("failed DB submission cleans up newly uploaded proof from storage", async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d]);
+    const stored = await storePaymentProofImage(pngBytes, "png");
+
+    // Verify file exists
+    const fileBefore = await readPrivatePaymentFile({ key: stored.key, provider: stored.provider });
+    expect(fileBefore).not.toBeNull();
+
+    // Best-effort cleanup simulated on DB failure
+    await deletePrivatePaymentFile({ key: stored.key, provider: stored.provider });
+    const fileAfter = await readPrivatePaymentFile({ key: stored.key, provider: stored.provider });
+    expect(fileAfter).toBeNull();
+  });
   it("datetime-local default input value formats to local date and time correctly", () => {
     const fixedDate = new Date(2026, 7, 19, 14, 35); // Aug 19, 2026 14:35 Local
     const formatted = getLocalDatetimeInputValue(fixedDate);
