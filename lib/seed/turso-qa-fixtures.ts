@@ -400,7 +400,7 @@ export function buildTursoQaSystemSettingStatements(
         "payment_receiving_gcash",
         JSON.stringify({
           enabled: false,
-          merchantName: "Barangay Bato Official",
+          merchantName: "",
           qrStorageKey: null,
           qrStorageProvider: null,
           qrUpdatedAt: null,
@@ -420,7 +420,7 @@ export function buildTursoQaSystemSettingStatements(
         "payment_receiving_maya",
         JSON.stringify({
           enabled: false,
-          merchantName: "Barangay Bato Official",
+          merchantName: "",
           qrStorageKey: null,
           qrStorageProvider: null,
           qrUpdatedAt: null,

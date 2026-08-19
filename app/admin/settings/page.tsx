@@ -120,7 +120,7 @@ export default async function AdminSettingsPage({
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
                   Merchant / Account Name
                 </span>
-                <p className="font-medium text-sm">{gcash.merchantName}</p>
+                <p className="font-medium text-sm">{gcash.merchantName || "Not configured"}</p>
               </div>
 
               <div>
@@ -164,8 +164,8 @@ export default async function AdminSettingsPage({
                     <input
                       name="merchant_name"
                       defaultValue={gcash.merchantName}
+                      placeholder="e.g. Official Merchant / Account Name"
                       className="input input-bordered input-sm w-full"
-                      required
                     />
                   </div>
 
@@ -226,7 +226,7 @@ export default async function AdminSettingsPage({
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
                   Merchant / Account Name
                 </span>
-                <p className="font-medium text-sm">{maya.merchantName}</p>
+                <p className="font-medium text-sm">{maya.merchantName || "Not configured"}</p>
               </div>
 
               <div>
@@ -270,8 +270,8 @@ export default async function AdminSettingsPage({
                     <input
                       name="merchant_name"
                       defaultValue={maya.merchantName}
+                      placeholder="e.g. Official Merchant / Account Name"
                       className="input input-bordered input-sm w-full"
-                      required
                     />
                   </div>
 

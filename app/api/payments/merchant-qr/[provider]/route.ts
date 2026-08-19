@@ -1,7 +1,7 @@
 import { getAuthContext } from "@/lib/auth/guards";
-import { getSystemSettings } from "@/lib/db/queries";
+import { isAdminRole } from "@/lib/auth/roles";
+import { getSystemSettings, hasEligibleFeePayingRequest } from "@/lib/db/queries";
 import { readPrivatePaymentFile } from "@/lib/payments/storage";
-
 export const runtime = "nodejs";
 
 export async function GET(
@@ -16,6 +16,16 @@ export async function GET(
     });
   }
 
+  const isStaff = isAdminRole(context.profile.role);
+  if (!isStaff) {
+    const isEligible = await hasEligibleFeePayingRequest(context.profile.id);
+    if (!isEligible) {
+      return new Response("Forbidden", {
+        headers: { "Cache-Control": "no-store" },
+        status: 403,
+      });
+    }
+  }
   const { provider } = await params;
   if (provider !== "gcash" && provider !== "maya") {
     return new Response("Invalid payment provider", {

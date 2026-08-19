@@ -8,6 +8,14 @@ import { formatCurrency } from "@/lib/utils/format";
 import type { CertificateRequest } from "@/types/database";
 import type { SystemSettings } from "@/lib/db/queries";
 import type { PaymentProvider } from "@/types/enums";
+export function getLocalDatetimeInputValue(date: Date = new Date()): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
 
 export function ResidentPaymentForm({
   request,
@@ -188,7 +196,7 @@ export function ResidentPaymentForm({
                 <input
                   name="transaction_datetime"
                   type="datetime-local"
-                  defaultValue={new Date().toISOString().slice(0, 16)}
+                  defaultValue={getLocalDatetimeInputValue()}
                   className="input input-bordered w-full"
                   required
                 />

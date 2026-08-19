@@ -70,14 +70,14 @@ export type SystemSettings = {
 export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
   gcash: {
     enabled: false,
-    merchantName: "Barangay Bato Official",
+    merchantName: "",
     qrStorageKey: null,
     qrStorageProvider: null,
     qrUpdatedAt: null,
   },
   maya: {
     enabled: false,
-    merchantName: "Barangay Bato Official",
+    merchantName: "",
     qrStorageKey: null,
     qrStorageProvider: null,
     qrUpdatedAt: null,
@@ -86,7 +86,7 @@ export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
 
 function parsePaymentMethodConfig(
   val: unknown,
-  defaultName = "Barangay Bato Official",
+  defaultName = "",
 ): PaymentMethodConfig {
   if (!val || typeof val !== "object") {
     return {
@@ -98,13 +98,17 @@ function parsePaymentMethodConfig(
     };
   }
   const obj = val as Record<string, unknown>;
+  const merchantName =
+    typeof obj.merchantName === "string" ? obj.merchantName.trim() : defaultName;
+  const qrStorageKey =
+    typeof obj.qrStorageKey === "string" && obj.qrStorageKey.trim()
+      ? obj.qrStorageKey.trim()
+      : null;
+  const canBeEnabled = Boolean(merchantName && qrStorageKey);
   return {
-    enabled: Boolean(obj.enabled),
-    merchantName:
-      typeof obj.merchantName === "string" && obj.merchantName.trim()
-        ? obj.merchantName.trim()
-        : defaultName,
-    qrStorageKey: typeof obj.qrStorageKey === "string" ? obj.qrStorageKey : null,
+    enabled: Boolean(obj.enabled) && canBeEnabled,
+    merchantName,
+    qrStorageKey,
     qrStorageProvider:
       obj.qrStorageProvider === "vercel_blob"
         ? "vercel_blob"
@@ -910,6 +914,20 @@ export async function hasSuccessfulPayment(requestId: string, residentId: string
   );
 }
 
+export async function hasEligibleFeePayingRequest(residentId: string): Promise<boolean> {
+  return Boolean(
+    await prepareTurso<Row>(
+      `SELECT id FROM certificate_requests
+       WHERE resident_id = ?
+         AND status = 'accepted'
+         AND fee_amount > 0
+         AND payment_status = 'unpaid'
+       LIMIT 1`,
+      [residentId],
+    ),
+  );
+}
+
 export async function submitPaymentProof(input: {
   proofSha256: string;
   proofStorageKey: string;
@@ -924,11 +942,21 @@ export async function submitPaymentProof(input: {
   const timestamp = nowIso();
   const normalizedRef = input.referenceNumber.trim().toUpperCase();
 
-  const existingRef = await prepareTurso<Row>(
-    "SELECT id FROM payments WHERE provider_transaction_id = ? AND request_id != ?",
+  // 1. Check if this reference number was already verified/paid on ANY request
+  const alreadyPaid = await prepareTurso<Row>(
+    "SELECT id FROM payments WHERE provider_transaction_id = ? AND status = 'paid'",
+    [normalizedRef],
+  );
+  if (alreadyPaid) {
+    throw new Error("This reference number has already been verified and cannot be reused.");
+  }
+
+  // 2. Check duplicate reference across DIFFERENT requests
+  const existingOnOtherRequest = await prepareTurso<Row>(
+    "SELECT id, request_id FROM payments WHERE provider_transaction_id = ? AND request_id != ?",
     [normalizedRef, input.requestId],
   );
-  if (existingRef) {
+  if (existingOnOtherRequest) {
     throw new Error("This reference number has already been submitted for another request.");
   }
 
@@ -949,17 +977,22 @@ export async function submitPaymentProof(input: {
       return false;
     }
 
-    const pendingPayment = (await tx.get(
-      "SELECT id FROM payments WHERE request_id = ? AND status = 'pending'",
+    const existingPaymentRow = (await tx.get(
+      "SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1",
       input.requestId,
     )) as Row | undefined;
+    const existingPayment = paymentFromRow(existingPaymentRow);
 
-    if (pendingPayment) {
+    if (existingPayment && ["pending", "failed"].includes(existingPayment.status)) {
+      const isResubmission = existingPayment.status === "failed";
+
       await tx.run(
         `UPDATE payments
          SET provider = ?, provider_transaction_id = ?, amount = ?, currency = 'PHP',
-             submitted_at = ?, transaction_datetime = ?, proof_storage_provider = ?,
-             proof_storage_key = ?, proof_sha256 = ?, updated_at = ?
+             status = 'pending', submitted_at = ?, transaction_datetime = ?,
+             proof_storage_provider = ?, proof_storage_key = ?, proof_sha256 = ?,
+             paid_at = NULL, reviewed_at = NULL, reviewed_by = NULL, review_remarks = NULL,
+             updated_at = ?
          WHERE id = ?`,
         input.provider,
         normalizedRef,
@@ -970,15 +1003,19 @@ export async function submitPaymentProof(input: {
         input.proofStorageKey,
         input.proofSha256,
         timestamp,
-        String(pendingPayment.id),
+        existingPayment.id,
       );
 
       await tx.run(
         "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
         randomUUID(),
-        String(pendingPayment.id),
-        "payment_proof_submitted",
+        existingPayment.id,
+        isResubmission ? "payment_proof_resubmitted" : "payment_proof_submitted",
         stringifyJson({
+          is_resubmission: isResubmission,
+          previous_proof_sha256: existingPayment.proof_sha256,
+          previous_reference: existingPayment.provider_transaction_id,
+          previous_rejection_reason: existingPayment.review_remarks,
           provider: input.provider,
           reference: normalizedRef,
           sha256: input.proofSha256,
@@ -1035,28 +1072,92 @@ export async function confirmPaymentProof(input: {
 }) {
   const timestamp = nowIso();
   const run = getTursoDb().transactionAsync(async (tx) => {
+    // 1. Verify reviewer authorization
+    const reviewer = (await tx.get(
+      "SELECT id, role FROM profiles WHERE id = ?",
+      input.reviewerId,
+    )) as { id: string; role: string } | undefined;
+    if (!reviewer || !["main_admin", "barangay_secretary"].includes(reviewer.role)) {
+      throw new Error("Reviewer is not authorized to confirm payments.");
+    }
+
+    // 2. Fetch and validate payment
     const paymentRow = (await tx.get(
       "SELECT * FROM payments WHERE id = ?",
       input.paymentId,
     )) as Row | undefined;
     const payment = paymentFromRow(paymentRow);
-    if (!payment || payment.status !== "pending") return false;
+    if (!payment) {
+      throw new Error("Payment record not found.");
+    }
 
+    if (payment.status !== "pending") {
+      throw new Error("Payment is not in pending verification status.");
+    }
+
+    if (payment.provider !== "gcash" && payment.provider !== "maya") {
+      throw new Error("Unsupported payment provider.");
+    }
+
+    if (!payment.provider_transaction_id || !payment.provider_transaction_id.trim()) {
+      throw new Error("Payment reference number is missing.");
+    }
+
+    if (!payment.proof_storage_key || !payment.proof_sha256) {
+      throw new Error("Payment proof screenshot or verification checksum is missing.");
+    }
+
+    if (payment.reviewed_at !== null || payment.reviewed_by !== null) {
+      throw new Error("Payment has already been reviewed.");
+    }
+
+    // 3. Fetch and validate request
     const request = requestFromRow(
       (await tx.get(
         "SELECT * FROM certificate_requests WHERE id = ?",
         payment.request_id,
       )) as Row | undefined,
     );
-    if (
-      !request ||
-      request.status !== "accepted" ||
-      request.fee_amount <= 0 ||
-      request.fee_amount !== payment.amount
-    ) {
-      return false;
+    if (!request) {
+      throw new Error("Associated certificate request not found.");
     }
 
+    if (request.status !== "accepted") {
+      throw new Error("Certificate request must be in accepted status before payment confirmation.");
+    }
+
+    if (payment.resident_id !== request.resident_id) {
+      throw new Error("Payment resident does not match the certificate request owner.");
+    }
+
+    if (request.fee_amount <= 0) {
+      throw new Error("Certificate request has zero fee and does not require payment.");
+    }
+
+    if (payment.amount !== request.fee_amount) {
+      throw new Error("Payment amount does not match the required certificate fee.");
+    }
+
+    // 4. Ensure certificate has not already been issued
+    const existingIssuedCert = (await tx.get(
+      "SELECT id FROM certificate_records WHERE request_id = ? AND status = 'issued'",
+      request.id,
+    )) as { id: string } | undefined;
+    if (existingIssuedCert) {
+      throw new Error("A certificate has already been issued for this request.");
+    }
+
+    // 5. Ensure duplicate verified/paid reference is not present
+    const duplicatePaid = (await tx.get(
+      "SELECT id FROM payments WHERE provider_transaction_id = ? AND status = 'paid' AND id != ?",
+      payment.provider_transaction_id,
+      payment.id,
+    )) as { id: string } | undefined;
+    if (duplicatePaid) {
+      throw new Error("This reference number has already been verified for another payment.");
+    }
+
+    // 6. Atomically update payment and request
     await tx.run(
       `UPDATE payments
        SET status = 'paid', paid_at = ?, reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
@@ -1101,11 +1202,19 @@ export async function rejectPaymentProof(input: {
   rejectionReason: string;
   reviewerId: string;
 }) {
-  if (!input.rejectionReason.trim()) {
+  if (!input.rejectionReason || !input.rejectionReason.trim()) {
     throw new Error("A rejection reason is required.");
   }
   const timestamp = nowIso();
   const run = getTursoDb().transactionAsync(async (tx) => {
+    const reviewer = (await tx.get(
+      "SELECT id, role FROM profiles WHERE id = ?",
+      input.reviewerId,
+    )) as { id: string; role: string } | undefined;
+    if (!reviewer || !["main_admin", "barangay_secretary"].includes(reviewer.role)) {
+      throw new Error("Reviewer is not authorized to reject payments.");
+    }
+
     const paymentRow = (await tx.get(
       "SELECT * FROM payments WHERE id = ?",
       input.paymentId,
