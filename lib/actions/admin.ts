@@ -449,8 +449,11 @@ export async function updatePaymentMethodSettingsAction(formData: FormData) {
   const enabled =
     formData.get("enabled") === "on" || formData.get("enabled") === "true";
   const merchantName = String(formData.get("merchant_name") ?? "").trim();
-  if (!merchantName) {
-    redirectWithError("/admin/settings", "Merchant name is required.");
+  if (enabled && !merchantName) {
+    redirectWithError(
+      "/admin/settings",
+      "CLIENT PAYMENT QR CONFIGURATION REQUIRED: Merchant display name is required before enabling this payment method.",
+    );
   }
 
   const qrFile = formData.get("qr_image") as File | null;
@@ -482,7 +485,7 @@ export async function updatePaymentMethodSettingsAction(formData: FormData) {
   if (enabled && !newQrKey) {
     redirectWithError(
       "/admin/settings",
-      "CLIENT PAYMENT QR CONFIGURATION REQUIRED: Upload an official payment QR code before enabling this method.",
+      "CLIENT PAYMENT QR CONFIGURATION REQUIRED: Official QR code image is required before enabling this payment method.",
     );
   }
 

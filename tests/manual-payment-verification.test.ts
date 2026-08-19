@@ -9,6 +9,7 @@ import {
   getPaymentById,
   getRequestById,
   getSystemSettings,
+  hasEligibleFeePayingRequest,
   hasSuccessfulPayment,
   listPaymentsForRequest,
   listPaymentsForVerification,
@@ -21,6 +22,7 @@ import {
   detectImageFormat,
   MAX_PAYMENT_FILE_BYTES,
 } from "@/lib/payments/storage";
+import { getLocalDatetimeInputValue } from "@/components/payments/resident-payment-form";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
 
 const adminId = "00000000-0000-4000-8000-000000000001";
@@ -438,7 +440,7 @@ describe("manual GCash and Maya payment verification", () => {
   it("payment receiving settings update and persist correctly", () => {
     const newConfig = {
       enabled: true,
-      merchantName: "Barangay Bato Official GCash",
+      merchantName: "Official Barangay GCash",
       qrStorageKey: "merchant-qrs/gcash-test.png",
       qrStorageProvider: "local" as const,
       qrUpdatedAt: new Date().toISOString(),
@@ -447,16 +449,243 @@ describe("manual GCash and Maya payment verification", () => {
     updatePaymentReceivingConfig("gcash", newConfig);
     const settings = getSystemSettings();
     expect(settings.paymentReceiving.gcash.enabled).toBe(true);
-    expect(settings.paymentReceiving.gcash.merchantName).toBe("Barangay Bato Official GCash");
+    expect(settings.paymentReceiving.gcash.merchantName).toBe("Official Barangay GCash");
     expect(settings.paymentReceiving.gcash.qrStorageKey).toBe("merchant-qrs/gcash-test.png");
 
     // Restore default
     updatePaymentReceivingConfig("gcash", {
       enabled: false,
-      merchantName: "Barangay Bato Official",
+      merchantName: "",
       qrStorageKey: null,
       qrStorageProvider: null,
       qrUpdatedAt: null,
     });
+  });
+
+  it("0003 migration schema compatibility ensures all required payment proof columns exist", () => {
+    const db = getSqliteDb();
+    const tableInfo = db.prepare("PRAGMA table_info(payments)").all() as Array<{ name: string }>;
+    const columnNames = tableInfo.map((c) => c.name);
+
+    expect(columnNames).toContain("submitted_at");
+    expect(columnNames).toContain("transaction_datetime");
+    expect(columnNames).toContain("proof_storage_provider");
+    expect(columnNames).toContain("proof_storage_key");
+    expect(columnNames).toContain("proof_sha256");
+    expect(columnNames).toContain("reviewed_at");
+    expect(columnNames).toContain("reviewed_by");
+    expect(columnNames).toContain("review_remarks");
+  });
+
+  it("same request can resubmit clearer proof reusing the same real transaction reference after rejection", () => {
+    const req = createCertificateRequest({
+      age: 28,
+      certificate_type: "barangay_clearance",
+      contact_number: "09170000001",
+      full_name: "Juan Demo Resident",
+      purpose: "Clearance resubmission test",
+      resident_id: residentOneId,
+    });
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req!.id, status: "accepted" });
+
+    const realRef = `GCASH-REAL-${randomUUID().slice(0, 8)}`;
+    const firstSubmission = submitPaymentProof({
+      proofSha256: "hash-blurry-1",
+      proofStorageKey: "payment-proofs/blurry.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: realRef,
+      requestId: req!.id,
+      residentId: residentOneId,
+      transactionDatetime: new Date().toISOString(),
+    });
+
+    expect(firstSubmission?.status).toBe("pending");
+
+    // Staff rejects because screenshot was unreadable
+    const rejected = rejectPaymentProof({
+      paymentId: firstSubmission!.id,
+      rejectionReason: "Screenshot unreadable / blurry reference",
+      reviewerId: secretaryId,
+    });
+
+    expect(rejected?.status).toBe("failed");
+    expect(rejected?.review_remarks).toBe("Screenshot unreadable / blurry reference");
+
+    // Resident uploads clearer screenshot reusing the SAME real reference number
+    const resubmitted = submitPaymentProof({
+      proofSha256: "hash-clear-2",
+      proofStorageKey: "payment-proofs/clear.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: realRef,
+      requestId: req!.id,
+      residentId: residentOneId,
+      transactionDatetime: new Date().toISOString(),
+    });
+
+    expect(resubmitted?.status).toBe("pending");
+    expect(resubmitted?.provider_transaction_id).toBe(realRef.toUpperCase());
+    expect(resubmitted?.proof_sha256).toBe("hash-clear-2");
+    expect(resubmitted?.review_remarks).toBeNull();
+    expect(resubmitted?.reviewed_by).toBeNull();
+
+    const events = getSqliteDb()
+      .prepare("SELECT event_type, payload FROM payment_events WHERE payment_id = ? ORDER BY created_at ASC")
+      .all(resubmitted!.id) as Array<{ event_type: string; payload: string }>;
+
+    expect(events.map((e) => e.event_type)).toContain("payment_proof_resubmitted");
+
+    // Staff can now approve the clearer resubmission
+    const approved = confirmPaymentProof({
+      paymentId: resubmitted!.id,
+      reviewerId: secretaryId,
+    });
+    expect(approved?.status).toBe("paid");
+    expect(getRequestById(req!.id)?.payment_status).toBe("paid");
+  });
+
+  it("verified reference number cannot be reused for another payment", () => {
+    const req1 = createCertificateRequest({
+      age: 28,
+      certificate_type: "barangay_clearance",
+      contact_number: "09170000001",
+      full_name: "Juan Demo Resident",
+      purpose: "Clearance 1",
+      resident_id: residentOneId,
+    });
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req1!.id, status: "accepted" });
+
+    const settledRef = `GCASH-SETTLED-${randomUUID().slice(0, 6)}`;
+    const p1 = submitPaymentProof({
+      proofSha256: "hash-p1",
+      proofStorageKey: "payment-proofs/p1.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: settledRef,
+      requestId: req1!.id,
+      residentId: residentOneId,
+      transactionDatetime: new Date().toISOString(),
+    });
+
+    confirmPaymentProof({ paymentId: p1!.id, reviewerId: adminId });
+
+    const req2 = createCertificateRequest({
+      age: 30,
+      certificate_type: "barangay_residency",
+      contact_number: "09170000002",
+      full_name: "Maria Demo Resident",
+      purpose: "Residency 2",
+      resident_id: residentTwoId,
+    });
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req2!.id, status: "accepted" });
+
+    expect(() => {
+      submitPaymentProof({
+        proofSha256: "hash-p2",
+        proofStorageKey: "payment-proofs/p2.png",
+        proofStorageProvider: "local",
+        provider: "gcash",
+        referenceNumber: settledRef,
+        requestId: req2!.id,
+        residentId: residentTwoId,
+        transactionDatetime: new Date().toISOString(),
+      });
+    }).toThrow("This reference number has already been verified and cannot be reused.");
+  });
+
+  it("confirmation rejects mismatched resident, unsupported provider, missing proof, and wrong amount", () => {
+    const db = getSqliteDb();
+    const req = createCertificateRequest({
+      age: 28,
+      certificate_type: "barangay_clearance",
+      contact_number: "09170000001",
+      full_name: "Juan Demo Resident",
+      purpose: "Clearance hardening",
+      resident_id: residentOneId,
+    });
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req!.id, status: "accepted" });
+
+    const payment = submitPaymentProof({
+      proofSha256: "hash-harden",
+      proofStorageKey: "payment-proofs/harden.png",
+      proofStorageProvider: "local",
+      provider: "gcash",
+      referenceNumber: `GCASH-HARDEN-${randomUUID().slice(0, 6)}`,
+      requestId: req!.id,
+      residentId: residentOneId,
+      transactionDatetime: new Date().toISOString(),
+    });
+
+    // Unauthorized reviewer
+    expect(() => {
+      confirmPaymentProof({
+        paymentId: payment!.id,
+        reviewerId: residentOneId, // resident role
+      });
+    }).toThrow("Reviewer is not authorized to confirm payments.");
+
+    // Tampered resident ID on payment
+    db.prepare("UPDATE payments SET resident_id = ? WHERE id = ?").run(residentTwoId, payment!.id);
+    expect(() => {
+      confirmPaymentProof({ paymentId: payment!.id, reviewerId: adminId });
+    }).toThrow("Payment resident does not match the certificate request owner.");
+    db.prepare("UPDATE payments SET resident_id = ? WHERE id = ?").run(residentOneId, payment!.id);
+
+    // Tampered provider
+    db.prepare("UPDATE payments SET provider = 'unsupported_bank' WHERE id = ?").run(payment!.id);
+    expect(() => {
+      confirmPaymentProof({ paymentId: payment!.id, reviewerId: adminId });
+    }).toThrow("Unsupported payment provider.");
+    db.prepare("UPDATE payments SET provider = 'gcash' WHERE id = ?").run(payment!.id);
+
+    // Missing proof key
+    db.prepare("UPDATE payments SET proof_storage_key = NULL WHERE id = ?").run(payment!.id);
+    expect(() => {
+      confirmPaymentProof({ paymentId: payment!.id, reviewerId: adminId });
+    }).toThrow("Payment proof screenshot or verification checksum is missing.");
+    db.prepare("UPDATE payments SET proof_storage_key = 'payment-proofs/harden.png' WHERE id = ?").run(payment!.id);
+
+    // Wrong amount
+    db.prepare("UPDATE payments SET amount = 25 WHERE id = ?").run(payment!.id);
+    expect(() => {
+      confirmPaymentProof({ paymentId: payment!.id, reviewerId: adminId });
+    }).toThrow("Payment amount does not match the required certificate fee.");
+    db.prepare("UPDATE payments SET amount = 50 WHERE id = ?").run(payment!.id);
+  });
+
+  it("resident merchant QR authorization check strictly allows only eligible fee-paying residents", () => {
+    const freshResidentId = randomUUID();
+    expect(hasEligibleFeePayingRequest(freshResidentId)).toBe(false);
+
+    getSqliteDb().prepare(
+      `INSERT INTO profiles (id, full_name, email, role, created_at, updated_at)
+       VALUES (?, 'Fresh Resident', ?, 'resident', datetime('now'), datetime('now'))`,
+    ).run(freshResidentId, `${freshResidentId}@example.com`);
+
+    const req = createCertificateRequest({
+      age: 28,
+      certificate_type: "barangay_residency",
+      contact_number: "09170000001",
+      full_name: "Fresh Resident",
+      purpose: "QR authorization check",
+      resident_id: freshResidentId,
+    });
+    // While request is pending, not yet accepted
+    expect(hasEligibleFeePayingRequest(freshResidentId)).toBe(false);
+
+    // Once accepted and fee > 0 and unpaid
+    updateRequestStatus({ dateAccepted: new Date().toISOString(), id: req!.id, status: "accepted" });
+    expect(hasEligibleFeePayingRequest(freshResidentId)).toBe(true);
+
+    // When payment is settled / paid, eligible check returns false
+    updateRequestStatus({ id: req!.id, paymentStatus: "paid", status: "accepted" });
+    expect(hasEligibleFeePayingRequest(freshResidentId)).toBe(false);
+  });
+
+  it("datetime-local default input value formats to local date and time correctly", () => {
+    const fixedDate = new Date(2026, 7, 19, 14, 35); // Aug 19, 2026 14:35 Local
+    const formatted = getLocalDatetimeInputValue(fixedDate);
+    expect(formatted).toBe("2026-08-19T14:35");
   });
 });

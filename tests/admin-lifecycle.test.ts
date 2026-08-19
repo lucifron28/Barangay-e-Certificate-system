@@ -54,8 +54,13 @@ describe("admin lifecycle views", () => {
 
     expect(attempts.length).toBeGreaterThan(0);
     expect(attempts.every((payment) => payment.request_id === requestId)).toBe(true);
-    expect(attempts.map((payment) => payment.status)).toEqual(
-      expect.arrayContaining(["failed", "pending"]),
+    expect(attempts.map((payment) => payment.status)).toEqual(["pending"]);
+
+    const events = getSqliteDb()
+      .prepare("SELECT event_type FROM payment_events WHERE payment_id = ?")
+      .all(attempts[0].id) as Array<{ event_type: string }>;
+    expect(events.map((e) => e.event_type)).toEqual(
+      expect.arrayContaining(["payment_rejected", "payment_proof_resubmitted"]),
     );
   });
 

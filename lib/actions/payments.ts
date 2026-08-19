@@ -45,8 +45,8 @@ export async function submitPaymentProofAction(formData: FormData) {
   }
 
   const transactionDatetime = String(formData.get("transaction_datetime") ?? "").trim();
-  if (!transactionDatetime) {
-    redirectWithError(path, "Please provide the transaction date and time.");
+  if (!transactionDatetime || Number.isNaN(new Date(transactionDatetime).getTime())) {
+    redirectWithError(path, "Please provide a valid transaction date and time.");
   }
 
   const proofFile = formData.get("proof_image") as File | null;

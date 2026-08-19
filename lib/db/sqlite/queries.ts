@@ -70,14 +70,14 @@ export type SystemSettings = {
 export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
   gcash: {
     enabled: false,
-    merchantName: "Barangay Bato Official",
+    merchantName: "",
     qrStorageKey: null,
     qrStorageProvider: null,
     qrUpdatedAt: null,
   },
   maya: {
     enabled: false,
-    merchantName: "Barangay Bato Official",
+    merchantName: "",
     qrStorageKey: null,
     qrStorageProvider: null,
     qrUpdatedAt: null,
@@ -86,7 +86,7 @@ export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
 
 function parsePaymentMethodConfig(
   val: unknown,
-  defaultName = "Barangay Bato Official",
+  defaultName = "",
 ): PaymentMethodConfig {
   if (!val || typeof val !== "object") {
     return {
@@ -98,13 +98,17 @@ function parsePaymentMethodConfig(
     };
   }
   const obj = val as Record<string, unknown>;
+  const merchantName =
+    typeof obj.merchantName === "string" ? obj.merchantName.trim() : defaultName;
+  const qrStorageKey =
+    typeof obj.qrStorageKey === "string" && obj.qrStorageKey.trim()
+      ? obj.qrStorageKey.trim()
+      : null;
+  const canBeEnabled = Boolean(merchantName && qrStorageKey);
   return {
-    enabled: Boolean(obj.enabled),
-    merchantName:
-      typeof obj.merchantName === "string" && obj.merchantName.trim()
-        ? obj.merchantName.trim()
-        : defaultName,
-    qrStorageKey: typeof obj.qrStorageKey === "string" ? obj.qrStorageKey : null,
+    enabled: Boolean(obj.enabled) && canBeEnabled,
+    merchantName,
+    qrStorageKey,
     qrStorageProvider:
       obj.qrStorageProvider === "vercel_blob"
         ? "vercel_blob"
@@ -928,6 +932,21 @@ export function hasSuccessfulPayment(requestId: string, residentId: string) {
   );
 }
 
+export function hasEligibleFeePayingRequest(residentId: string): boolean {
+  return Boolean(
+    getSqliteDb()
+      .prepare(
+        `SELECT id FROM certificate_requests
+         WHERE resident_id = ?
+           AND status = 'accepted'
+           AND fee_amount > 0
+           AND payment_status = 'unpaid'
+         LIMIT 1`,
+      )
+      .get(residentId),
+  );
+}
+
 export function submitPaymentProof(input: {
   proofSha256: string;
   proofStorageKey: string;
@@ -953,28 +972,47 @@ export function submitPaymentProof(input: {
       return null;
     }
 
-    const existingRef = db
+    // 1. Check if this reference number was already verified/paid on ANY request
+    const alreadyPaid = db
+      .prepare(
+        "SELECT id FROM payments WHERE provider_transaction_id = ? AND status = 'paid'",
+      )
+      .get(normalizedRef) as { id: string } | undefined;
+    if (alreadyPaid) {
+      throw new Error("This reference number has already been verified and cannot be reused.");
+    }
+
+    // 2. Check duplicate reference across DIFFERENT requests
+    const existingOnOtherRequest = db
       .prepare(
         "SELECT id, request_id FROM payments WHERE provider_transaction_id = ? AND request_id != ?",
       )
       .get(normalizedRef, input.requestId) as { id: string; request_id: string } | undefined;
-    if (existingRef) {
+    if (existingOnOtherRequest) {
       throw new Error("This reference number has already been submitted for another request.");
     }
 
     const timestamp = nowIso();
     const id = randomUUID();
 
-    const pendingPayment = db
-      .prepare("SELECT id FROM payments WHERE request_id = ? AND status = 'pending'")
-      .get(input.requestId) as { id: string } | undefined;
+    // Check if there is an existing payment record on this request (pending or failed/rejected)
+    const existingPaymentRow = db
+      .prepare(
+        "SELECT * FROM payments WHERE request_id = ? ORDER BY created_at DESC LIMIT 1",
+      )
+      .get(input.requestId) as Row | undefined;
+    const existingPayment = paymentFromRow(existingPaymentRow);
 
-    if (pendingPayment) {
+    if (existingPayment && ["pending", "failed"].includes(existingPayment.status)) {
+      const isResubmission = existingPayment.status === "failed";
+
       db.prepare(
         `UPDATE payments
          SET provider = ?, provider_transaction_id = ?, amount = ?, currency = 'PHP',
-             submitted_at = ?, transaction_datetime = ?, proof_storage_provider = ?,
-             proof_storage_key = ?, proof_sha256 = ?, updated_at = ?
+             status = 'pending', submitted_at = ?, transaction_datetime = ?,
+             proof_storage_provider = ?, proof_storage_key = ?, proof_sha256 = ?,
+             paid_at = NULL, reviewed_at = NULL, reviewed_by = NULL, review_remarks = NULL,
+             updated_at = ?
          WHERE id = ?`,
       ).run(
         input.provider,
@@ -986,16 +1024,20 @@ export function submitPaymentProof(input: {
         input.proofStorageKey,
         input.proofSha256,
         timestamp,
-        pendingPayment.id,
+        existingPayment.id,
       );
 
       db.prepare(
         "INSERT INTO payment_events (id, payment_id, event_type, payload, created_at) VALUES (?, ?, ?, ?, ?)",
       ).run(
         randomUUID(),
-        pendingPayment.id,
-        "payment_proof_submitted",
+        existingPayment.id,
+        isResubmission ? "payment_proof_resubmitted" : "payment_proof_submitted",
         stringifyJson({
+          is_resubmission: isResubmission,
+          previous_proof_sha256: existingPayment.proof_sha256,
+          previous_reference: existingPayment.provider_transaction_id,
+          previous_rejection_reason: existingPayment.review_remarks,
           provider: input.provider,
           reference: normalizedRef,
           sha256: input.proofSha256,
@@ -1053,24 +1095,86 @@ export function confirmPaymentProof(input: {
 }) {
   const db = getSqliteDb();
   return db.transaction(() => {
+    // 1. Verify reviewer authorization
+    const reviewer = db
+      .prepare("SELECT id, role FROM profiles WHERE id = ?")
+      .get(input.reviewerId) as { id: string; role: string } | undefined;
+    if (!reviewer || !["main_admin", "barangay_secretary"].includes(reviewer.role)) {
+      throw new Error("Reviewer is not authorized to confirm payments.");
+    }
+
+    // 2. Fetch and validate payment
     const paymentRow = db
       .prepare("SELECT * FROM payments WHERE id = ?")
       .get(input.paymentId) as Row | undefined;
     const payment = paymentFromRow(paymentRow);
-    if (!payment || payment.status !== "pending") return null;
+    if (!payment) {
+      throw new Error("Payment record not found.");
+    }
 
+    if (payment.status !== "pending") {
+      throw new Error("Payment is not in pending verification status.");
+    }
+
+    if (payment.provider !== "gcash" && payment.provider !== "maya") {
+      throw new Error("Unsupported payment provider.");
+    }
+
+    if (!payment.provider_transaction_id || !payment.provider_transaction_id.trim()) {
+      throw new Error("Payment reference number is missing.");
+    }
+
+    if (!payment.proof_storage_key || !payment.proof_sha256) {
+      throw new Error("Payment proof screenshot or verification checksum is missing.");
+    }
+
+    if (payment.reviewed_at !== null || payment.reviewed_by !== null) {
+      throw new Error("Payment has already been reviewed.");
+    }
+
+    // 3. Fetch and validate certificate request
     const request = getRequestById(payment.request_id);
-    if (
-      !request ||
-      request.status !== "accepted" ||
-      request.fee_amount <= 0 ||
-      request.fee_amount !== payment.amount
-    ) {
-      return null;
+    if (!request) {
+      throw new Error("Associated certificate request not found.");
+    }
+
+    if (request.status !== "accepted") {
+      throw new Error("Certificate request must be in accepted status before payment confirmation.");
+    }
+
+    if (payment.resident_id !== request.resident_id) {
+      throw new Error("Payment resident does not match the certificate request owner.");
+    }
+
+    if (request.fee_amount <= 0) {
+      throw new Error("Certificate request has zero fee and does not require payment.");
+    }
+
+    if (payment.amount !== request.fee_amount) {
+      throw new Error("Payment amount does not match the required certificate fee.");
+    }
+
+    // 4. Ensure certificate has not already been issued
+    const existingIssuedCert = db
+      .prepare("SELECT id FROM certificate_records WHERE request_id = ? AND status = 'issued'")
+      .get(request.id) as { id: string } | undefined;
+    if (existingIssuedCert) {
+      throw new Error("A certificate has already been issued for this request.");
+    }
+
+    // 5. Ensure duplicate verified/paid reference is not present
+    const duplicatePaid = db
+      .prepare(
+        "SELECT id FROM payments WHERE provider_transaction_id = ? AND status = 'paid' AND id != ?",
+      )
+      .get(payment.provider_transaction_id, payment.id) as { id: string } | undefined;
+    if (duplicatePaid) {
+      throw new Error("This reference number has already been verified for another payment.");
     }
 
     const timestamp = nowIso();
 
+    // 6. Atomically update payment and request
     db.prepare(
       `UPDATE payments
        SET status = 'paid', paid_at = ?, reviewed_at = ?, reviewed_by = ?, review_remarks = ?, updated_at = ?
@@ -1114,11 +1218,18 @@ export function rejectPaymentProof(input: {
   reviewerId: string;
 }) {
   const db = getSqliteDb();
-  if (!input.rejectionReason.trim()) {
+  if (!input.rejectionReason || !input.rejectionReason.trim()) {
     throw new Error("A rejection reason is required.");
   }
 
   return db.transaction(() => {
+    const reviewer = db
+      .prepare("SELECT id, role FROM profiles WHERE id = ?")
+      .get(input.reviewerId) as { id: string; role: string } | undefined;
+    if (!reviewer || !["main_admin", "barangay_secretary"].includes(reviewer.role)) {
+      throw new Error("Reviewer is not authorized to reject payments.");
+    }
+
     const paymentRow = db
       .prepare("SELECT * FROM payments WHERE id = ?")
       .get(input.paymentId) as Row | undefined;

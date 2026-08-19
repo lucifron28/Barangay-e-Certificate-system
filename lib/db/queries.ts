@@ -150,6 +150,9 @@ export async function hasSuccessfulPayment(requestId: string, residentId: string
   return (await loadProviderModule()).hasSuccessfulPayment(requestId, residentId);
 }
 
+export async function hasEligibleFeePayingRequest(residentId: string) {
+  return (await loadProviderModule()).hasEligibleFeePayingRequest(residentId);
+}
 export async function submitPaymentProof(
   input: Parameters<typeof sqlite.submitPaymentProof>[0],
 ) {

@@ -291,14 +291,14 @@ async function main() {
     }
     setSystemSetting("payment_receiving_gcash", {
       enabled: false,
-      merchantName: "Barangay Bato Official",
+      merchantName: "",
       qrStorageKey: null,
       qrStorageProvider: null,
       qrUpdatedAt: null,
     });
     setSystemSetting("payment_receiving_maya", {
       enabled: false,
-      merchantName: "Barangay Bato Official",
+      merchantName: "",
       qrStorageKey: null,
       qrStorageProvider: null,
       qrUpdatedAt: null,
