@@ -151,7 +151,7 @@ export default async function AdminRequestDetailsPage({
                 Payment attempts
               </h2>
               <p className="mt-1 text-sm text-base-content/70">
-                "Simulated payment history for this request. No actual funds are transferred."
+                Payment proof submissions and staff verification history for this request.
               </p>
             </div>
             <PaymentBadge status={request.payment_status} />
