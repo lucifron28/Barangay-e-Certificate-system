@@ -8,6 +8,8 @@ import {
 } from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import { getSystemSettings } from "@/lib/db/queries";
+import { env } from "@/lib/env";
+import { isDemoPaymentMethodConfig } from "@/lib/payments/demo-config";
 
 export default async function AdminSettingsPage({
   searchParams,
@@ -26,18 +28,31 @@ export default async function AdminSettingsPage({
 
   const gcash = settings.paymentReceiving.gcash;
   const maya = settings.paymentReceiving.maya;
+  const demoPaymentMode =
+    env.paymentDemoMode &&
+    (isDemoPaymentMethodConfig(gcash) || isDemoPaymentMethodConfig(maya));
 
   return (
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <h1 className="text-3xl font-bold">System Settings</h1>
         <p className="text-base-content/70">
-          Operational settings used by online certificate generation and manual payment
-          verification.
+          Operational settings used by online certificate generation and manual
+          payment verification.
         </p>
       </div>
 
       <FlashMessage error={query?.error} message={query?.message} />
+
+      {demoPaymentMode && (
+        <div className="alert alert-warning text-sm">
+          <span className="font-bold">Thesis demo payment mode is on.</span>
+          <span>
+            GCash and Maya use generated non-payment QR codes. Do not use them
+            for real funds. Upload real merchant QR codes before production use.
+          </span>
+        </div>
+      )}
 
       {/* General Settings */}
       <section className="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
@@ -47,33 +62,45 @@ export default async function AdminSettingsPage({
         </div>
         <div className="grid gap-6 md:grid-cols-2">
           <div>
-            <dt className="text-sm font-semibold text-base-content/70">Barangay Captain / Signer Name</dt>
+            <dt className="text-sm font-semibold text-base-content/70">
+              Barangay Captain / Signer Name
+            </dt>
             {canEdit ? (
-              <form action={updateSystemSettingsAction} className="mt-2 space-y-3">
+              <form
+                action={updateSystemSettingsAction}
+                className="mt-2 space-y-3"
+              >
                 <input
                   className="input input-bordered w-full"
                   name="barangay_captain_name"
                   defaultValue={settings.barangayCaptainName}
                   required
                 />
-                <SubmitButton className="btn btn-primary btn-sm" pendingText="Saving settings...">
+                <SubmitButton
+                  className="btn btn-primary btn-sm"
+                  pendingText="Saving settings..."
+                >
                   Save Signer
                 </SubmitButton>
               </form>
             ) : (
-              <dd className="mt-1 font-medium">{settings.barangayCaptainName}</dd>
+              <dd className="mt-1 font-medium">
+                {settings.barangayCaptainName}
+              </dd>
             )}
           </div>
           <div>
-            <dt className="text-sm font-semibold text-base-content/70">Payment Mode</dt>
+            <dt className="text-sm font-semibold text-base-content/70">
+              Payment Mode
+            </dt>
             <dd className="mt-1 font-medium">
               Manual GCash & Maya verification (No automated funds transfer)
             </dd>
           </div>
         </div>
         <p className="mt-4 text-xs text-base-content/60">
-          The signer name is rendered as a consistent visual placeholder in both HTML preview and
-          PDF. It is not a legally verified digital signature.
+          The signer name is rendered as a consistent visual placeholder in both
+          HTML preview and PDF. It is not a legally verified digital signature.
         </p>
       </section>
 
@@ -82,17 +109,22 @@ export default async function AdminSettingsPage({
         <div className="flex items-center gap-3">
           <CreditCard className="size-6 text-primary" aria-hidden />
           <div>
-            <h2 className="text-xl font-bold">Official Payment Receiving Accounts</h2>
+            <h2 className="text-xl font-bold">
+              Official Payment Receiving Accounts
+            </h2>
             <p className="text-sm text-base-content/70">
-              Configure the official merchant names and QR codes displayed to residents when
-              paying certificate fees.
+              Configure the official merchant names and QR codes displayed to
+              residents when paying certificate fees.
             </p>
           </div>
         </div>
 
         {!canEdit && (
           <div className="alert alert-info text-sm">
-            <span>Barangay Secretary has view-only access. Only Main Admin can modify payment receiving settings.</span>
+            <span>
+              Barangay Secretary has view-only access. Only Main Admin can
+              modify payment receiving settings.
+            </span>
           </div>
         )}
 
@@ -111,7 +143,11 @@ export default async function AdminSettingsPage({
                   gcash.enabled ? "badge-success text-white" : "badge-ghost"
                 }`}
               >
-                {gcash.enabled ? "Active" : "Disabled"}
+                {gcash.enabled
+                  ? isDemoPaymentMethodConfig(gcash)
+                    ? "Demo active"
+                    : "Active"
+                  : "Disabled"}
               </span>
             </div>
 
@@ -120,12 +156,16 @@ export default async function AdminSettingsPage({
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
                   Merchant / Account Name
                 </span>
-                <p className="font-medium text-sm">{gcash.merchantName || "Not configured"}</p>
+                <p className="font-medium text-sm">
+                  {gcash.merchantName || "Not configured"}
+                </p>
               </div>
 
               <div>
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
-                  Official GCash QR Code
+                  {isDemoPaymentMethodConfig(gcash)
+                    ? "Demo GCash QR Code"
+                    : "Official GCash QR Code"}
                 </span>
                 {gcash.qrStorageKey ? (
                   <div className="mt-2 space-y-2">
@@ -133,21 +173,26 @@ export default async function AdminSettingsPage({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/api/payments/merchant-qr/gcash?preview=true"
-                        alt="Official GCash QR"
+                        alt={`${isDemoPaymentMethodConfig(gcash) ? "Demo" : "Official"} GCash QR`}
                         className="size-full object-contain p-2"
                       />
                     </div>
-                    {gcash.qrUpdatedAt && (
+                    {(isDemoPaymentMethodConfig(gcash) ||
+                      gcash.qrUpdatedAt) && (
                       <p className="text-xs text-base-content/50">
-                        Updated {new Date(gcash.qrUpdatedAt).toLocaleDateString()}
+                        {isDemoPaymentMethodConfig(gcash)
+                          ? "Generated for thesis demo use"
+                          : `Updated ${new Date(gcash.qrUpdatedAt!).toLocaleDateString()}`}
                       </p>
                     )}
                   </div>
                 ) : (
                   <div className="mt-2 rounded-md border border-dashed border-warning/60 bg-warning/10 p-3 text-xs text-warning-content">
-                    <p className="font-semibold">CLIENT PAYMENT QR CONFIGURATION REQUIRED</p>
+                    <p className="font-semibold">
+                      CLIENT PAYMENT QR CONFIGURATION REQUIRED
+                    </p>
                     <p className="mt-1 text-base-content/70">
-                      No official GCash QR image has been uploaded. Upload an approved QR code
+                      No official GCash QR image has been uploaded. Upload one
                       before enabling this method.
                     </p>
                   </div>
@@ -155,7 +200,10 @@ export default async function AdminSettingsPage({
               </div>
 
               {canEdit && (
-                <form action={updatePaymentMethodSettingsAction} className="mt-4 space-y-4 border-t border-base-200 pt-4">
+                <form
+                  action={updatePaymentMethodSettingsAction}
+                  className="mt-4 space-y-4 border-t border-base-200 pt-4"
+                >
                   <input type="hidden" name="provider" value="gcash" />
                   <div>
                     <label className="label text-xs font-semibold">
@@ -171,7 +219,9 @@ export default async function AdminSettingsPage({
 
                   <div>
                     <label className="label text-xs font-semibold">
-                      <span>Upload Official QR Code (JPEG, PNG, WebP ≤ 5MB)</span>
+                      <span>
+                        Upload Official QR Code (JPEG, PNG, WebP ≤ 5MB)
+                      </span>
                     </label>
                     <input
                       type="file"
@@ -195,7 +245,10 @@ export default async function AdminSettingsPage({
                     </label>
                   </div>
 
-                  <SubmitButton className="btn btn-primary btn-sm w-full" pendingText="Saving GCash...">
+                  <SubmitButton
+                    className="btn btn-primary btn-sm w-full"
+                    pendingText="Saving GCash..."
+                  >
                     Save GCash Settings
                   </SubmitButton>
                 </form>
@@ -217,7 +270,11 @@ export default async function AdminSettingsPage({
                   maya.enabled ? "badge-success text-white" : "badge-ghost"
                 }`}
               >
-                {maya.enabled ? "Active" : "Disabled"}
+                {maya.enabled
+                  ? isDemoPaymentMethodConfig(maya)
+                    ? "Demo active"
+                    : "Active"
+                  : "Disabled"}
               </span>
             </div>
 
@@ -226,12 +283,16 @@ export default async function AdminSettingsPage({
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
                   Merchant / Account Name
                 </span>
-                <p className="font-medium text-sm">{maya.merchantName || "Not configured"}</p>
+                <p className="font-medium text-sm">
+                  {maya.merchantName || "Not configured"}
+                </p>
               </div>
 
               <div>
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
-                  Official Maya QR Code
+                  {isDemoPaymentMethodConfig(maya)
+                    ? "Demo Maya QR Code"
+                    : "Official Maya QR Code"}
                 </span>
                 {maya.qrStorageKey ? (
                   <div className="mt-2 space-y-2">
@@ -239,21 +300,25 @@ export default async function AdminSettingsPage({
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src="/api/payments/merchant-qr/maya?preview=true"
-                        alt="Official Maya QR"
+                        alt={`${isDemoPaymentMethodConfig(maya) ? "Demo" : "Official"} Maya QR`}
                         className="size-full object-contain p-2"
                       />
                     </div>
-                    {maya.qrUpdatedAt && (
-                      <p className="text-xs text-base-content/50">
-                        Updated {new Date(maya.qrUpdatedAt).toLocaleDateString()}
-                      </p>
-                    )}
+                    <p className="text-xs text-base-content/50">
+                      {isDemoPaymentMethodConfig(maya)
+                        ? "Generated for thesis demo use"
+                        : maya.qrUpdatedAt
+                          ? `Updated ${new Date(maya.qrUpdatedAt).toLocaleDateString()}`
+                          : ""}
+                    </p>
                   </div>
                 ) : (
                   <div className="mt-2 rounded-md border border-dashed border-warning/60 bg-warning/10 p-3 text-xs text-warning-content">
-                    <p className="font-semibold">CLIENT PAYMENT QR CONFIGURATION REQUIRED</p>
+                    <p className="font-semibold">
+                      CLIENT PAYMENT QR CONFIGURATION REQUIRED
+                    </p>
                     <p className="mt-1 text-base-content/70">
-                      No official Maya QR image has been uploaded. Upload an approved QR code
+                      No official Maya QR image has been uploaded. Upload one
                       before enabling this method.
                     </p>
                   </div>
@@ -261,7 +326,10 @@ export default async function AdminSettingsPage({
               </div>
 
               {canEdit && (
-                <form action={updatePaymentMethodSettingsAction} className="mt-4 space-y-4 border-t border-base-200 pt-4">
+                <form
+                  action={updatePaymentMethodSettingsAction}
+                  className="mt-4 space-y-4 border-t border-base-200 pt-4"
+                >
                   <input type="hidden" name="provider" value="maya" />
                   <div>
                     <label className="label text-xs font-semibold">
@@ -277,7 +345,9 @@ export default async function AdminSettingsPage({
 
                   <div>
                     <label className="label text-xs font-semibold">
-                      <span>Upload Official QR Code (JPEG, PNG, WebP ≤ 5MB)</span>
+                      <span>
+                        Upload Official QR Code (JPEG, PNG, WebP ≤ 5MB)
+                      </span>
                     </label>
                     <input
                       type="file"
@@ -301,7 +371,10 @@ export default async function AdminSettingsPage({
                     </label>
                   </div>
 
-                  <SubmitButton className="btn btn-primary btn-sm w-full" pendingText="Saving Maya...">
+                  <SubmitButton
+                    className="btn btn-primary btn-sm w-full"
+                    pendingText="Saving Maya..."
+                  >
                     Save Maya Settings
                   </SubmitButton>
                 </form>
