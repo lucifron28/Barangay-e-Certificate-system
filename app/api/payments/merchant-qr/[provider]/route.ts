@@ -1,6 +1,12 @@
 import { getAuthContext } from "@/lib/auth/guards";
 import { isAdminRole } from "@/lib/auth/roles";
-import { getSystemSettings, hasEligibleFeePayingRequest } from "@/lib/db/queries";
+import {
+  getSystemSettings,
+  hasEligibleFeePayingRequest,
+} from "@/lib/db/queries";
+import { env } from "@/lib/env";
+import { createDemoPaymentQr } from "@/lib/payments/demo-qr";
+import { isDemoPaymentQrKey } from "@/lib/payments/demo-config";
 import { readPrivatePaymentFile } from "@/lib/payments/storage";
 export const runtime = "nodejs";
 
@@ -53,6 +59,20 @@ export async function GET(
       status: 404,
     });
   }
+
+  if (env.paymentDemoMode && isDemoPaymentQrKey(config.qrStorageKey)) {
+    const bytes = await createDemoPaymentQr(provider);
+    return new Response(new Uint8Array(bytes), {
+      headers: {
+        "Cache-Control": "private, no-store, max-age=0",
+        "Content-Type": "image/png",
+        "X-Content-Type-Options": "nosniff",
+        "X-Payment-Mode": "demo",
+      },
+      status: 200,
+    });
+  }
+
   const file = await readPrivatePaymentFile({
     key: config.qrStorageKey,
     provider: config.qrStorageProvider || "local",

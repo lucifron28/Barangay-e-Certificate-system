@@ -21,6 +21,8 @@ import {
 } from "@/lib/db/queries";
 import { summarizeRequests } from "@/lib/utils/dashboard";
 import { getDatabaseProvider } from "@/lib/db/provider";
+import { applyDemoPaymentFallback } from "@/lib/payments/demo-config";
+import { env } from "@/lib/env";
 import type { Database, Profile } from "@/types/database";
 
 export type { ActivityLogWithUser, DashboardData, RequestWithResident, SystemSettings };
@@ -204,7 +206,10 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
     barangayCaptainName:
       (map.get("barangay_captain_name") as string | undefined) ??
       "Authorized Barangay Official",
-    paymentReceiving: DEFAULT_PAYMENT_RECEIVING_SETTINGS,
+    paymentReceiving: applyDemoPaymentFallback(
+      DEFAULT_PAYMENT_RECEIVING_SETTINGS,
+      env.paymentDemoMode,
+    ),
     signatureImagePath:
       (map.get("signature_image_path") as string | undefined) ?? null,
   };

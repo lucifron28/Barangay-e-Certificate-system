@@ -7,7 +7,9 @@ import {
   getDefaultPaymentStatus,
 } from "@/lib/services/business-rules";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
+import { applyDemoPaymentFallback } from "@/lib/payments/demo-config";
 import { CERTIFICATE_PURPOSE_MAX_LENGTH } from "@/lib/services/certificate-request-rules";
+import { env } from "@/lib/env";
 import type { RequestStats } from "@/lib/utils/dashboard";
 import type { CertificateDownloadResult } from "@/lib/certificates/certificate-download";
 import type {
@@ -2133,14 +2135,19 @@ export function getSystemSettings(): SystemSettings {
       value: parseJson(row.value),
     });
   }
+  const paymentReceiving = applyDemoPaymentFallback(
+    {
+      gcash: parsePaymentMethodConfig(settings.get("payment_receiving_gcash")?.value),
+      maya: parsePaymentMethodConfig(settings.get("payment_receiving_maya")?.value),
+    },
+    env.paymentDemoMode,
+  );
+
   return {
     barangayCaptainName:
       (settings.get("barangay_captain_name")?.value as string | undefined) ??
       "Authorized Barangay Official",
-    paymentReceiving: {
-      gcash: parsePaymentMethodConfig(settings.get("payment_receiving_gcash")?.value),
-      maya: parsePaymentMethodConfig(settings.get("payment_receiving_maya")?.value),
-    },
+    paymentReceiving,
     signatureImagePath:
       (settings.get("signature_image_path")?.value as string | undefined) ?? null,
   };

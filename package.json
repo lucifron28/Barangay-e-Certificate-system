@@ -15,6 +15,7 @@
     "db:sqlite:seed": "tsx --tsconfig scripts/tsconfig.json scripts/demo-reset-entry.ts",
     "db:sqlite:setup": "node scripts/sqlite-setup.mjs",
     "demo:reset": "tsx --tsconfig scripts/tsconfig.json scripts/demo-reset-entry.ts",
+    "demo:record": "node scripts/evidence/record-demo-workflow.mjs",
     "start": "next start",
     "lint": "eslint",
     "lint:fix": "eslint --fix",
@@ -43,6 +44,7 @@
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@next/eslint-plugin-next": "^16.3.0",
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^26.2.0",

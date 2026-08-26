@@ -5,6 +5,7 @@ import { Image as ImageIcon, QrCode, UploadCloud } from "lucide-react";
 import { submitPaymentProofAction } from "@/lib/actions/payments";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { formatCurrency } from "@/lib/utils/format";
+import { isDemoPaymentMethodConfig } from "@/lib/payments/demo-config";
 import type { CertificateRequest } from "@/types/database";
 import type { SystemSettings } from "@/lib/db/queries";
 import type { PaymentProvider } from "@/types/enums";
@@ -34,11 +35,13 @@ export function ResidentPaymentForm({
       ? "maya"
       : "gcash";
 
-  const [selectedProvider, setSelectedProvider] = useState<PaymentProvider>(defaultProvider);
+  const [selectedProvider, setSelectedProvider] =
+    useState<PaymentProvider>(defaultProvider);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const activeConfig = selectedProvider === "gcash" ? gcashConfig : mayaConfig;
   const activeLabel = selectedProvider === "gcash" ? "GCash" : "Maya";
+  const isDemoPayment = isDemoPaymentMethodConfig(activeConfig);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -52,47 +55,70 @@ export function ResidentPaymentForm({
 
   return (
     <div className="space-y-6">
+      {isDemoPayment && (
+        <div className="alert alert-warning items-start text-sm">
+          <span className="font-bold">Demo payment mode</span>
+          <span>
+            These QR codes are for the thesis presentation only. They do not
+            receive money. Use test payment details and a clearly marked test
+            receipt.
+          </span>
+        </div>
+      )}
+
       {/* Payment Provider Selection */}
       <div className="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
         <h2 className="font-bold text-lg">1. Choose Payment Method</h2>
         <p className="mt-1 text-sm text-base-content/70">
-          Select your preferred e-wallet to view the official Barangay QR code.
+          Select a method to view its payment instructions.
         </p>
 
         <div className="mt-4 grid grid-cols-2 gap-4">
           <button
             type="button"
             onClick={() => setSelectedProvider("gcash")}
+            disabled={!gcashConfig.enabled}
+            aria-pressed={selectedProvider === "gcash"}
             className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 transition ${
               selectedProvider === "gcash"
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-base-300 hover:border-base-content/30"
-            }`}
+            } ${!gcashConfig.enabled ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <div className="flex size-10 items-center justify-center rounded-full bg-blue-600 font-bold text-white text-sm">
               G
             </div>
             <span className="mt-2 font-bold">GCash</span>
             <span className="text-xs text-base-content/60">
-              {gcashConfig.enabled ? "Available" : "Unavailable"}
+              {gcashConfig.enabled
+                ? isDemoPaymentMethodConfig(gcashConfig)
+                  ? "Demo available"
+                  : "Available"
+                : "Unavailable"}
             </span>
           </button>
 
           <button
             type="button"
             onClick={() => setSelectedProvider("maya")}
+            disabled={!mayaConfig.enabled}
+            aria-pressed={selectedProvider === "maya"}
             className={`flex flex-col items-center justify-center rounded-lg border-2 p-4 transition ${
               selectedProvider === "maya"
                 ? "border-primary bg-primary/5 text-primary"
                 : "border-base-300 hover:border-base-content/30"
-            }`}
+            } ${!mayaConfig.enabled ? "cursor-not-allowed opacity-60" : ""}`}
           >
             <div className="flex size-10 items-center justify-center rounded-full bg-emerald-600 font-bold text-white text-sm">
               M
             </div>
             <span className="mt-2 font-bold">Maya</span>
             <span className="text-xs text-base-content/60">
-              {mayaConfig.enabled ? "Available" : "Unavailable"}
+              {mayaConfig.enabled
+                ? isDemoPaymentMethodConfig(mayaConfig)
+                  ? "Demo available"
+                  : "Available"
+                : "Unavailable"}
             </span>
           </button>
         </div>
@@ -103,7 +129,11 @@ export function ResidentPaymentForm({
         <div className="rounded-lg border border-base-300 bg-base-100 p-6 shadow-sm">
           <div className="flex items-center gap-2">
             <QrCode className="size-5 text-primary" aria-hidden />
-            <h2 className="font-bold text-lg">2. Scan Official QR & Pay</h2>
+            <h2 className="font-bold text-lg">
+              {isDemoPayment
+                ? "2. Demo payment instructions"
+                : "2. Scan official QR and pay"}
+            </h2>
           </div>
 
           <div className="mt-4 grid gap-6 md:grid-cols-2 md:items-center">
@@ -112,31 +142,59 @@ export function ResidentPaymentForm({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={`/api/payments/merchant-qr/${selectedProvider}`}
-                  alt={`Official ${activeLabel} Payment QR`}
+                  alt={`${isDemoPayment ? "Demo" : "Official"} ${activeLabel} payment QR`}
                   className="size-full object-contain"
                 />
               </div>
-              <p className="mt-3 font-semibold text-sm">{activeConfig.merchantName}</p>
-              <p className="text-xs text-base-content/60">Official Barangay Merchant</p>
+              <p className="mt-3 font-semibold text-sm">
+                {activeConfig.merchantName}
+              </p>
+              <p className="text-xs text-base-content/60">
+                {isDemoPayment
+                  ? "Demo-only QR. Do not send money."
+                  : "Official Barangay merchant"}
+              </p>
             </div>
 
             <div className="space-y-3 text-sm">
               <div className="rounded-md bg-base-200 p-3">
                 <span className="text-xs font-semibold text-base-content/70 uppercase">
-                  Exact Amount to Pay
+                  {isDemoPayment ? "Demo amount" : "Exact amount to pay"}
                 </span>
                 <p className="font-bold text-2xl text-primary">
                   {formatCurrency(request.fee_amount)}
                 </p>
               </div>
 
-              <ol className="list-inside list-decimal space-y-2 text-base-content/80 text-xs sm:text-sm">
-                <li>Open your <strong>{activeLabel}</strong> app.</li>
-                <li>Scan the official QR code on the left.</li>
-                <li>Verify recipient name: <strong>{activeConfig.merchantName}</strong>.</li>
-                <li>Pay the exact fee of <strong>{formatCurrency(request.fee_amount)}</strong>.</li>
-                <li>Save or take a screenshot of your transaction receipt.</li>
-              </ol>
+              {isDemoPayment ? (
+                <ol className="list-inside list-decimal space-y-2 text-base-content/80 text-xs sm:text-sm">
+                  <li>
+                    Do not send money. This QR is only for the presentation.
+                  </li>
+                  <li>Use a clearly marked test receipt.</li>
+                  <li>
+                    Enter the test reference and upload the receipt below.
+                  </li>
+                </ol>
+              ) : (
+                <ol className="list-inside list-decimal space-y-2 text-base-content/80 text-xs sm:text-sm">
+                  <li>
+                    Open your <strong>{activeLabel}</strong> app.
+                  </li>
+                  <li>Scan the official QR code on the left.</li>
+                  <li>
+                    Verify recipient name:{" "}
+                    <strong>{activeConfig.merchantName}</strong>.
+                  </li>
+                  <li>
+                    Pay the exact fee of{" "}
+                    <strong>{formatCurrency(request.fee_amount)}</strong>.
+                  </li>
+                  <li>
+                    Save or take a screenshot of your transaction receipt.
+                  </li>
+                </ol>
+              )}
             </div>
           </div>
         </div>
@@ -146,8 +204,8 @@ export function ResidentPaymentForm({
             {activeLabel} Payment Currently Unavailable
           </h3>
           <p className="mt-1 text-base-content/70">
-            Official QR code configuration is required for {activeLabel}. Please select another
-            payment method or contact the Barangay Hall.
+            Official QR code configuration is required for {activeLabel}. Please
+            select another payment method or contact the Barangay Hall.
           </p>
         </div>
       )}
@@ -160,13 +218,12 @@ export function ResidentPaymentForm({
             <h2 className="font-bold text-lg">3. Submit Payment Proof</h2>
           </div>
           <p className="mt-1 text-sm text-base-content/70">
-            Enter your transaction reference number and upload your receipt screenshot.
+            {isDemoPayment
+              ? "Enter test transaction details and upload a test receipt screenshot."
+              : "Enter your transaction reference number and upload your receipt screenshot."}
           </p>
 
-          <form
-            action={submitPaymentProofAction}
-            className="mt-6 space-y-4"
-          >
+          <form action={submitPaymentProofAction} className="mt-6 space-y-4">
             <input type="hidden" name="request_id" value={request.id} />
             <input type="hidden" name="provider" value={selectedProvider} />
 
@@ -178,14 +235,20 @@ export function ResidentPaymentForm({
                 <input
                   name="reference_number"
                   type="text"
-                  placeholder="e.g. 1000 2345 6789"
+                  placeholder={
+                    isDemoPayment
+                      ? "e.g. DEMO-GCASH-001"
+                      : "e.g. 1000 2345 6789"
+                  }
                   className="input input-bordered w-full"
                   required
                   minLength={4}
                   maxLength={50}
                 />
                 <span className="label-text-alt mt-1 text-xs text-base-content/50">
-                  Located on your payment confirmation screen
+                  {isDemoPayment
+                    ? "Use a test reference for the presentation"
+                    : "Located on your payment confirmation screen"}
                 </span>
               </div>
 
@@ -208,7 +271,9 @@ export function ResidentPaymentForm({
 
             <div>
               <label className="label text-xs font-semibold">
-                <span>Payment Screenshot / Proof Image * (JPEG, PNG, WebP ≤ 5MB)</span>
+                <span>
+                  Payment Screenshot / Proof Image * (JPEG, PNG, WebP ≤ 5MB)
+                </span>
               </label>
               <input
                 type="file"
@@ -238,11 +303,11 @@ export function ResidentPaymentForm({
             )}
 
             <div className="rounded-md bg-info/10 p-4 text-info-content text-xs">
-              <p className="font-semibold">Note on Manual Verification:</p>
+              <p className="font-semibold">Manual verification</p>
               <p className="mt-1 text-base-content/80">
-                Submitting payment details does not automatically mark your request as paid.
-                Barangay staff will verify the reference number and amount against official merchant
-                records before issuing the certificate.
+                Submitting payment details does not mark the request as paid.
+                Barangay staff must verify the proof before issuing the
+                certificate.
               </p>
             </div>
 
@@ -250,7 +315,9 @@ export function ResidentPaymentForm({
               className="btn btn-primary w-full"
               pendingText="Submitting payment proof..."
             >
-              Submit Payment Proof
+              {isDemoPayment
+                ? "Submit Demo Payment Proof"
+                : "Submit Payment Proof"}
             </SubmitButton>
           </form>
         </div>

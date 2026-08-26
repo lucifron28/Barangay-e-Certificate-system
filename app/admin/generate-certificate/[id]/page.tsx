@@ -81,13 +81,13 @@ export default async function GenerateCertificatePage({
         <div className="flex flex-wrap gap-2">
           {hasActiveCertificate ? <PrintButton /> : null}
           {hasActiveCertificate ? (
-            <Link
+            <a
               href={`/admin/generate-certificate/${id}/pdf`}
               className="btn btn-outline"
             >
               <FileDown className="size-4" aria-hidden />
               Download PDF
-            </Link>
+            </a>
           ) : null}
         </div>
       </div>
