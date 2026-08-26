@@ -101,6 +101,9 @@ but their role values remain separate for future permission refinement.
   request resubmission.
 - Manual GCash and Maya payment proof submission and staff verification queue
   with private proof image storage and duplicate-reference protection.
+- An explicit thesis demo payment mode can expose clearly marked, generated
+  non-payment QR codes for GCash and Maya when `PAYMENT_DEMO_MODE=true`. The
+  demo flow still requires proof submission and staff verification.
 - Printable certificate HTML and generated PDF layouts based on supplied
   official reference PDFs.
 - Private local PDF storage and a Vercel Private Blob adapter.
@@ -402,6 +405,13 @@ automated payment gateway, card processing, or bank funds transfer API is used.
 Residents scan the official barangay QR code, pay in their external app, and
 submit their reference number and receipt screenshot. Authorized barangay staff
 cross-check merchant records and confirm payment before issuing certificates.
+
+For a thesis presentation without real merchant details, set
+`PAYMENT_DEMO_MODE=true`. The resident page then shows selectable GCash and Maya
+demo methods with generated QR images that do not receive money. Use test
+references and clearly marked test screenshots. Staff must still approve the
+submitted proof before the request becomes paid. Keep this setting `false` when
+using real accounts.
 ## Supabase MCP Status
 
 No Supabase MCP changes were applied for this deployment goal. Supabase files
@@ -441,6 +451,7 @@ is not an active operating or deployment guide.
 | Online delivery | Implemented | Accepted requests proceed through manual payment proof verification and secure PDF download |
 | Fees | Implemented | PHP 50 or free; manual GCash/Maya verification |
 | Payment status | Implemented | `unpaid`, `paid`, and `free`; verified by staff |
+| Thesis demo payments | Implemented / Optional | Opt-in non-payment GCash/Maya QR mode |
 | Email notifications | Prepared / Optional | Gmail SMTP pending approved credentials |
 | Reports | Implemented / Partial | Print, PDF, Excel; monthly format pending |
 | Activity logs | Implemented | Admin-only major action history |
@@ -457,6 +468,8 @@ is not an active operating or deployment guide.
 - Approved Captain identity, signature/seal assets, print approval, report
   format, retention policy, and payment policy still require client input.
 - The visual signature is not cryptographically or legally verified.
+- Demo payment mode uses non-payment QR codes and must not be used to collect
+  real funds.
 - A scheduled Blob orphan reconciliation job can be added after the production
   storage account is approved.
 
