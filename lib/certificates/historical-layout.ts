@@ -1,7 +1,10 @@
 import "server-only";
 
+import { readFile } from "node:fs/promises";
+import { join } from "node:path";
 import {
   PDFDocument,
+  type PDFImage,
   StandardFonts,
   rgb,
   type PDFFont,
@@ -715,6 +718,30 @@ function drawFallbackSeal(
   );
 }
 
+type EmbeddedSealImages = {
+  barangayBato: PDFImage;
+  mauban: PDFImage;
+};
+
+async function embedSealImages(
+  pdfDoc: PDFDocument,
+): Promise<EmbeddedSealImages | null> {
+  try {
+    const brandingDirectory = join(process.cwd(), "public", "branding");
+    const [maubanBytes, barangayBatoBytes] = await Promise.all([
+      readFile(join(brandingDirectory, "mauban-seal.png")),
+      readFile(join(brandingDirectory, "barangay-bato-seal.png")),
+    ]);
+
+    return {
+      barangayBato: await pdfDoc.embedPng(barangayBatoBytes),
+      mauban: await pdfDoc.embedPng(maubanBytes),
+    };
+  } catch {
+    return null;
+  }
+}
+
 function drawWatermark(page: PDFPage, fonts: HistoricalFonts) {
   page.drawEllipse({
     borderColor: WATERMARK_COLOR,
@@ -756,9 +783,26 @@ function drawHeader(
   page: PDFPage,
   config: HistoricalTemplateConfig,
   fonts: HistoricalFonts,
+  seals: EmbeddedSealImages | null,
 ) {
-  drawFallbackSeal(page, 108, config.sealY, "BAYAN NG MAUBAN", fonts, 35);
-  drawFallbackSeal(page, 504, config.sealY, "BARANGAY BATO", fonts, 35);
+  // TODO: Confirm final seal size and exact print positioning against the approved certificate template.
+  if (seals) {
+    page.drawImage(seals.mauban, {
+      height: 70,
+      width: 70,
+      x: 73,
+      y: config.sealY - 35,
+    });
+    page.drawImage(seals.barangayBato, {
+      height: 70,
+      width: 70,
+      x: 469,
+      y: config.sealY - 35,
+    });
+  } else {
+    drawFallbackSeal(page, 108, config.sealY, "BAYAN NG MAUBAN", fonts, 35);
+    drawFallbackSeal(page, 504, config.sealY, "BARANGAY BATO", fonts, 35);
+  }
 
   config.headerLines.forEach((line, index) => {
     centerText(
@@ -1006,6 +1050,7 @@ export async function generateHistoricalCertificatePdf({
   const type = request.certificate_type as HistoricalCertificateType;
   const config = getTemplateConfig(type);
   const pdfDoc = await PDFDocument.create();
+  const seals = await embedSealImages(pdfDoc);
   const effectiveCertificateNumber =
     snapshot?.certificate_number ?? certificateNumber;
   const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
@@ -1054,7 +1099,7 @@ export async function generateHistoricalCertificatePdf({
 
   const page = pdfDoc.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
   drawWatermark(page, fonts);
-  drawHeader(page, config, fonts);
+  drawHeader(page, config, fonts, seals);
   drawText(page, config.salutation, 72, config.salutationY, fonts.bold, 17);
 
   let y = config.bodyStartY;

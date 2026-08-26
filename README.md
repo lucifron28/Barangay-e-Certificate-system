@@ -127,8 +127,8 @@ but their role values remain separate for future permission refinement.
 - The monthly barangay report remains a clean preview format until its final
   form is supplied.
 - The default Vercel HTTPS domain is live; a custom domain, Captain identity,
-  signature/seal assets, retention policy, and print approval remain client
-  handoff items.
+  visual signature asset, final seal sizing, retention policy, and print
+  approval remain client handoff items.
 - Synthetic Main Admin, Barangay Secretary, and resident identities are seeded
   in the current Turso presentation database. Public registration still cannot
   create admin roles, and real operator identities must replace the demo users
@@ -364,10 +364,18 @@ Official reference files are expected at
 These files are private layout references, ignored by Git, not assumed to be
 fillable, and never served from `app/`. The current generator uses printable
 HTML/PDF layouts based on the supplied references with synthetic seed data.
-Exact positioning and final official asset replacement remain approval items.
-Production handling may move approved reference/signature assets to Supabase
-Storage later if the client changes the deployment target; the current target
-for generated PDFs is Vercel Private Blob.
+The supplied circular seal images are processed into the browser-ready assets
+`public/branding/mauban-seal.png` and `public/branding/barangay-bato-seal.png`.
+The processing center-crops each source and applies a transparent circular mask
+so the original square white corners do not appear. These public assets are
+needed by the browser preview and PDF renderer; the original reference PDFs
+remain private and ignored.
+
+The current certificate preview and downloaded PDF use the processed seals in
+the shared header. Exact final seal sizing, print positioning, and approval of
+the visual signature remain client handoff items. Production handling may move
+approved reference, seal, and signature assets to Supabase Storage later; the
+current target for generated PDFs is Vercel Private Blob.
 
 ## Authentication And Security
 

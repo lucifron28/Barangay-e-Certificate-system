@@ -1,7 +1,6 @@
 import Link from "next/link";
 import {
   ArrowRight,
-  BadgeCheck,
   Banknote,
   ClipboardCheck,
   FileText,
@@ -10,6 +9,7 @@ import {
   QrCode,
   UserPlus,
 } from "lucide-react";
+import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateDeliveryCopy } from "@/lib/services/issuance-mode";
 import { CERTIFICATE_TYPE_LABELS, CERTIFICATE_TYPES } from "@/types/enums";
 
@@ -81,8 +81,12 @@ export default function HomePage() {
               <div className="badge badge-info">REQ-2026-0001</div>
             </div>
             <div className="rounded-lg border border-base-300 bg-base-200 p-6">
-              <div className="mx-auto mb-6 flex size-16 items-center justify-center rounded-full border-4 border-primary text-primary">
-                <BadgeCheck className="size-8" aria-hidden />
+              <div className="mx-auto mb-6 flex items-center justify-center gap-4">
+                <SealImage seal="mauban" className="size-16 object-contain" />
+                <SealImage
+                  seal="barangay-bato"
+                  className="size-16 object-contain"
+                />
               </div>
               <div className="space-y-3">
                 <div className="h-4 w-1/2 rounded bg-base-content/20" />

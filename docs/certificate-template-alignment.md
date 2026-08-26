@@ -41,7 +41,7 @@ print positioning remain subject to final client approval.
 
 | Reference element                                                         | Current generated output                                  | Gap                                                                | Implementation decision                                                                                                    | Status                         |
 | ------------------------------------------------------------------------- | --------------------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Letter page with upper seals and centered government heading              | Shared historical header with text-only circular placeholders | Approved seal artwork is not committed | Use a shared historical header with a stylized local fallback seal because no approved seal asset exists in the repository | Implemented; synthetic visual QA reviewed |
+| Letter page with upper seals and centered government heading              | Shared historical header with the supplied circular Mauban and Barangay Bato seal assets | Exact final size and print positioning remain to be approved | Use the processed transparent seal assets in both the HTML preview and downloaded PDF, with a fallback when an asset is unavailable | Implemented; final print approval pending |
 | Blue `OFFICE OF THE BARANGAY CHAIRMAN` heading                            | Generic black office heading                              | Wrong color and hierarchy                                          | Use the historical blue serif office heading                                                                               | Implemented                    |
 | `CERTIFICATION OF RESIDENCY` title                                        | Expanded modern title                                     | Title wording differed                                             | Use the historical title wording                                                                                           | Implemented                    |
 | Residency statement, supporting-document paragraph, and purpose paragraph | Modern standardized paragraphs                            | Body structure and emphasis differed                               | Use a certificate-specific historical body with dynamic synthetic-safe data and bold field values                          | Implemented                    |
@@ -72,7 +72,7 @@ print positioning remain subject to final client approval.
 
 | Reference element                                         | Current generated output                              | Gap                                      | Implementation decision                                                                                         | Status                         |
 | --------------------------------------------------------- | ----------------------------------------------------- | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------ |
-| Filipino government heading and paired upper seals        | Shared historical header with local fallback seals    | Approved seal artwork is not committed   | Use the Filipino heading and clearly marked stylized fallback seals                                             | Implemented; asset pending     |
+| Filipino government heading and paired upper seals        | Shared historical header with the supplied circular Mauban and Barangay Bato seal assets    | Exact final size and print positioning remain to be approved   | Use the Filipino heading and processed seal assets while preserving the reference's paired-seal structure                                             | Implemented; final print approval pending     |
 | Blue `TANGGAPAN NG PUNONG BARANGAY` heading               | Matching Filipino office heading                     | Exact letter spacing and official artwork remain pending | Use a certificate-specific office heading and preserve the reference's blue serif hierarchy                   | Implemented                    |
 | `PAGPAPATUNAY` title and `Sa kinauukulan:` salutation     | Matching Filipino title and salutation               | Exact production typography remains pending | Use the supplied Filipino title and salutation                                                                  | Implemented                    |
 | Historical legacy body fields                              | Confirmed current fields only                         | Parent, land/tax, and income fields are not confirmed application fields | Preserve the body structure while rendering name, age, place of birth, and purpose from the current request model | Implemented; intentional adaptation |
@@ -81,11 +81,19 @@ print positioning remain subject to final client approval.
 
 ## Asset Decision
 
-No approved seal or logo image asset was found in the repository. The renderer
-therefore uses a clearly documented stylized fallback for the upper seals and
-central watermark. The fallback does not extract or copy artwork from the
-private historical PDFs. A future approved Barangay Bato/Municipality of Mauban
-asset can replace the fallback without changing certificate business logic.
+The client supplied Barangay Bato and Municipality of Mauban seal images. The
+repository stores circular, transparent PNG derivatives at
+`public/branding/barangay-bato-seal.png` and
+`public/branding/mauban-seal.png`. The original square source images are not
+used directly. The browser certificate preview and historical PDF renderer use
+these assets in the paired upper header. If either file is unavailable, the
+PDF renderer keeps its text-based fallback so a missing static asset does not
+break issuance.
+
+The central watermark remains a low-contrast generated placeholder. Exact seal
+dimensions, print positioning, and final production asset handling still need
+print approval. Approved assets may move to Supabase Storage in a later
+deployment model without changing certificate business logic.
 
 ## Digital Verification Layer
 
@@ -99,10 +107,10 @@ fields, which remain blank printable lines when the application has no value.
 The renderer and synthetic regression tests cover all four private references.
 Fresh fictional PDFs are rendered and reviewed side by side with the private
 references. The comparison confirms the shared government heading, the English
-and Filipino office headings, serif body hierarchy, watermark placement, single
-certifying-official area, and compact secondary verification layer. The
-`PAGPAPATUNAY` body is visually aligned but intentionally adapted to the
-confirmed current field model; exact seal artwork and production typography
-remain pending because no approved assets or final print sign-off exist in the
-repository. Repository lint, typecheck, test, and build validation remains the
+and Filipino office headings, paired supplied seals, serif body hierarchy,
+watermark placement, single certifying-official area, and compact secondary
+verification layer. The `PAGPAPATUNAY` body is visually aligned but
+intentionally adapted to the confirmed current field model. Exact seal sizing,
+print positioning, and production typography remain subject to final print
+approval. Repository lint, typecheck, test, and build validation remains the
 final gate.

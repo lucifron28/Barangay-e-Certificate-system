@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { FileText, LogIn, Menu, UserPlus } from "lucide-react";
+import { LogIn, Menu, UserPlus } from "lucide-react";
+import { SealImage } from "@/components/branding/seal-image";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { publicNavItems } from "@/lib/navigation";
 
@@ -8,7 +9,7 @@ export function PublicNavbar() {
     <div className="navbar sticky top-0 z-30 border-b border-base-300 bg-base-100/95 px-3 shadow-sm backdrop-blur sm:px-4 lg:px-8">
       <div className="navbar-start min-w-0">
         <Link href="/" className="btn btn-ghost min-h-11 gap-2 px-2 text-left">
-          <FileText className="size-5 text-primary" aria-hidden />
+          <SealImage seal="barangay-bato" className="size-8 shrink-0 object-contain" />
           <span className="leading-tight">
             <span className="block text-sm font-bold">Barangay Bato</span>
             <span className="block text-xs font-normal text-base-content/65">
