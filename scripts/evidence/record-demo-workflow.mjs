@@ -1,3 +1,5 @@
+/* global Buffer, URL, document, process */
+
 import { chromium } from "@playwright/test";
 import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -176,14 +178,6 @@ async function adminRequestHref(page, number) {
   const link = row.locator('a[href^="/admin/certificate-requests/"]').first();
   const href = await link.getAttribute("href");
   if (!href) throw new Error(`Could not resolve the admin request URL for ${number}.`);
-  return href;
-}
-
-async function residentRequestHref(page, number) {
-  await goto(page, "/resident/my-requests");
-  const link = page.getByRole("link", { name: number, exact: true }).first();
-  const href = await link.getAttribute("href");
-  if (!href) throw new Error(`Could not resolve the resident request URL for ${number}.`);
   return href;
 }
 

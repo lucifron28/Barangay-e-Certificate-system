@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { BarChart3, FileDown, FileSpreadsheet, FileText } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
 import { MobileRecordCard } from "@/components/ui/mobile-record-card";
