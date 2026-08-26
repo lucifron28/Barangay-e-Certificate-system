@@ -412,6 +412,32 @@ demo methods with generated QR images that do not receive money. Use test
 references and clearly marked test screenshots. Staff must still approve the
 submitted proof before the request becomes paid. Keep this setting `false` when
 using real accounts.
+
+## Desktop Playwright Evidence
+
+The complete deployed workflow can be recorded at the desktop presentation
+size of 1440 x 900:
+
+```bash
+DEMO_BASE_URL=https://barangay-bato-ecertificate-system.vercel.app \
+DEMO_ADMIN_PASSWORD=<synthetic-staff-password> \
+DEMO_RESIDENT_PASSWORD=<synthetic-resident-password> \
+npm run demo:record
+```
+
+The runner covers public pages, resident and admin role routing, request
+submission, payment-proof verification, all four certificate templates,
+resident download, report PDF/Excel exports, rejection and resubmission,
+cancellation, and resident admin-route protection. It writes desktop
+screenshots, video, Playwright trace, structured results, and downloads to
+`artifacts/playwright-demo/`. This directory is ignored by Git and the runner
+never writes passwords to evidence files.
+
+The latest completed run passed 121 assertions, captured 59 screenshots, and
+created seven non-empty downloads. Its HTTP and page-error logs were clear;
+normal `ERR_ABORTED` entries from browser navigation/download handling remain
+in the failed-request log for traceability.
+
 ## Supabase MCP Status
 
 No Supabase MCP changes were applied for this deployment goal. Supabase files
