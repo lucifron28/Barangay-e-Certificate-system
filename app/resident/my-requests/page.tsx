@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Inbox } from "lucide-react";
 import { EmptyState } from "@/components/ui/empty-state";
+import { FlashMessage } from "@/components/ui/flash-message";
 import { PaymentBadge } from "@/components/ui/payment-badge";
 import { MobileRecordCard } from "@/components/ui/mobile-record-card";
 import { SetupRequired } from "@/components/ui/setup-required";
@@ -14,8 +15,16 @@ import {
   formatDate,
 } from "@/lib/utils/format";
 
-export default async function MyRequestsPage() {
+type MyRequestsPageProps = {
+  searchParams?: Promise<{
+    error?: string | string[];
+    message?: string | string[];
+  }>;
+};
+
+export default async function MyRequestsPage({ searchParams }: MyRequestsPageProps) {
   const context = await requireResident();
+  const query = await searchParams;
 
   if (context.setupMissing) {
     return <SetupRequired missingEnv={context.missingEnv} />;
@@ -37,6 +46,8 @@ export default async function MyRequestsPage() {
           New Request
         </Link>
       </div>
+
+      <FlashMessage error={query?.error} message={query?.message} />
 
       {requests.length ? (
         <>
