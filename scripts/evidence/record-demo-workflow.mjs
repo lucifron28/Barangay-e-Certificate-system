@@ -604,6 +604,7 @@ async function runRecordedWorkflow() {
     );
     await goto(page, cancelled.href);
     await page.getByRole("button", { name: "Cancel Pending Request", exact: true }).click();
+    await page.waitForURL(/\/resident\/my-requests\?message=/, { timeout: 20000 });
     await waitForStatus(page);
     await waitForPage(page);
     await assertText(page, "Request cancelled", "Pending request cancellation");
