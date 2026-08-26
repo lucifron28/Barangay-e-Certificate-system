@@ -157,7 +157,7 @@ stored in Turso.
 The presentation deployment is live on Vercel:
 
 - Production: <https://barangay-bato-ecertificate-system.vercel.app>
-- Latest production deployment: <https://barangay-bato-ecertificate-system-dn29p39ef-ron-cada-projects.vercel.app>
+- Latest production deployment: <https://barangay-bato-ecertificate-system-raaijeycd-ron-cada-projects.vercel.app>
 - Vercel project: `barangay-bato-ecertificate-system`
 - Database: Turso migrations `0000_initial_schema.sql`,
   `0001_client_deployment.sql`, and `0002_full_online_workflow.sql` are
