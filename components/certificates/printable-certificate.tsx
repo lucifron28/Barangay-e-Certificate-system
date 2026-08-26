@@ -1,4 +1,5 @@
 import { certificateLabel } from "@/lib/utils/format";
+import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import {
   certificateTemplateSalutation,
@@ -20,12 +21,15 @@ type PrintableCertificateProps = {
 function Header() {
   return (
     <header className="relative text-center">
-      {/* TODO: Replace CSS seal placeholders with final production asset handling if approved. */}
-      <div className="absolute left-0 top-0 flex size-20 items-center justify-center rounded-full border-2 border-neutral text-[10px] font-bold uppercase leading-tight">
-        Bayan ng Mauban
+      {/* TODO: Confirm final seal size and exact print positioning against the approved certificate template. */}
+      <div className="absolute left-0 top-0 size-20">
+        <SealImage seal="mauban" className="size-full object-contain" />
       </div>
-      <div className="absolute right-0 top-0 flex size-20 items-center justify-center rounded-full border-2 border-neutral text-[10px] font-bold uppercase leading-tight">
-        Barangay Bato
+      <div className="absolute right-0 top-0 size-20">
+        <SealImage
+          seal="barangay-bato"
+          className="size-full object-contain"
+        />
       </div>
       <p className="text-sm uppercase">Republic of the Philippines</p>
       <p className="text-sm">Province of Quezon</p>

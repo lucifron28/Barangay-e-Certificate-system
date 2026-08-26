@@ -1,6 +1,7 @@
 import Link from "next/link";
-import { LogOut, Menu, ShieldCheck } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth";
+import { SealImage } from "@/components/branding/seal-image";
 import { ThemeSwitcher } from "@/components/theme/theme-switcher";
 import { isAdminRole } from "@/lib/auth/roles";
 import { getInitials } from "@/lib/utils/format";
@@ -98,9 +99,7 @@ export function DashboardShell({
             href={isAdminRole(profile.role) ? "/admin/dashboard" : "/resident/dashboard"}
             className="mb-6 flex items-center gap-3 rounded-lg px-2 py-3"
           >
-            <div className="rounded-lg bg-primary p-2 text-primary-content">
-              <ShieldCheck className="size-5" aria-hidden />
-            </div>
+            <SealImage seal="barangay-bato" className="size-11 object-contain" />
             <div>
               <p className="font-bold leading-tight">Barangay Bato</p>
               <p className="text-xs text-base-content/60">Mauban, Quezon</p>

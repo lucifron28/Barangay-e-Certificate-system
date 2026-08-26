@@ -109,6 +109,10 @@ describe("historical certificate template alignment", () => {
       expect(pdf.getTitle()).toContain(label);
       expect(keywords).toContain("REQ-TEST-HIST-0001");
       expect(keywords).toContain(`HIST-${type}`);
+      const pdfSource = Buffer.from(bytes).toString("latin1");
+      expect(
+        pdfSource.split("/Subtype /Image").length - 1,
+      ).toBeGreaterThanOrEqual(2);
     },
   );
 
