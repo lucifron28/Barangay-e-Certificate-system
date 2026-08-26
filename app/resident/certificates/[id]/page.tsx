@@ -43,9 +43,9 @@ export default async function ResidentCertificatePage({ params }: { params: Prom
         ) : null}
       </section>
       {available ? (
-        <Link className="btn btn-primary" href={`/resident/certificates/${record.id}/download`}>
+        <a className="btn btn-primary" href={`/resident/certificates/${record.id}/download`}>
           Download certificate PDF
-        </Link>
+        </a>
       ) : (
         <div className="alert alert-warning">
           {displayStatus === "replaced"

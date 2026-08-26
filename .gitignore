@@ -33,3 +33,4 @@ tmp/
 .vercel
 .env*.local
 .artifacts/
+artifacts/playwright-demo/

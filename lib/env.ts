@@ -27,6 +27,7 @@ function parseSmtpSecure(value: string | undefined) {
 export const env = {
   appUrl: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
   databaseProvider: process.env.DATABASE_PROVIDER ?? "sqlite",
+  paymentDemoMode: process.env.PAYMENT_DEMO_MODE === "true",
   tursoAuthToken: process.env.TURSO_AUTH_TOKEN?.trim() ?? "",
   tursoDatabaseUrl: process.env.TURSO_DATABASE_URL?.trim() ?? "",
   certificateStorageProvider:
