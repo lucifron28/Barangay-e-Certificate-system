@@ -62,14 +62,14 @@ export default async function ReportsPage({ searchParams }: ReportsPageProps) {
         </div>
         <div className="flex flex-wrap gap-2">
           <PrintButton />
-          <Link href={`/admin/reports/pdf?${new URLSearchParams(params as Record<string, string>).toString()}`} className="btn btn-outline">
+          <a href={`/admin/reports/pdf?${new URLSearchParams(params as Record<string, string>).toString()}`} className="btn btn-outline">
             <FileDown className="size-4" aria-hidden />
             Download PDF
-          </Link>
-          <Link href={`/admin/reports/excel?${new URLSearchParams(params as Record<string, string>).toString()}`} className="btn btn-outline">
+          </a>
+          <a href={`/admin/reports/excel?${new URLSearchParams(params as Record<string, string>).toString()}`} className="btn btn-outline">
             <FileSpreadsheet className="size-4" aria-hidden />
             Export Excel
-          </Link>
+          </a>
         </div>
       </div>
 
