@@ -112,7 +112,7 @@ describe("historical certificate template alignment", () => {
       const pdfSource = Buffer.from(bytes).toString("latin1");
       expect(
         pdfSource.split("/Subtype /Image").length - 1,
-      ).toBeGreaterThanOrEqual(2);
+      ).toBeGreaterThanOrEqual(3);
     },
   );
 

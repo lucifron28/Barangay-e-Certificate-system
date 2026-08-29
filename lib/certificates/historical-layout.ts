@@ -28,6 +28,17 @@ const OFFICE_BLUE = rgb(0.22, 0.45, 0.72);
 const BODY_COLOR = rgb(0.04, 0.04, 0.04);
 const WATERMARK_COLOR = rgb(0.82, 0.82, 0.82);
 const META_COLOR = rgb(0.28, 0.28, 0.28);
+const WATERMARK_OPACITY = 0.2;
+
+const HISTORICAL_WATERMARK_CONFIG: Record<
+  HistoricalCertificateType,
+  { centerY: number; size: number }
+> = {
+  barangay_clearance: { centerY: 408, size: 560 },
+  barangay_certificate: { centerY: 396, size: 468 },
+  barangay_indigency: { centerY: 396, size: 468 },
+  barangay_residency: { centerY: 396, size: 468 },
+};
 
 export type HistoricalCertificateType =
   | "barangay_clearance"
@@ -742,28 +753,46 @@ async function embedSealImages(
   }
 }
 
-function drawWatermark(page: PDFPage, fonts: HistoricalFonts) {
+function drawWatermark(
+  page: PDFPage,
+  watermark: PDFImage | null,
+  type: HistoricalCertificateType,
+  fonts: HistoricalFonts,
+) {
+  const config = HISTORICAL_WATERMARK_CONFIG[type];
+
+  if (watermark) {
+    page.drawImage(watermark, {
+      height: config.size,
+      opacity: WATERMARK_OPACITY,
+      width: config.size,
+      x: (LETTER_WIDTH - config.size) / 2,
+      y: config.centerY - config.size / 2,
+    });
+    return;
+  }
+
   page.drawEllipse({
     borderColor: WATERMARK_COLOR,
     borderWidth: 7,
     x: LETTER_WIDTH / 2,
-    xScale: 215,
-    y: 408,
-    yScale: 215,
+    xScale: config.size / 2,
+    y: config.centerY,
+    yScale: config.size / 2,
   });
   page.drawEllipse({
     borderColor: rgb(0.9, 0.9, 0.9),
     borderWidth: 1.5,
     x: LETTER_WIDTH / 2,
-    xScale: 184,
-    y: 408,
-    yScale: 184,
+    xScale: config.size / 2 - 31,
+    y: config.centerY,
+    yScale: config.size / 2 - 31,
   });
   centerTextAt(
     page,
     "BARANGAY BATO",
     LETTER_WIDTH / 2,
-    566,
+    config.centerY + config.size / 2 - 70,
     fonts.bold,
     31,
     WATERMARK_COLOR,
@@ -772,7 +801,7 @@ function drawWatermark(page: PDFPage, fonts: HistoricalFonts) {
     page,
     "MAUBAN, QUEZON",
     LETTER_WIDTH / 2,
-    248,
+    config.centerY - config.size / 2 + 55,
     fonts.bold,
     25,
     WATERMARK_COLOR,
@@ -1098,7 +1127,7 @@ export async function generateHistoricalCertificatePdf({
   ]);
 
   const page = pdfDoc.addPage([LETTER_WIDTH, LETTER_HEIGHT]);
-  drawWatermark(page, fonts);
+  drawWatermark(page, seals?.barangayBato ?? null, type, fonts);
   drawHeader(page, config, fonts, seals);
   drawText(page, config.salutation, 72, config.salutationY, fonts.bold, 17);
 

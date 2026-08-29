@@ -372,10 +372,11 @@ needed by the browser preview and PDF renderer; the original reference PDFs
 remain private and ignored.
 
 The current certificate preview and downloaded PDF use the processed seals in
-the shared header. Exact final seal sizing, print positioning, and approval of
-the visual signature remain client handoff items. Production handling may move
-approved reference, seal, and signature assets to Supabase Storage later; the
-current target for generated PDFs is Vercel Private Blob.
+the shared header and reuse the Barangay Bato seal as the low-opacity center
+watermark. Exact final seal sizing, watermark opacity, print positioning, and
+approval of the visual signature remain client handoff items. Production
+handling may move approved reference, seal, and signature assets to Supabase
+Storage later; the current target for generated PDFs is Vercel Private Blob.
 
 ## Authentication And Security
 
