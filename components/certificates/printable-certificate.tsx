@@ -18,6 +18,13 @@ type PrintableCertificateProps = {
   snapshot?: CertificateSnapshot;
 };
 
+const WATERMARK_SIZE_CLASSES = {
+  barangay_certificate: "size-[6.5in]",
+  barangay_clearance: "size-[7.75in]",
+  barangay_indigency: "size-[6.5in]",
+  barangay_residency: "size-[6.5in]",
+} as const;
+
 function Header() {
   return (
     <header className="relative text-center">
@@ -42,17 +49,21 @@ function Header() {
   );
 }
 
-function Watermark() {
+function Watermark({
+  certificateType,
+}: {
+  certificateType: CertificateRequest["certificate_type"];
+}) {
   return (
     <div
-      className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-10"
+      className="pointer-events-none absolute inset-0 flex items-center justify-center"
       aria-hidden
     >
-      <div className="flex size-[6.5in] items-center justify-center rounded-full border-[10px] border-neutral text-center text-5xl font-black uppercase leading-tight text-neutral">
-        Barangay Bato
-        <br />
-        Mauban, Quezon
-      </div>
+      {/* TODO: Confirm the final watermark scale and opacity against a client-approved print proof. */}
+      <SealImage
+        seal="barangay-bato"
+        className={`${WATERMARK_SIZE_CLASSES[certificateType]} object-contain opacity-[0.2]`}
+      />
     </div>
   );
 }
@@ -288,7 +299,7 @@ export function PrintableCertificate({
     <article className="print-surface relative mx-auto min-h-[11in] w-[8.5in] max-w-full overflow-hidden rounded-lg border border-base-300 bg-white p-[0.55in] text-neutral shadow-sm">
       {/* TODO: Exact positioning must be revisited with the client before production printing. */}
       {/* TODO: Final production handling may use controlled Supabase Storage assets. */}
-      <Watermark />
+      <Watermark certificateType={request.certificate_type} />
       <div className="relative z-10">
         {draft ? (
           <div className="mb-4 border-2 border-dashed border-warning p-2 text-center text-xs font-bold uppercase tracking-normal text-warning">

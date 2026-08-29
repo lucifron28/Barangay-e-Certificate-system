@@ -46,7 +46,7 @@ print positioning remain subject to final client approval.
 | `CERTIFICATION OF RESIDENCY` title                                        | Expanded modern title                                     | Title wording differed                                             | Use the historical title wording                                                                                           | Implemented                    |
 | Residency statement, supporting-document paragraph, and purpose paragraph | Modern standardized paragraphs                            | Body structure and emphasis differed                               | Use a certificate-specific historical body with dynamic synthetic-safe data and bold field values                          | Implemented                    |
 | Single right-side certifying official block                               | Generic two-column signature footer                       | Extra signature area changed the document identity                 | Use one principal certifying official block; keep prepared-by information in secondary verification metadata               | Implemented                    |
-| Large faint central seal watermark                                        | Large placeholder ellipse with text                       | Watermark was too generic                                          | Use a large low-contrast fallback watermark; replace with an approved asset when supplied                                  | Implemented; asset pending     |
+| Large faint central seal watermark                                        | Large supplied Barangay Bato seal at low opacity          | Exact final size and print positioning remain to be approved         | Use the supplied Barangay Bato seal as the centered low-contrast watermark, with a text fallback only if the asset is unavailable | Implemented; final print approval pending |
 
 ### Barangay Clearance
 
@@ -66,7 +66,7 @@ print positioning remain subject to final client approval.
 | `CERTIFICATION OF INDIGENCY` title                    | Expanded modern title               | Title wording differed                         | Use the historical title wording                                               | Implemented                |
 | Indigency statement, purpose, and issuance paragraphs | Modern standardized paragraphs      | Document meaning and paragraph rhythm differed | Preserve the meaning with professionally corrected grammar and dynamic fields  | Implemented                |
 | One right-side certifying official area               | Generic two-column signature footer | Signature placement differed                   | Use one principal certifying official block                                    | Implemented                |
-| Large faint central seal watermark                    | Large placeholder ellipse with text | Watermark was too generic                      | Use the shared low-contrast fallback watermark pending an approved asset       | Implemented; asset pending |
+| Large faint central seal watermark                    | Large supplied Barangay Bato seal at low opacity | Watermark was too generic                      | Use the supplied Barangay Bato seal as the centered low-contrast watermark, with a text fallback only if the asset is unavailable | Implemented; final print approval pending |
 
 ### Barangay Certificate (`PAGPAPATUNAY`)
 
@@ -90,10 +90,14 @@ these assets in the paired upper header. If either file is unavailable, the
 PDF renderer keeps its text-based fallback so a missing static asset does not
 break issuance.
 
-The central watermark remains a low-contrast generated placeholder. Exact seal
-dimensions, print positioning, and final production asset handling still need
-print approval. Approved assets may move to Supabase Storage in a later
-deployment model without changing certificate business logic.
+The central watermark now uses the same supplied Barangay Bato seal as the
+historical references, scaled per certificate type and rendered at low opacity
+behind the certificate text. The clearance reference uses the larger seal
+treatment; the Certificate, Indigency, and Residency references use the smaller
+shared treatment. A text-based fallback remains for missing local assets. Exact
+watermark dimensions, opacity, print positioning, and final production asset
+handling still need print approval. Approved assets may move to Supabase Storage
+in a later deployment model without changing certificate business logic.
 
 ## Digital Verification Layer
 
