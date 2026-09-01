@@ -59,7 +59,10 @@ export default async function GenerateCertificatePage({
   const canPreview =
     isCertificateIssuanceConfigured() &&
     (hasActiveCertificate || eligibleForIssuance || isReissue);
-  const signatureImageUrl = settings.signatureImagePath
+  const signatureImageConfigured = certificateRecord
+    ? Boolean(certificateRecord.certificate_snapshot?.signature_image_key)
+    : Boolean(settings.signatureImagePath);
+  const signatureImageUrl = signatureImageConfigured
     ? `/api/admin/signature${certificateRecord?.id ? `?record_id=${encodeURIComponent(certificateRecord.id)}` : ""}`
     : null;
 

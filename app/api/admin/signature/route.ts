@@ -29,10 +29,10 @@ export async function GET(request: Request) {
   if (recordId && getProvider() !== "supabase") {
     const record = await getCertificateRecordById(recordId);
     const snapshot = record?.certificate_snapshot;
-    if (snapshot?.signature_image_key) {
-      signatureKey = snapshot.signature_image_key;
+    if (snapshot) {
+      signatureKey = snapshot.signature_image_key ?? null;
       signatureProvider =
-        snapshot.signature_image_provider ?? signatureProvider;
+        snapshot.signature_image_provider ?? getSignatureStorageProvider();
     }
   }
 
