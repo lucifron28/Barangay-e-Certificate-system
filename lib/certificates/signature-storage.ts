@@ -70,7 +70,7 @@ export async function storeSignatureImage(
   if (provider === "local") {
     const directory = getSignatureStorageDirectory();
     mkdirSync(directory, { recursive: true });
-    const filePath = path.join(directory, fileName);
+    const filePath = path.join(/* turbopackIgnore: true */ directory, fileName);
     const temporaryPath = `${filePath}.tmp`;
 
     try {
