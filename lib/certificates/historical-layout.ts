@@ -19,6 +19,11 @@ import {
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
 import { normalizePdfText } from "@/lib/certificates/pdf-text";
+import {
+  embedSignatureImage,
+  fitSignatureImage,
+} from "@/lib/certificates/pdf-signature";
+import type { SignatureImagePayload } from "@/lib/certificates/signature-storage";
 import type { CertificateSnapshot } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
 
@@ -858,6 +863,7 @@ function drawSignature(
   config: HistoricalTemplateConfig,
   captainName: string,
   fonts: HistoricalFonts,
+  signatureImage?: PDFImage | null,
 ) {
   const lineY = config.signatureY;
   const lineStart = config.signatureX - 90;
@@ -871,6 +877,15 @@ function drawSignature(
     fonts.bold,
     14,
   );
+  if (signatureImage) {
+    const imageSize = fitSignatureImage(signatureImage, 135, 44);
+    page.drawImage(signatureImage, {
+      height: imageSize.height,
+      width: imageSize.width,
+      x: config.signatureX - imageSize.width / 2,
+      y: lineY + 4,
+    });
+  }
   page.drawLine({
     color: BODY_COLOR,
     start: { x: lineStart, y: lineY + 10 },
@@ -1056,11 +1071,12 @@ async function drawVerificationLayer({
 }
 
 export async function generateHistoricalCertificatePdf({
-  barangayCaptainName = "Authorized Barangay Official",
+  barangayCaptainName = "DIOGENES E. MANAOG",
   certificateNumber,
   dateIssued = new Date().toISOString(),
   preparedBy,
   request,
+  signatureImage,
   snapshot,
   verificationCode,
   verificationExpiresAt,
@@ -1071,6 +1087,7 @@ export async function generateHistoricalCertificatePdf({
   dateIssued?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
+  signatureImage?: SignatureImagePayload;
   snapshot?: CertificateSnapshot;
   verificationCode?: string;
   verificationExpiresAt?: string;
@@ -1079,6 +1096,7 @@ export async function generateHistoricalCertificatePdf({
   const type = request.certificate_type as HistoricalCertificateType;
   const config = getTemplateConfig(type);
   const pdfDoc = await PDFDocument.create();
+  const embeddedSignatureImage = await embedSignatureImage(pdfDoc, signatureImage);
   const seals = await embedSealImages(pdfDoc);
   const effectiveCertificateNumber =
     snapshot?.certificate_number ?? certificateNumber;
@@ -1158,7 +1176,13 @@ export async function generateHistoricalCertificatePdf({
     y,
   });
 
-  drawSignature(page, config, effectiveCaptainName, fonts);
+  drawSignature(
+    page,
+    config,
+    effectiveCaptainName,
+    fonts,
+    embeddedSignatureImage,
+  );
   if (config.paperFieldsY) {
     drawClearancePaperFields(page, config.paperFieldsY, fonts);
   }

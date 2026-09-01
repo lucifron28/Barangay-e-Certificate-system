@@ -25,6 +25,12 @@ import { sha256Hex } from "@/lib/security/document-hash";
 import { buildVerificationUrl } from "@/lib/certificates/verification-url";
 import { issuanceMode } from "@/lib/services/issuance-mode";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
+import {
+  getSignatureStorageProvider,
+  readStoredSignatureImage,
+  type LoadedSignatureImage,
+} from "@/lib/certificates/signature-storage";
+import { certificateTemplateSignatureRole } from "@/lib/certificates/template-copy";
 import type { RequestWithResident } from "@/lib/db/queries";
 import type { CertificateRecord, Json } from "@/types/database";
 
@@ -62,6 +68,22 @@ export function isCertificateIssuanceEligible(
 ) {
   if (request.status !== "accepted") return false;
   return ["paid", "free"].includes(request.payment_status);
+}
+
+async function loadConfiguredSignatureImage(settings: {
+  signatureImagePath?: string | null;
+  signatureImageProvider?: "local" | "vercel_blob" | null;
+}): Promise<LoadedSignatureImage | null> {
+  if (!settings.signatureImagePath) return null;
+
+  try {
+    return await readStoredSignatureImage({
+      key: settings.signatureImagePath,
+      provider: settings.signatureImageProvider ?? getSignatureStorageProvider(),
+    });
+  } catch {
+    return null;
+  }
 }
 
 function getOfficialIssueDate(dateIssued: string) {
@@ -128,7 +150,12 @@ export async function issueCertificate(input: {
   preparedBy: string;
   preparedById: string;
   request: RequestWithResident;
-  settings: { barangayCaptainName: string };
+  settings: {
+    barangayCaptainName: string;
+    signatureImagePath?: string | null;
+    signatureImageProvider?: "local" | "vercel_blob" | null;
+    signatureImageSha256?: string | null;
+  };
 }) {
   const { request } = input;
 
@@ -181,6 +208,9 @@ export async function issueCertificate(input: {
     issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
   const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
+  const signatureImage = await loadConfiguredSignatureImage(input.settings);
+  const signatureImageProvider =
+    input.settings.signatureImageProvider ?? getSignatureStorageProvider();
   const verificationToken = generateVerificationToken();
   const shortVerificationCode = getShortVerificationCode();
   const tokenHash = createHash("sha256").update(verificationToken).digest("hex");
@@ -226,12 +256,18 @@ export async function issueCertificate(input: {
   }
   const snapshot = createCertificateSnapshot({
     authorizedOfficialName: input.settings.barangayCaptainName,
+    authorizedOfficialRole: certificateTemplateSignatureRole(
+      request.certificate_type,
+    ),
     certificateNumber,
     dateIssued,
     issuedAt,
     issuanceMode: issuanceMode,
     preparedBy: input.preparedBy,
     request,
+    signatureImageKey: signatureImage ? input.settings.signatureImagePath : null,
+    signatureImageProvider: signatureImage ? signatureImageProvider : null,
+    signatureImageSha256: signatureImage?.sha256 ?? null,
     verificationExpiresAt: expiresAt,
   });
   const templateData: Json = {
@@ -240,7 +276,8 @@ export async function issueCertificate(input: {
     generated_at: new Date().toISOString(),
     request_number: request.request_number,
     signature_notice:
-      "The displayed signer is a visual placeholder, not a legally verified digital signature.",
+      "The displayed signer is a visual electronic signature for thesis/demo use and is not a legally verified digital signature.",
+    signature_representation_type: snapshot.signature_representation_type,
   };
 
   let storedPdf: StoredCertificatePdf | null = null;
@@ -251,6 +288,7 @@ export async function issueCertificate(input: {
       dateIssued,
       preparedBy: input.preparedBy,
       request,
+      signatureImage: signatureImage ?? undefined,
       snapshot,
       verificationCode: shortVerificationCode,
       verificationExpiresAt: expiresAt,

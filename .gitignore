@@ -24,6 +24,7 @@ data/certificates/
 data/certificates-test/
 data/payment-proofs/
 data/merchant-qrs/
+data/signatures/
 data/.local-demo-session-secret
 docs/client-assets/certificate-templates/original/
 .tmp-template-images/

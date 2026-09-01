@@ -22,6 +22,13 @@ export const MAX_SIGNATURE_IMAGE_BYTES = 2 * 1024 * 1024;
 
 export type SignatureImageFormat = "jpeg" | "png";
 export type SignatureStorageProvider = "local" | "vercel_blob";
+export type SignatureImagePayload = {
+  bytes: Uint8Array;
+  contentType: string;
+};
+export type LoadedSignatureImage = SignatureImagePayload & {
+  sha256: string;
+};
 
 export type StoredSignatureImage = {
   contentType: string;
@@ -110,7 +117,7 @@ export async function readStoredSignatureImage(input: {
   key: string | null;
   path?: string | null;
   provider: SignatureStorageProvider;
-}): Promise<{ bytes: Uint8Array; contentType: string; sha256: string } | null> {
+}): Promise<LoadedSignatureImage | null> {
   if (!input.key) return null;
 
   if (input.provider === "local") {

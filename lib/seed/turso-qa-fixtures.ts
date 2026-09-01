@@ -384,7 +384,7 @@ export function buildTursoQaSystemSettingStatements(
       args: [
         randomUUID(),
         "barangay_captain_name",
-        "Authorized Barangay Official",
+        "DIOGENES E. MANAOG",
         timestamp,
         timestamp,
       ],

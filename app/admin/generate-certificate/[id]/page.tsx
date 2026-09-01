@@ -100,8 +100,9 @@ export default async function GenerateCertificatePage({
         <div className="alert alert-warning">
           <span>
             The downloadable PDF is generated from clean code templates; the
-            source PDFs remain private reference files. The displayed signature
-            is a visual placeholder only, not a legally verified digital signature.
+            source PDFs remain private reference files. The displayed signer is
+            a visual electronic signature for thesis/demo use only, not a
+            legally verified digital signature.
           </span>
         </div>
       </div>

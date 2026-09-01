@@ -2149,7 +2149,7 @@ export function getSystemSettings(): SystemSettings {
   return {
     barangayCaptainName:
       (settings.get("barangay_captain_name")?.value as string | undefined) ??
-      "Authorized Barangay Official",
+      "DIOGENES E. MANAOG",
     paymentReceiving,
     signatureImagePath:
       (settings.get("signature_image_path")?.value as string | undefined) ?? null,

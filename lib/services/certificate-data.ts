@@ -205,7 +205,7 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
   return {
     barangayCaptainName:
       (map.get("barangay_captain_name") as string | undefined) ??
-      "Authorized Barangay Official",
+      "DIOGENES E. MANAOG",
     paymentReceiving: applyDemoPaymentFallback(
       DEFAULT_PAYMENT_RECEIVING_SETTINGS,
       env.paymentDemoMode,
