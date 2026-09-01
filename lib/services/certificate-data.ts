@@ -212,6 +212,15 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
     ),
     signatureImagePath:
       (map.get("signature_image_path") as string | undefined) ?? null,
+    signatureImageProvider:
+      (map.get("signature_image_provider") as
+        | "local"
+        | "vercel_blob"
+        | undefined) ?? env.certificateStorageProvider,
+    signatureImageSha256:
+      (map.get("signature_image_sha256") as string | undefined) ?? null,
+    signatureImageUpdatedAt:
+      (map.get("signature_image_updated_at") as string | undefined) ?? null,
   };
 }
 

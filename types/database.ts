@@ -71,7 +71,13 @@ export type CertificateSnapshot = {
   holder_years_of_residency: number | null;
   prepared_by_display_name: string;
   authorized_official_display_name: string;
-  signature_representation_type: "visual_name_placeholder";
+  authorized_official_role?: string;
+  signature_representation_type:
+    | "visual_name_placeholder"
+    | "visual_signature_image";
+  signature_image_key?: string | null;
+  signature_image_provider?: "local" | "vercel_blob" | null;
+  signature_image_sha256?: string | null;
 };
 
 export type PickupSchedule = {

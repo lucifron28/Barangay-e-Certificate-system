@@ -59,6 +59,9 @@ export default async function GenerateCertificatePage({
   const canPreview =
     isCertificateIssuanceConfigured() &&
     (hasActiveCertificate || eligibleForIssuance || isReissue);
+  const signatureImageUrl = settings.signatureImagePath
+    ? `/api/admin/signature${certificateRecord?.id ? `?record_id=${encodeURIComponent(certificateRecord.id)}` : ""}`
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -111,6 +114,7 @@ export default async function GenerateCertificatePage({
             dateIssued={certificateRecord?.date_issued}
             preparedBy={context.profile.full_name}
             request={request}
+            signatureImageUrl={signatureImageUrl}
             snapshot={certificateRecord?.certificate_snapshot}
           />
         ) : (
@@ -121,6 +125,7 @@ export default async function GenerateCertificatePage({
             isReissue={isReissue}
             preparedBy={context.profile.full_name}
             request={request}
+            signatureImageUrl={signatureImageUrl}
           />
         )
       ) : null}

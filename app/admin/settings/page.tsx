@@ -1,4 +1,4 @@
-import { CreditCard, Settings } from "lucide-react";
+import { CreditCard, PenLine, Settings } from "lucide-react";
 import { SetupRequired } from "@/components/ui/setup-required";
 import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
@@ -69,6 +69,7 @@ export default async function AdminSettingsPage({
               <form
                 action={updateSystemSettingsAction}
                 className="mt-2 space-y-3"
+                encType="multipart/form-data"
               >
                 <input
                   className="input input-bordered w-full"
@@ -76,6 +77,22 @@ export default async function AdminSettingsPage({
                   defaultValue={settings.barangayCaptainName}
                   required
                 />
+                <label className="form-control">
+                  <span className="label">
+                    <span className="label-text">Visual Signature Image</span>
+                  </span>
+                  <input
+                    className="file-input file-input-bordered w-full"
+                    name="signature_image"
+                    type="file"
+                    accept="image/png,image/jpeg"
+                  />
+                  <span className="label">
+                    <span className="label-text-alt">
+                      PNG or JPEG, up to 2 MB. Leave empty to keep the current image.
+                    </span>
+                  </span>
+                </label>
                 <SubmitButton
                   className="btn btn-primary btn-sm"
                   pendingText="Saving settings..."
@@ -88,6 +105,32 @@ export default async function AdminSettingsPage({
                 {settings.barangayCaptainName}
               </dd>
             )}
+            <div className="mt-4 rounded-md border border-base-300 bg-base-200/40 p-3">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <PenLine className="size-4 text-primary" aria-hidden />
+                <span>Signature image</span>
+              </div>
+              {settings.signatureImagePath ? (
+                <div className="mt-3 space-y-2">
+                  <div className="flex min-h-24 items-center justify-center rounded border border-base-300 bg-white p-2">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src="/api/admin/signature"
+                      alt="Configured authorized official visual signature"
+                      className="max-h-20 max-w-full object-contain"
+                    />
+                  </div>
+                  <p className="text-xs text-base-content/60">
+                    Updated {settings.signatureImageUpdatedAt ?? "in system settings"}.
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-sm text-base-content/70">
+                  No signature image is configured. New certificates will use the
+                  printed-name fallback until Main Admin uploads one.
+                </p>
+              )}
+            </div>
           </div>
           <div>
             <dt className="text-sm font-semibold text-base-content/70">
@@ -99,8 +142,8 @@ export default async function AdminSettingsPage({
           </div>
         </div>
         <p className="mt-4 text-xs text-base-content/60">
-          The signer name is rendered as a consistent visual placeholder in both
-          HTML preview and PDF. It is not a legally verified digital signature.
+          The signer name and uploaded image are visual thesis/demo elements in
+          HTML previews and PDFs. They are not a legally verified digital signature.
         </p>
       </section>
 
