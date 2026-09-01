@@ -106,6 +106,9 @@ but their role values remain separate for future permission refinement.
   demo flow still requires proof submission and staff verification.
 - Printable certificate HTML and generated PDF layouts based on supplied
   official reference PDFs.
+- Configurable visual signature for the Barangay Chairman/Punong Barangay:
+  Main Admin uploads a PNG/JPEG, the authenticated preview loads it privately,
+  and issued PDFs embed the exact image bytes used for that issuance.
 - Private local PDF storage and a Vercel Private Blob adapter.
 - Protected resident/admin PDF routes with SHA-256 checks, safe headers,
   revocation/expiry checks, and download audit logs.
@@ -126,9 +129,14 @@ but their role values remain separate for future permission refinement.
   recipient.
 - The monthly barangay report remains a clean preview format until its final
   form is supplied.
-- The default Vercel HTTPS domain is live; a custom domain, Captain identity,
-  visual signature asset, final seal sizing, retention policy, and print
-  approval remain client handoff items.
+- The default Vercel HTTPS domain is live; a custom domain, final seal sizing,
+  retention policy, and print approval remain client handoff items. The
+  configured demo signer is `DIOGENES E. MANAOG`.
+- The client-provided `signature.docx` was inspected with OfficeCLI. The
+  selected top signature is treated as a visual thesis/demo asset and is not a
+  legally verified digital signature. The source DOCX and extracted image are
+  intentionally kept outside Git and are not publicly served; upload the
+  approved PNG/JPEG from Admin > Settings when configuring a fresh environment.
 - Synthetic Main Admin, Barangay Secretary, and resident identities are seeded
   in the current Turso presentation database. Public registration still cannot
   create admin roles, and real operator identities must replace the demo users
@@ -373,10 +381,19 @@ remain private and ignored.
 
 The current certificate preview and downloaded PDF use the processed seals in
 the shared header and reuse the Barangay Bato seal as the low-opacity center
-watermark. Exact final seal sizing, watermark opacity, print positioning, and
-approval of the visual signature remain client handoff items. Production
-handling may move approved reference, seal, and signature assets to Supabase
-Storage later; the current target for generated PDFs is Vercel Private Blob.
+watermark. The Main Admin settings page accepts the selected signer image and
+stores it privately in local `data/signatures/` or Vercel Private Blob. The
+preview uses an authenticated image route; issuance embeds the image into the
+PDF and stores its provider, key, and SHA-256 checksum in the immutable
+certificate snapshot. Existing issued PDFs are not regenerated when the active
+signature changes.
+
+Signer roles are template-specific: Clearance, Indigency, and Residency use
+`Barangay Chairman`; Barangay Certificate/PAGPAPATUNAY uses `Punong Barangay`.
+Exact final signature sizing, positioning, and print approval remain client
+handoff items. Production handling may move approved reference, seal, and
+signature assets to Supabase Storage later; the current target for generated
+PDFs is Vercel Private Blob.
 
 ## Authentication And Security
 
@@ -481,7 +498,7 @@ is not an active operating or deployment guide.
 | Admin authentication | Implemented | Main Admin and Barangay Secretary roles |
 | Certificate requests | Implemented | Four confirmed certificate field sets |
 | Request cancellation/resubmission | Implemented | Pending cancellation and rejected resubmission |
-| Certificate generation | Implemented / Partial | Four printable layouts based on supplied PDFs |
+| Certificate generation | Implemented / Partial | Four printable layouts based on supplied PDFs, with configurable visual signer image |
 | PDF download | Implemented | Private retrieval, hash check, and audit log |
 | Online delivery | Implemented | Accepted requests proceed through manual payment proof verification and secure PDF download |
 | Fees | Implemented | PHP 50 or free; manual GCash/Maya verification |
