@@ -205,13 +205,22 @@ export async function getSystemSettings(supabase: Supabase): Promise<SystemSetti
   return {
     barangayCaptainName:
       (map.get("barangay_captain_name") as string | undefined) ??
-      "Authorized Barangay Official",
+      "DIOGENES E. MANAOG",
     paymentReceiving: applyDemoPaymentFallback(
       DEFAULT_PAYMENT_RECEIVING_SETTINGS,
       env.paymentDemoMode,
     ),
     signatureImagePath:
       (map.get("signature_image_path") as string | undefined) ?? null,
+    signatureImageProvider:
+      (map.get("signature_image_provider") as
+        | "local"
+        | "vercel_blob"
+        | undefined) ?? env.certificateStorageProvider,
+    signatureImageSha256:
+      (map.get("signature_image_sha256") as string | undefined) ?? null,
+    signatureImageUpdatedAt:
+      (map.get("signature_image_updated_at") as string | undefined) ?? null,
   };
 }
 

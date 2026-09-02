@@ -28,6 +28,11 @@ import {
   readPrivatePaymentFile,
   storeMerchantQrImage,
 } from "@/lib/payments/storage";
+import {
+  detectSignatureImageFormat,
+  MAX_SIGNATURE_IMAGE_BYTES,
+  storeSignatureImage,
+} from "@/lib/certificates/signature-storage";
 import { sendEmailNotification } from "@/lib/email/send-email-notification";
 import { canRejectRequest } from "@/lib/services/business-rules";
 import { getAdminRequest } from "@/lib/services/certificate-data";
@@ -418,12 +423,62 @@ export async function updateSystemSettingsAction(formData: FormData) {
   if (context.setupMissing) {
     redirectWithError("/admin/settings", "This service is temporarily unavailable.");
   }
+
+  const signatureFile = formData.get("signature_image");
+  const hasSignatureFile = signatureFile instanceof File && signatureFile.size > 0;
+  let storedSignature: Awaited<ReturnType<typeof storeSignatureImage>> | null = null;
+
+  if (hasSignatureFile) {
+    if (signatureFile.size > MAX_SIGNATURE_IMAGE_BYTES) {
+      redirectWithError(
+        "/admin/settings",
+        "Signature image must be 2 MB or smaller.",
+      );
+    }
+
+    const signatureBytes = new Uint8Array(await signatureFile.arrayBuffer());
+    const signatureFormat = detectSignatureImageFormat(signatureBytes);
+    if (!signatureFormat) {
+      redirectWithError(
+        "/admin/settings",
+        "Signature image must be a valid PNG or JPEG file.",
+      );
+    }
+
+    try {
+      storedSignature = await storeSignatureImage(signatureBytes, signatureFormat);
+    } catch {
+      redirectWithError(
+        "/admin/settings",
+        "The signature image could not be stored. Please try again.",
+      );
+    }
+  }
+
+  const settingsToSave = [
+    { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },
+    ...(storedSignature
+      ? [
+          { key: "signature_image_path", value: storedSignature.key },
+          { key: "signature_image_provider", value: storedSignature.provider },
+          { key: "signature_image_sha256", value: storedSignature.sha256 },
+          {
+            key: "signature_image_updated_at",
+            value: new Date().toISOString(),
+          },
+        ]
+      : []),
+  ];
+
   if (isSqliteProvider()) {
-    await setSystemSetting("barangay_captain_name", parsed.data.barangay_captain_name);
+    for (const setting of settingsToSave) {
+      await setSystemSetting(setting.key, setting.value);
+    }
   } else {
-    const { error } = await context.supabase!.from("system_settings").upsert([
-      { key: "barangay_captain_name", value: parsed.data.barangay_captain_name },
-    ], { onConflict: "key" });
+    const { error } = await context.supabase!.from("system_settings").upsert(
+      settingsToSave,
+      { onConflict: "key" },
+    );
     if (error) redirectWithError("/admin/settings", "Unable to update settings.");
   }
 
@@ -431,10 +486,17 @@ export async function updateSystemSettingsAction(formData: FormData) {
     action: "System settings updated",
     affectedTable: "system_settings",
     profile: context.profile,
-    remarks: "Certificate signer settings updated.",
+    remarks: storedSignature
+      ? "Certificate signer name and visual signature image updated."
+      : "Certificate signer name updated.",
     supabase: context.supabase,
   });
-  redirectWithMessage("/admin/settings", "Certificate signer settings updated.");
+  redirectWithMessage(
+    "/admin/settings",
+    storedSignature
+      ? "Signer name and signature image updated."
+      : "Signer name updated.",
+  );
 }
 
 export async function updatePaymentMethodSettingsAction(formData: FormData) {

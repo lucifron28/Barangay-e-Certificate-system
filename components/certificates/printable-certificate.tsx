@@ -2,6 +2,8 @@ import { certificateLabel } from "@/lib/utils/format";
 import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import {
+  certificateTemplateSignatureLabel,
+  certificateTemplateSignatureRole,
   certificateTemplateSalutation,
   certificateTemplateTitle,
 } from "@/lib/certificates/template-copy";
@@ -13,8 +15,8 @@ type PrintableCertificateProps = {
   certificateNumber?: string;
   dateIssued?: string;
   draft?: boolean;
-  preparedBy: string;
   request: CertificateRequestWithResident;
+  signatureImageUrl?: string | null;
   snapshot?: CertificateSnapshot;
 };
 
@@ -70,23 +72,32 @@ function Watermark({
 
 function SignatureBlocks({
   barangayCaptainName,
-  preparedBy,
+  signatureImageUrl,
+  signatureLabel,
+  signatureRole,
 }: {
   barangayCaptainName: string;
-  preparedBy: string;
+  signatureImageUrl?: string | null;
+  signatureLabel: string;
+  signatureRole: string;
 }) {
   return (
-    <div className="mt-16 grid gap-12 text-center sm:grid-cols-2">
-      <div>
-        <div className="mx-auto mb-2 h-px w-56 bg-neutral" />
-        <p className="font-semibold uppercase">{preparedBy}</p>
-        <p className="text-xs uppercase">Prepared By</p>
-      </div>
-      <div>
-        <div className="h-12" />
-        <div className="mx-auto mb-2 h-px w-56 bg-neutral" />
+    <div className="mt-16 flex justify-end text-center">
+      <div className="w-56">
+        <p className="mb-2 font-serif text-base">{signatureLabel}</p>
+        <div className="relative mx-auto h-12">
+          {signatureImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={signatureImageUrl}
+              alt="Authorized official visual signature"
+              className="absolute inset-x-4 bottom-0 h-14 w-48 object-contain object-bottom"
+            />
+          ) : null}
+          <div className="absolute inset-x-0 bottom-0 h-px bg-neutral" />
+        </div>
         <p className="font-semibold uppercase">{barangayCaptainName}</p>
-        <p className="text-xs uppercase">Punong Barangay</p>
+        <p className="text-xs uppercase">{signatureRole}</p>
       </div>
     </div>
   );
@@ -282,18 +293,20 @@ function ResidencyBody({
 }
 
 export function PrintableCertificate({
-  barangayCaptainName = "Authorized Barangay Official",
+  barangayCaptainName = "DIOGENES E. MANAOG",
   certificateNumber,
   dateIssued,
   draft = false,
-  preparedBy,
   request,
+  signatureImageUrl,
   snapshot,
 }: PrintableCertificateProps) {
   const templateData = getCertificateTemplateData(request, dateIssued, snapshot);
   const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
   const effectiveCaptainName = snapshot?.authorized_official_display_name ?? barangayCaptainName;
-  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
+  const effectiveSignatureRole =
+    snapshot?.authorized_official_role ??
+    certificateTemplateSignatureRole(request.certificate_type);
 
   return (
     <article className="print-surface relative mx-auto min-h-[11in] w-[8.5in] max-w-full overflow-hidden rounded-lg border border-base-300 bg-white p-[0.55in] text-neutral shadow-sm">
@@ -378,12 +391,15 @@ export function PrintableCertificate({
 
         <SignatureBlocks
           barangayCaptainName={effectiveCaptainName}
-          preparedBy={effectivePreparedBy}
+          signatureImageUrl={signatureImageUrl}
+          signatureLabel={certificateTemplateSignatureLabel(request.certificate_type)}
+          signatureRole={effectiveSignatureRole}
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          Visual Signature Placeholder: the signer name is a preview-only
-          representation and is not a legally verified digital signature.
+          {signatureImageUrl
+            ? "Visual electronic signature for thesis/demo use only; it is not a legally verified digital signature."
+            : "No signature image is configured. The signer name and line are shown as a thesis/demo fallback."}
         </div>
       </div>
     </article>

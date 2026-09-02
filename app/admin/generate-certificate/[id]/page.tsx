@@ -59,6 +59,12 @@ export default async function GenerateCertificatePage({
   const canPreview =
     isCertificateIssuanceConfigured() &&
     (hasActiveCertificate || eligibleForIssuance || isReissue);
+  const signatureImageConfigured = certificateRecord
+    ? Boolean(certificateRecord.certificate_snapshot?.signature_image_key)
+    : Boolean(settings.signatureImagePath);
+  const signatureImageUrl = signatureImageConfigured
+    ? `/api/admin/signature${certificateRecord?.id ? `?record_id=${encodeURIComponent(certificateRecord.id)}` : ""}`
+    : null;
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -97,8 +103,9 @@ export default async function GenerateCertificatePage({
         <div className="alert alert-warning">
           <span>
             The downloadable PDF is generated from clean code templates; the
-            source PDFs remain private reference files. The displayed signature
-            is a visual placeholder only, not a legally verified digital signature.
+            source PDFs remain private reference files. The displayed signer is
+            a visual electronic signature for thesis/demo use only, not a
+            legally verified digital signature.
           </span>
         </div>
       </div>
@@ -109,8 +116,8 @@ export default async function GenerateCertificatePage({
             barangayCaptainName={settings.barangayCaptainName}
             certificateNumber={certificateRecord?.certificate_number ?? undefined}
             dateIssued={certificateRecord?.date_issued}
-            preparedBy={context.profile.full_name}
             request={request}
+            signatureImageUrl={signatureImageUrl}
             snapshot={certificateRecord?.certificate_snapshot}
           />
         ) : (
@@ -119,8 +126,8 @@ export default async function GenerateCertificatePage({
             barangayCaptainName={settings.barangayCaptainName}
             initialDateIssued={toInputDate(new Date().toISOString())}
             isReissue={isReissue}
-            preparedBy={context.profile.full_name}
             request={request}
+            signatureImageUrl={signatureImageUrl}
           />
         )
       ) : null}

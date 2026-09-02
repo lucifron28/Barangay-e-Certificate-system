@@ -19,6 +19,11 @@ import {
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
 import { normalizePdfText } from "@/lib/certificates/pdf-text";
+import {
+  embedSignatureImage,
+  fitSignatureImage,
+} from "@/lib/certificates/pdf-signature";
+import type { SignatureImagePayload } from "@/lib/certificates/signature-storage";
 import type { CertificateSnapshot } from "@/types/database";
 import type { CertificateType } from "@/types/enums";
 
@@ -858,6 +863,7 @@ function drawSignature(
   config: HistoricalTemplateConfig,
   captainName: string,
   fonts: HistoricalFonts,
+  signatureImage?: PDFImage | null,
 ) {
   const lineY = config.signatureY;
   const lineStart = config.signatureX - 90;
@@ -871,6 +877,15 @@ function drawSignature(
     fonts.bold,
     14,
   );
+  if (signatureImage) {
+    const imageSize = fitSignatureImage(signatureImage, 135, 44);
+    page.drawImage(signatureImage, {
+      height: imageSize.height,
+      width: imageSize.width,
+      x: config.signatureX - imageSize.width / 2,
+      y: lineY + 4,
+    });
+  }
   page.drawLine({
     color: BODY_COLOR,
     start: { x: lineStart, y: lineY + 10 },
@@ -932,7 +947,6 @@ async function drawVerificationLayer({
   controlNumber,
   fonts,
   page,
-  preparedBy,
   requestNumber,
   verificationCode,
   verificationExpiresAt,
@@ -943,7 +957,6 @@ async function drawVerificationLayer({
   controlNumber: string | null;
   fonts: HistoricalFonts;
   page: PDFPage;
-  preparedBy: string;
   requestNumber: string;
   verificationCode?: string;
   verificationExpiresAt?: string;
@@ -1001,7 +1014,7 @@ async function drawVerificationLayer({
   );
   drawText(
     page,
-    `Prepared by: ${preparedBy}`,
+    `Code: ${verificationCode ?? "Unavailable"}`,
     x + 205,
     y + 31,
     fonts.sans,
@@ -1010,18 +1023,9 @@ async function drawVerificationLayer({
   );
   drawText(
     page,
-    `Code: ${verificationCode ?? "Unavailable"}`,
-    x + 205,
-    y + 20,
-    fonts.sans,
-    6.5,
-    META_COLOR,
-  );
-  drawText(
-    page,
     `Expires: ${formatPdfDateTime(verificationExpiresAt)}`,
     x + 205,
-    y + 9,
+    y + 20,
     fonts.sans,
     6.5,
     META_COLOR,
@@ -1056,11 +1060,12 @@ async function drawVerificationLayer({
 }
 
 export async function generateHistoricalCertificatePdf({
-  barangayCaptainName = "Authorized Barangay Official",
+  barangayCaptainName = "DIOGENES E. MANAOG",
   certificateNumber,
   dateIssued = new Date().toISOString(),
   preparedBy,
   request,
+  signatureImage,
   snapshot,
   verificationCode,
   verificationExpiresAt,
@@ -1071,6 +1076,7 @@ export async function generateHistoricalCertificatePdf({
   dateIssued?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
+  signatureImage?: SignatureImagePayload;
   snapshot?: CertificateSnapshot;
   verificationCode?: string;
   verificationExpiresAt?: string;
@@ -1079,13 +1085,16 @@ export async function generateHistoricalCertificatePdf({
   const type = request.certificate_type as HistoricalCertificateType;
   const config = getTemplateConfig(type);
   const pdfDoc = await PDFDocument.create();
+  const embeddedSignatureImage = await embedSignatureImage(pdfDoc, signatureImage);
   const seals = await embedSealImages(pdfDoc);
   const effectiveCertificateNumber =
     snapshot?.certificate_number ?? certificateNumber;
   const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
   const effectiveCaptainName =
     snapshot?.authorized_official_display_name ?? barangayCaptainName;
-  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
+  // The preparer remains in the issuance snapshot and database audit record;
+  // the official printable layout intentionally shows only the authorized signer.
+  void preparedBy;
   const effectiveVerificationExpiresAt =
     snapshot?.verification_expires_at ?? verificationExpiresAt;
   const data = getCertificateTemplateData(
@@ -1158,7 +1167,13 @@ export async function generateHistoricalCertificatePdf({
     y,
   });
 
-  drawSignature(page, config, effectiveCaptainName, fonts);
+  drawSignature(
+    page,
+    config,
+    effectiveCaptainName,
+    fonts,
+    embeddedSignatureImage,
+  );
   if (config.paperFieldsY) {
     drawClearancePaperFields(page, config.paperFieldsY, fonts);
   }
@@ -1168,7 +1183,6 @@ export async function generateHistoricalCertificatePdf({
     controlNumber: data.controlNumber === "Pending" ? null : data.controlNumber,
     fonts,
     page,
-    preparedBy: effectivePreparedBy,
     requestNumber: data.requestNumber,
     verificationCode,
     verificationExpiresAt: effectiveVerificationExpiresAt,

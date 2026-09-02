@@ -67,6 +67,9 @@ export type SystemSettings = {
   barangayCaptainName: string;
   paymentReceiving: PaymentReceivingSettings;
   signatureImagePath: string | null;
+  signatureImageProvider: "local" | "vercel_blob" | null;
+  signatureImageSha256: string | null;
+  signatureImageUpdatedAt: string | null;
 };
 
 export const DEFAULT_PAYMENT_RECEIVING_SETTINGS: PaymentReceivingSettings = {
@@ -2146,10 +2149,19 @@ export function getSystemSettings(): SystemSettings {
   return {
     barangayCaptainName:
       (settings.get("barangay_captain_name")?.value as string | undefined) ??
-      "Authorized Barangay Official",
+      "DIOGENES E. MANAOG",
     paymentReceiving,
     signatureImagePath:
       (settings.get("signature_image_path")?.value as string | undefined) ?? null,
+    signatureImageProvider:
+      (settings.get("signature_image_provider")?.value as
+        | "local"
+        | "vercel_blob"
+        | undefined) ?? env.certificateStorageProvider,
+    signatureImageSha256:
+      (settings.get("signature_image_sha256")?.value as string | undefined) ?? null,
+    signatureImageUpdatedAt:
+      (settings.get("signature_image_updated_at")?.value as string | undefined) ?? null,
   };
 }
 export function setSystemSetting(key: string, value: Json) {

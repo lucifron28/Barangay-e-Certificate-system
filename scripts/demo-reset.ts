@@ -286,7 +286,7 @@ async function main() {
     insertActivity(db, { action: "Payment verified", recordId: requestIds[2], remarks: "GCash payment verified.", userId: secretaryId, role: "barangay_secretary", createdAt: dateOffset(-3) });
     insertActivity(db, { action: "Request rejected", recordId: requestIds[0], remarks: "Seeded prior review history.", userId: secretaryId, role: "barangay_secretary", createdAt: dates[0] });
 
-    for (const [key, value] of [["barangay_captain_name", "Authorized Barangay Official"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
+    for (const [key, value] of [["barangay_captain_name", "DIOGENES E. MANAOG"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
       setSystemSetting(key, value);
     }
     setSystemSetting("payment_receiving_gcash", {
@@ -304,12 +304,12 @@ async function main() {
       qrUpdatedAt: null,
     });
 
-    for (const [key, value] of [["barangay_captain_name", "Authorized Barangay Official"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
+    for (const [key, value] of [["barangay_captain_name", "DIOGENES E. MANAOG"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
       setSystemSetting(key, value);
     }
   })();
 
-  const settings = { barangayCaptainName: "Authorized Barangay Official" };
+  const settings = { barangayCaptainName: "DIOGENES E. MANAOG" };
   const issuedSamples: Array<{ label: string; token: string; certificateNumber: string }> = [];
   const issueSample = async (
     requestId: string,

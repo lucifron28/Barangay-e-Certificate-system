@@ -12,6 +12,7 @@ import QRCode from "qrcode";
 import { certificateLabel } from "@/lib/utils/format";
 import {
   certificateTemplateSalutation,
+  certificateTemplateSignatureRole,
   certificateTemplateTitle,
 } from "@/lib/certificates/template-copy";
 import {
@@ -25,6 +26,11 @@ import {
   isHistoricalCertificateType,
 } from "@/lib/certificates/historical-layout";
 import { normalizePdfText as normalizePdfTextValue } from "@/lib/certificates/pdf-text";
+import {
+  embedSignatureImage,
+  fitSignatureImage,
+} from "@/lib/certificates/pdf-signature";
+import type { SignatureImagePayload } from "@/lib/certificates/signature-storage";
 import type { CertificateSnapshot } from "@/types/database";
 
 const LETTER_WIDTH = 612;
@@ -444,7 +450,7 @@ export async function calculateCertificateBodyLayout(input: {
 }
 
 export async function generateCertificatePdf({
-  barangayCaptainName = "Authorized Barangay Official",
+  barangayCaptainName = "DIOGENES E. MANAOG",
   certificateNumber,
   dateIssued = new Date().toISOString(),
   verificationCode,
@@ -452,6 +458,7 @@ export async function generateCertificatePdf({
   verificationUrl,
   preparedBy,
   request,
+  signatureImage,
   snapshot,
 }: {
   barangayCaptainName?: string;
@@ -462,6 +469,7 @@ export async function generateCertificatePdf({
   verificationUrl?: string;
   preparedBy: string;
   request: CertificateRequestWithResident;
+  signatureImage?: SignatureImagePayload;
   snapshot?: CertificateSnapshot;
 }) {
   if (isHistoricalCertificateType(request.certificate_type)) {
@@ -472,6 +480,7 @@ export async function generateCertificatePdf({
         dateIssued,
         preparedBy,
         request,
+        signatureImage,
         snapshot,
         verificationCode,
         verificationExpiresAt,
@@ -486,6 +495,7 @@ export async function generateCertificatePdf({
   }
 
   const pdfDoc = await PDFDocument.create();
+  const embeddedSignatureImage = await embedSignatureImage(pdfDoc, signatureImage);
   const effectiveCertificateNumber =
     snapshot?.certificate_number ?? certificateNumber;
   const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
@@ -510,9 +520,11 @@ export async function generateCertificatePdf({
     serif: await pdfDoc.embedFont(StandardFonts.Helvetica),
   };
   const template = bodyParagraphs(request, snapshot);
-  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
   const effectiveCaptainName =
     snapshot?.authorized_official_display_name ?? barangayCaptainName;
+  const effectiveSignatureRole =
+    snapshot?.authorized_official_role ??
+    certificateTemplateSignatureRole(request.certificate_type);
   const effectiveVerificationExpiresAt =
     snapshot?.verification_expires_at ?? verificationExpiresAt;
   const layout = selectBodyLayout(
@@ -588,22 +600,15 @@ export async function generateCertificatePdf({
   }
 
   const signatureY = CERTIFICATE_LAYOUT_REGIONS.signature.y + 42;
-  page.drawLine({
-    start: { x: 80, y: signatureY },
-    end: { x: 250, y: signatureY },
-    color: rgb(0.05, 0.05, 0.05),
-    thickness: 0.8,
-  });
-  centerTextAt(
-    page,
-    safePdfText(effectivePreparedBy).toUpperCase(),
-    165,
-    signatureY - 18,
-    fonts.bold,
-    10,
-  );
-  centerTextAt(page, "Prepared By", 165, signatureY - 32, fonts.regular, 8);
-
+  if (embeddedSignatureImage) {
+    const imageSize = fitSignatureImage(embeddedSignatureImage, 145, 44);
+    page.drawImage(embeddedSignatureImage, {
+      height: imageSize.height,
+      width: imageSize.width,
+      x: 446 - imageSize.width / 2,
+      y: signatureY + 4,
+    });
+  }
   page.drawLine({
     start: { x: 360, y: signatureY },
     end: { x: 532, y: signatureY },
@@ -618,7 +623,7 @@ export async function generateCertificatePdf({
     fonts.bold,
     10,
   );
-  centerTextAt(page, "Punong Barangay", 446, signatureY - 32, fonts.regular, 8);
+  centerTextAt(page, effectiveSignatureRole, 446, signatureY - 32, fonts.regular, 8);
 
   page.drawRectangle({
     x: CERTIFICATE_LAYOUT_REGIONS.footer.x,

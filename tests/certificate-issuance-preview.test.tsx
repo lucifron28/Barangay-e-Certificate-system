@@ -14,7 +14,6 @@ describe("certificate issuance preview", () => {
         barangayCaptainName="Authorized Barangay Official"
         initialDateIssued="2026-08-19"
         isReissue={false}
-        preparedBy="Demo Main Admin"
         request={request!}
       />,
     );

@@ -11,8 +11,8 @@ type CertificateIssuanceEditorProps = {
   barangayCaptainName: string;
   initialDateIssued: string;
   isReissue: boolean;
-  preparedBy: string;
   request: CertificateRequestWithResident;
+  signatureImageUrl?: string | null;
 };
 
 export function CertificateIssuanceEditor({
@@ -20,8 +20,8 @@ export function CertificateIssuanceEditor({
   barangayCaptainName,
   initialDateIssued,
   isReissue,
-  preparedBy,
   request,
+  signatureImageUrl,
 }: CertificateIssuanceEditorProps) {
   const [dateIssued, setDateIssued] = useState(initialDateIssued);
 
@@ -31,8 +31,8 @@ export function CertificateIssuanceEditor({
         barangayCaptainName={barangayCaptainName}
         dateIssued={dateIssued}
         draft
-        preparedBy={preparedBy}
         request={request}
+        signatureImageUrl={signatureImageUrl}
       />
       <form
         action={action}

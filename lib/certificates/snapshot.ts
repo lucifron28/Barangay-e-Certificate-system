@@ -1,4 +1,5 @@
 import { certificateHasField } from "@/lib/services/certificate-fields";
+import { certificateTemplateSignatureRole } from "@/lib/certificates/template-copy";
 import type { CertificateRequest, CertificateSnapshot, Json } from "@/types/database";
 
 type SubmittedData = {
@@ -34,6 +35,7 @@ function numberOrNull(value: number | null | undefined) {
 
 export function createCertificateSnapshot(input: {
   authorizedOfficialName: string;
+  authorizedOfficialRole: string;
   certificateNumber: string;
   dateIssued: string;
   issuedAt: string;
@@ -47,6 +49,9 @@ export function createCertificateSnapshot(input: {
     | "request_number"
     | "submitted_data"
   >;
+  signatureImageKey?: string | null;
+  signatureImageProvider?: "local" | "vercel_blob" | null;
+  signatureImageSha256?: string | null;
   verificationExpiresAt: string;
 }): CertificateSnapshot {
   const submitted = asSubmittedData(input.request.submitted_data);
@@ -55,6 +60,9 @@ export function createCertificateSnapshot(input: {
 
   return {
     authorized_official_display_name: input.authorizedOfficialName,
+    authorized_official_role:
+      input.authorizedOfficialRole ||
+      certificateTemplateSignatureRole(input.request.certificate_type),
     certificate_number: input.certificateNumber,
     certificate_type: input.request.certificate_type,
     control_number: input.request.control_number,
@@ -73,7 +81,12 @@ export function createCertificateSnapshot(input: {
     prepared_by_display_name: input.preparedBy,
     purpose: textOrNull(common.purpose) ?? input.request.purpose,
     request_number: input.request.request_number,
-    signature_representation_type: "visual_name_placeholder",
+    signature_representation_type: input.signatureImageKey
+      ? "visual_signature_image"
+      : "visual_name_placeholder",
+    signature_image_key: input.signatureImageKey ?? null,
+    signature_image_provider: input.signatureImageProvider ?? null,
+    signature_image_sha256: input.signatureImageSha256 ?? null,
     verification_expires_at: input.verificationExpiresAt,
   };
 }
