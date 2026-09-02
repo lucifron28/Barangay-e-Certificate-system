@@ -520,7 +520,6 @@ export async function generateCertificatePdf({
     serif: await pdfDoc.embedFont(StandardFonts.Helvetica),
   };
   const template = bodyParagraphs(request, snapshot);
-  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
   const effectiveCaptainName =
     snapshot?.authorized_official_display_name ?? barangayCaptainName;
   const effectiveSignatureRole =
@@ -610,22 +609,6 @@ export async function generateCertificatePdf({
       y: signatureY + 4,
     });
   }
-  page.drawLine({
-    start: { x: 80, y: signatureY },
-    end: { x: 250, y: signatureY },
-    color: rgb(0.05, 0.05, 0.05),
-    thickness: 0.8,
-  });
-  centerTextAt(
-    page,
-    safePdfText(effectivePreparedBy).toUpperCase(),
-    165,
-    signatureY - 18,
-    fonts.bold,
-    10,
-  );
-  centerTextAt(page, "Prepared By", 165, signatureY - 32, fonts.regular, 8);
-
   page.drawLine({
     start: { x: 360, y: signatureY },
     end: { x: 532, y: signatureY },

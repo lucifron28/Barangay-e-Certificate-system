@@ -116,7 +116,6 @@ export default async function GenerateCertificatePage({
             barangayCaptainName={settings.barangayCaptainName}
             certificateNumber={certificateRecord?.certificate_number ?? undefined}
             dateIssued={certificateRecord?.date_issued}
-            preparedBy={context.profile.full_name}
             request={request}
             signatureImageUrl={signatureImageUrl}
             snapshot={certificateRecord?.certificate_snapshot}
@@ -127,7 +126,6 @@ export default async function GenerateCertificatePage({
             barangayCaptainName={settings.barangayCaptainName}
             initialDateIssued={toInputDate(new Date().toISOString())}
             isReissue={isReissue}
-            preparedBy={context.profile.full_name}
             request={request}
             signatureImageUrl={signatureImageUrl}
           />

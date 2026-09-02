@@ -388,6 +388,11 @@ PDF and stores its provider, key, and SHA-256 checksum in the immutable
 certificate snapshot. Existing issued PDFs are not regenerated when the active
 signature changes.
 
+The printable certificate shows only the official certification/signature
+block. The logged-in administrator remains stored as internal issuance and
+audit metadata, but is intentionally not printed as “Prepared By” on the
+official certificate layout.
+
 Signer roles are template-specific: Clearance, Indigency, and Residency use
 `Barangay Chairman`; Barangay Certificate/PAGPAPATUNAY uses `Punong Barangay`.
 Exact final signature sizing, positioning, and print approval remain client

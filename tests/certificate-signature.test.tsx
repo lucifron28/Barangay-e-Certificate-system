@@ -87,7 +87,6 @@ describe("official signer signature", () => {
       <PrintableCertificate
         barangayCaptainName="DIOGENES E. MANAOG"
         dateIssued="2026-09-02"
-        preparedBy="Synthetic Admin User"
         request={syntheticRequest()}
         signatureImageUrl="/api/admin/signature"
       />,
@@ -96,6 +95,8 @@ describe("official signer signature", () => {
     expect(markup).toContain('src="/api/admin/signature"');
     expect(markup).toContain("DIOGENES E. MANAOG");
     expect(markup).toContain("Barangay Chairman");
+    expect(markup).toContain("Certified by:");
+    expect(markup).not.toContain("Synthetic Admin User");
     expect(markup).toContain("Visual electronic signature for thesis/demo use only");
   });
 

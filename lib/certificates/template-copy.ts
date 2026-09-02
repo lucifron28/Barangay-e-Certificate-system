@@ -23,6 +23,14 @@ export const CERTIFICATE_TEMPLATE_SIGNATURE_ROLES: Record<CertificateType, strin
     barangay_residency: "Barangay Chairman",
   };
 
+export const CERTIFICATE_TEMPLATE_SIGNATURE_LABELS: Record<CertificateType, string> =
+  {
+    barangay_clearance: "Certified by:",
+    barangay_certificate: "Pinatunayan ni:",
+    barangay_indigency: "Certified by:",
+    barangay_residency: "Certified by:",
+  };
+
 export function certificateTemplateTitle(certificateType: CertificateType) {
   return CERTIFICATE_TEMPLATE_TITLES[certificateType];
 }
@@ -35,4 +43,8 @@ export function certificateTemplateSalutation(
 
 export function certificateTemplateSignatureRole(certificateType: CertificateType) {
   return CERTIFICATE_TEMPLATE_SIGNATURE_ROLES[certificateType];
+}
+
+export function certificateTemplateSignatureLabel(certificateType: CertificateType) {
+  return CERTIFICATE_TEMPLATE_SIGNATURE_LABELS[certificateType];
 }

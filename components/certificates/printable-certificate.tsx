@@ -2,6 +2,7 @@ import { certificateLabel } from "@/lib/utils/format";
 import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import {
+  certificateTemplateSignatureLabel,
   certificateTemplateSignatureRole,
   certificateTemplateSalutation,
   certificateTemplateTitle,
@@ -14,7 +15,6 @@ type PrintableCertificateProps = {
   certificateNumber?: string;
   dateIssued?: string;
   draft?: boolean;
-  preparedBy: string;
   request: CertificateRequestWithResident;
   signatureImageUrl?: string | null;
   snapshot?: CertificateSnapshot;
@@ -72,24 +72,20 @@ function Watermark({
 
 function SignatureBlocks({
   barangayCaptainName,
-  preparedBy,
   signatureImageUrl,
+  signatureLabel,
   signatureRole,
 }: {
   barangayCaptainName: string;
-  preparedBy: string;
   signatureImageUrl?: string | null;
+  signatureLabel: string;
   signatureRole: string;
 }) {
   return (
-    <div className="mt-16 grid gap-12 text-center sm:grid-cols-2">
-      <div>
-        <div className="mx-auto mb-2 h-px w-56 bg-neutral" />
-        <p className="font-semibold uppercase">{preparedBy}</p>
-        <p className="text-xs uppercase">Prepared By</p>
-      </div>
-      <div>
-        <div className="relative mx-auto mb-2 h-12 w-56">
+    <div className="mt-16 flex justify-end text-center">
+      <div className="w-56">
+        <p className="mb-2 font-serif text-base">{signatureLabel}</p>
+        <div className="relative mx-auto h-12">
           {signatureImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -301,7 +297,6 @@ export function PrintableCertificate({
   certificateNumber,
   dateIssued,
   draft = false,
-  preparedBy,
   request,
   signatureImageUrl,
   snapshot,
@@ -309,7 +304,6 @@ export function PrintableCertificate({
   const templateData = getCertificateTemplateData(request, dateIssued, snapshot);
   const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
   const effectiveCaptainName = snapshot?.authorized_official_display_name ?? barangayCaptainName;
-  const effectivePreparedBy = snapshot?.prepared_by_display_name ?? preparedBy;
   const effectiveSignatureRole =
     snapshot?.authorized_official_role ??
     certificateTemplateSignatureRole(request.certificate_type);
@@ -397,8 +391,8 @@ export function PrintableCertificate({
 
         <SignatureBlocks
           barangayCaptainName={effectiveCaptainName}
-          preparedBy={effectivePreparedBy}
           signatureImageUrl={signatureImageUrl}
+          signatureLabel={certificateTemplateSignatureLabel(request.certificate_type)}
           signatureRole={effectiveSignatureRole}
         />
 

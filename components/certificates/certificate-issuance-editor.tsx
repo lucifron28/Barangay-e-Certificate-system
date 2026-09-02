@@ -11,7 +11,6 @@ type CertificateIssuanceEditorProps = {
   barangayCaptainName: string;
   initialDateIssued: string;
   isReissue: boolean;
-  preparedBy: string;
   request: CertificateRequestWithResident;
   signatureImageUrl?: string | null;
 };
@@ -21,7 +20,6 @@ export function CertificateIssuanceEditor({
   barangayCaptainName,
   initialDateIssued,
   isReissue,
-  preparedBy,
   request,
   signatureImageUrl,
 }: CertificateIssuanceEditorProps) {
@@ -33,7 +31,6 @@ export function CertificateIssuanceEditor({
         barangayCaptainName={barangayCaptainName}
         dateIssued={dateIssued}
         draft
-        preparedBy={preparedBy}
         request={request}
         signatureImageUrl={signatureImageUrl}
       />
