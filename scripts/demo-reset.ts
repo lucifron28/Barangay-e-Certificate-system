@@ -7,11 +7,13 @@ import { getDatabaseProvider } from "@/lib/db/provider";
 import { assertStrongDemoPassword } from "@/lib/auth/demo-password-policy";
 import {
   createCertificateDownloadLog,
+  getSystemSettings,
   getRequestById,
   revokeCertificateRecord,
   setSystemSetting,
   updateRequestStatus,
 } from "@/lib/db/sqlite/queries";
+import { readConfiguredSignatureImage } from "@/lib/certificates/signature-storage";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
 import type { Json, Profile } from "@/types/database";
 
@@ -289,6 +291,11 @@ async function main() {
     for (const [key, value] of [["barangay_captain_name", "DIOGENES E. MANAOG"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
       setSystemSetting(key, value);
     }
+    if (process.env.NODE_ENV === "test") {
+      setSystemSetting("signature_image_path", "signatures/test-signer.png");
+      setSystemSetting("signature_image_provider", "local");
+      setSystemSetting("signature_image_updated_at", timestamp);
+    }
     setSystemSetting("payment_receiving_gcash", {
       enabled: false,
       merchantName: "",
@@ -304,12 +311,9 @@ async function main() {
       qrUpdatedAt: null,
     });
 
-    for (const [key, value] of [["barangay_captain_name", "DIOGENES E. MANAOG"], ["office_hours", "Monday to Friday, 8:00 AM to 5:00 PM"]]) {
-      setSystemSetting(key, value);
-    }
   })();
 
-  const settings = { barangayCaptainName: "DIOGENES E. MANAOG" };
+  const settings = getSystemSettings();
   const issuedSamples: Array<{ label: string; token: string; certificateNumber: string }> = [];
   const issueSample = async (
     requestId: string,
@@ -325,20 +329,28 @@ async function main() {
     return result;
   };
 
-  const valid = await issueSample(requestIds[4], "VALID", dateOnly(dateOffset(-1)), admin, new Date(Date.now() - 24 * 60 * 60 * 1000));
-  createCertificateDownloadLog(valid.certificateRecord.id, residentId, "downloaded");
-  updateRequestStatus({ id: requestIds[4], status: "done", dateReleased: timestamp });
-  insertActivity(db, { action: "Certificate issued", recordId: requestIds[4], remarks: `Seeded ${valid.certificateNumber}.`, userId: adminId, role: "main_admin", createdAt: timestamp });
-  insertActivity(db, { action: "Certificate downloaded", recordId: requestIds[4], remarks: "Seeded successful resident download.", userId: residentId, role: "resident", createdAt: timestamp });
+  const signatureImageAvailable = await readConfiguredSignatureImage({
+    key: settings.signatureImagePath,
+    provider: settings.signatureImageProvider,
+  });
+  if (signatureImageAvailable) {
+    const valid = await issueSample(requestIds[4], "VALID", dateOnly(dateOffset(-1)), admin, new Date(Date.now() - 24 * 60 * 60 * 1000));
+    createCertificateDownloadLog(valid.certificateRecord.id, residentId, "downloaded");
+    updateRequestStatus({ id: requestIds[4], status: "done", dateReleased: timestamp });
+    insertActivity(db, { action: "Certificate issued", recordId: requestIds[4], remarks: `Seeded ${valid.certificateNumber}.`, userId: adminId, role: "main_admin", createdAt: timestamp });
+    insertActivity(db, { action: "Certificate downloaded", recordId: requestIds[4], remarks: "Seeded successful resident download.", userId: residentId, role: "resident", createdAt: timestamp });
 
-  const expired = await issueSample(requestIds[5], "EXPIRED", dateOnly(dateOffset(-10)), secretary, new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
-  updateRequestStatus({ id: requestIds[5], status: "done", dateReleased: timestamp });
-  insertActivity(db, { action: "Certificate issued", recordId: requestIds[5], remarks: `Seeded expired verification ${expired.certificateNumber}.`, userId: secretaryId, role: "barangay_secretary", createdAt: timestamp });
+    const expired = await issueSample(requestIds[5], "EXPIRED", dateOnly(dateOffset(-10)), secretary, new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
+    updateRequestStatus({ id: requestIds[5], status: "done", dateReleased: timestamp });
+    insertActivity(db, { action: "Certificate issued", recordId: requestIds[5], remarks: `Seeded expired verification ${expired.certificateNumber}.`, userId: secretaryId, role: "barangay_secretary", createdAt: timestamp });
 
-  const revoked = await issueSample(requestIds[6], "REVOKED", dateOnly(dateOffset(-2)), admin, new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
-  revokeCertificateRecord({ id: revoked.certificateRecord.id, reason: "Seeded replacement demonstration.", revokedBy: adminId });
-  updateRequestStatus({ id: requestIds[6], status: "done", dateReleased: timestamp });
-  insertActivity(db, { action: "Certificate revoked", recordId: requestIds[6], remarks: "Seeded revoked verification.", userId: adminId, role: "main_admin", createdAt: timestamp });
+    const revoked = await issueSample(requestIds[6], "REVOKED", dateOnly(dateOffset(-2)), admin, new Date(Date.now() - 2 * 24 * 60 * 60 * 1000));
+    revokeCertificateRecord({ id: revoked.certificateRecord.id, reason: "Seeded replacement demonstration.", revokedBy: adminId });
+    updateRequestStatus({ id: requestIds[6], status: "done", dateReleased: timestamp });
+    insertActivity(db, { action: "Certificate revoked", recordId: requestIds[6], remarks: "Seeded revoked verification.", userId: adminId, role: "main_admin", createdAt: timestamp });
+  } else {
+    process.stdout.write("No accessible signer image configured; skipped sample certificate issuance.\n");
+  }
 
   const notificationMessage = "Synthetic notification: no email provider is configured.";
   db.prepare(

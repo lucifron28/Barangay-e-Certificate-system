@@ -14,6 +14,7 @@ import {
 import { getSqliteDb } from "@/lib/db/sqlite/client";
 import { removePrivateCertificatePdf } from "@/lib/certificates/private-storage";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
+import { testSignatureSettings } from "./fixtures/signature-settings";
 
 const residentId = "00000000-0000-4000-8000-000000000003";
 const adminId = "00000000-0000-4000-8000-000000000001";
@@ -66,7 +67,7 @@ describe("isolated thesis certificate workflow", () => {
         preparedBy: "Demo Main Admin",
         preparedById: adminId,
         request: getRequestById(request!.id)!,
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       });
       recordIds.push(issued.certificateRecord.id);
       if (issued.certificateRecord.pdf_path) pdfPaths.push(issued.certificateRecord.pdf_path);
@@ -94,7 +95,7 @@ describe("isolated thesis certificate workflow", () => {
         preparedBy: "Demo Main Admin",
         preparedById: adminId,
         request: getRequestById(request!.id)!,
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       });
       recordIds.push(reissued.certificateRecord.id);
       if (reissued.certificateRecord.pdf_path) pdfPaths.push(reissued.certificateRecord.pdf_path);
