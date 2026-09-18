@@ -27,8 +27,7 @@ import { issuanceMode } from "@/lib/services/issuance-mode";
 import { isVerificationExpired } from "@/lib/certificates/certificate-status";
 import {
   getSignatureStorageProvider,
-  readStoredSignatureImage,
-  type LoadedSignatureImage,
+  readConfiguredSignatureImage,
 } from "@/lib/certificates/signature-storage";
 import { certificateTemplateSignatureRole } from "@/lib/certificates/template-copy";
 import type { RequestWithResident } from "@/lib/db/queries";
@@ -53,6 +52,7 @@ export class CertificateIssuanceError extends Error {
       | "INVALID_ISSUER"
       | "NOT_ELIGIBLE"
       | "PAYMENT_NOT_SETTLED"
+      | "SIGNATURE_NOT_CONFIGURED"
       | "LAYOUT_OVERFLOW"
       | "PERSISTENCE_FAILED",
     message: string,
@@ -68,22 +68,6 @@ export function isCertificateIssuanceEligible(
 ) {
   if (request.status !== "accepted") return false;
   return ["paid", "free"].includes(request.payment_status);
-}
-
-async function loadConfiguredSignatureImage(settings: {
-  signatureImagePath?: string | null;
-  signatureImageProvider?: "local" | "vercel_blob" | null;
-}): Promise<LoadedSignatureImage | null> {
-  if (!settings.signatureImagePath) return null;
-
-  try {
-    return await readStoredSignatureImage({
-      key: settings.signatureImagePath,
-      provider: settings.signatureImageProvider ?? getSignatureStorageProvider(),
-    });
-  } catch {
-    return null;
-  }
 }
 
 function getOfficialIssueDate(dateIssued: string) {
@@ -198,6 +182,17 @@ export async function issueCertificate(input: {
     );
   }
 
+  const signatureImage = await readConfiguredSignatureImage({
+    key: input.settings.signatureImagePath,
+    provider: input.settings.signatureImageProvider,
+  });
+  if (!input.settings.barangayCaptainName.trim() || !signatureImage) {
+    throw new CertificateIssuanceError(
+      "SIGNATURE_NOT_CONFIGURED",
+      "Certificate signing is disabled until the Main Admin configures an accessible signer name and signature image.",
+    );
+  }
+
   const dateIssued = getOfficialIssueDate(input.dateIssued);
   const issuanceClock = input.now ?? new Date();
   if (Number.isNaN(issuanceClock.getTime())) {
@@ -208,7 +203,6 @@ export async function issueCertificate(input: {
     issuanceClock.getTime() + VERIFICATION_LIFETIME_MS,
   ).toISOString();
   const verificationStatus = isVerificationExpired(expiresAt) ? "expired" : "valid";
-  const signatureImage = await loadConfiguredSignatureImage(input.settings);
   const signatureImageProvider =
     input.settings.signatureImageProvider ?? getSignatureStorageProvider();
   const verificationToken = generateVerificationToken();

@@ -80,6 +80,7 @@ describe("official signer signature", () => {
     expect(snapshot.signature_representation_type).toBe("visual_signature_image");
     expect(snapshot.signature_image_key).toBe("signatures/diogenes.png");
     expect(snapshot.signature_image_sha256).toBe("synthetic-signature-hash");
+    expect(snapshot.signature_applied_at).toBe("2026-09-02T00:00:00.000Z");
   });
 
   it("renders the protected signature image in the HTML certificate preview", () => {
@@ -98,6 +99,23 @@ describe("official signer signature", () => {
     expect(markup).toContain("Certified by:");
     expect(markup).not.toContain("Synthetic Admin User");
     expect(markup).toContain("Visual electronic signature for thesis/demo use only");
+  });
+
+  it("clearly renders an unsigned draft without the official name or signature image", () => {
+    const markup = renderToStaticMarkup(
+      <PrintableCertificate
+        barangayCaptainName="DIOGENES E. MANAOG"
+        dateIssued="2026-09-02"
+        draft
+        request={syntheticRequest()}
+        signatureImageUrl="/api/admin/signature"
+      />,
+    );
+
+    expect(markup).toContain("Unsigned draft - not issued");
+    expect(markup).toContain("Signature applied after signing");
+    expect(markup).not.toContain('src="/api/admin/signature"');
+    expect(markup).not.toContain("DIOGENES E. MANAOG");
   });
 
   it("embeds the supplied signature image in the printable PDF", async () => {

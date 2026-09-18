@@ -72,11 +72,13 @@ function Watermark({
 
 function SignatureBlocks({
   barangayCaptainName,
+  draft,
   signatureImageUrl,
   signatureLabel,
   signatureRole,
 }: {
   barangayCaptainName: string;
+  draft: boolean;
   signatureImageUrl?: string | null;
   signatureLabel: string;
   signatureRole: string;
@@ -84,9 +86,15 @@ function SignatureBlocks({
   return (
     <div className="mt-16 flex justify-end text-center">
       <div className="w-56">
-        <p className="mb-2 font-serif text-base">{signatureLabel}</p>
+        <p className="mb-2 font-serif text-base">
+          {draft ? "Unsigned draft" : signatureLabel}
+        </p>
         <div className="relative mx-auto h-12">
-          {signatureImageUrl ? (
+          {draft ? (
+            <span className="absolute inset-x-0 bottom-2 text-xs font-semibold uppercase text-neutral/60">
+              Signature applied after signing
+            </span>
+          ) : signatureImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={signatureImageUrl}
@@ -96,8 +104,12 @@ function SignatureBlocks({
           ) : null}
           <div className="absolute inset-x-0 bottom-0 h-px bg-neutral" />
         </div>
-        <p className="font-semibold uppercase">{barangayCaptainName}</p>
-        <p className="text-xs uppercase">{signatureRole}</p>
+        {!draft ? (
+          <>
+            <p className="font-semibold uppercase">{barangayCaptainName}</p>
+            <p className="text-xs uppercase">{signatureRole}</p>
+          </>
+        ) : null}
       </div>
     </div>
   );
@@ -316,7 +328,7 @@ export function PrintableCertificate({
       <div className="relative z-10">
         {draft ? (
           <div className="mb-4 border-2 border-dashed border-warning p-2 text-center text-xs font-bold uppercase tracking-normal text-warning">
-            Draft preview - certificate number will be assigned when saved
+            Unsigned draft - not issued
           </div>
         ) : null}
         <Header />
@@ -368,7 +380,7 @@ export function PrintableCertificate({
           {draft ? (
             <>
               Selected issue date: <strong>{templateData.dateIssued}</strong>.
-              Save this preview to issue the certificate.
+              Sign and issue this draft to apply the authorized signature.
             </>
           ) : (
             <>
@@ -381,7 +393,7 @@ export function PrintableCertificate({
         <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
           <p>
             <span className="font-semibold">Certificate No.:</span>{" "}
-            {effectiveCertificateNumber ?? "Assigned when saved"}
+            {effectiveCertificateNumber ?? "Assigned when signed"}
           </p>
           <p>
             <span className="font-semibold">Request No.:</span>{" "}
@@ -391,15 +403,18 @@ export function PrintableCertificate({
 
         <SignatureBlocks
           barangayCaptainName={effectiveCaptainName}
+          draft={draft}
           signatureImageUrl={signatureImageUrl}
           signatureLabel={certificateTemplateSignatureLabel(request.certificate_type)}
           signatureRole={effectiveSignatureRole}
         />
 
         <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          {signatureImageUrl
+          {draft
+            ? "Unsigned draft. Signing applies the configured official signature image and printed signer name."
+            : signatureImageUrl
             ? "Visual electronic signature for thesis/demo use only; it is not a legally verified digital signature."
-            : "No signature image is configured. The signer name and line are shown as a thesis/demo fallback."}
+            : "No signature image was recorded in this issuance. The saved certificate PDF remains unchanged."}
         </div>
       </div>
     </article>

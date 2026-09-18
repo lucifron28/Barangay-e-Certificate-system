@@ -6,7 +6,10 @@ import { SubmitButton } from "@/components/forms/submit-button";
 import { FlashMessage } from "@/components/ui/flash-message";
 import { PrintButton } from "@/components/ui/print-button";
 import { SetupRequired } from "@/components/ui/setup-required";
-import { revokeCertificateRecordAction, saveCertificateRecordAction } from "@/lib/actions/admin";
+import {
+  revokeCertificateRecordAction,
+  signCertificateAction,
+} from "@/lib/actions/admin";
 import { requireAdmin } from "@/lib/auth/guards";
 import {
   getAdminRequest,
@@ -14,6 +17,7 @@ import {
 } from "@/lib/services/certificate-data";
 import { getCertificateRecordByRequestId } from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
+import { readConfiguredSignatureImage } from "@/lib/certificates/signature-storage";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import {
   CERTIFICATE_ISSUANCE_UNAVAILABLE_MESSAGE,
@@ -59,12 +63,19 @@ export default async function GenerateCertificatePage({
   const canPreview =
     isCertificateIssuanceConfigured() &&
     (hasActiveCertificate || eligibleForIssuance || isReissue);
-  const signatureImageConfigured = certificateRecord
-    ? Boolean(certificateRecord.certificate_snapshot?.signature_image_key)
-    : Boolean(settings.signatureImagePath);
-  const signatureImageUrl = signatureImageConfigured
-    ? `/api/admin/signature${certificateRecord?.id ? `?record_id=${encodeURIComponent(certificateRecord.id)}` : ""}`
+  const signatureImageUrl = hasActiveCertificate &&
+    certificateRecord?.certificate_snapshot?.signature_image_key
+    ? `/api/admin/signature?record_id=${encodeURIComponent(certificateRecord.id)}`
     : null;
+  const configuredSignatureImage = hasActiveCertificate
+    ? null
+    : await readConfiguredSignatureImage({
+        key: settings.signatureImagePath,
+        provider: settings.signatureImageProvider,
+      });
+  const signingAvailable =
+    !hasActiveCertificate &&
+    Boolean(settings.barangayCaptainName.trim() && configuredSignatureImage);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -122,12 +133,13 @@ export default async function GenerateCertificatePage({
           />
         ) : (
           <CertificateIssuanceEditor
-            action={saveCertificateRecordAction}
+            action={signCertificateAction}
             barangayCaptainName={settings.barangayCaptainName}
             initialDateIssued={toInputDate(new Date().toISOString())}
             isReissue={isReissue}
+            canManageSignerSettings={context.profile.role === "main_admin"}
+            signingAvailable={signingAvailable}
             request={request}
-            signatureImageUrl={signatureImageUrl}
           />
         )
       ) : null}

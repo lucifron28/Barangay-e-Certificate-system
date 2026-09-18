@@ -154,6 +154,22 @@ export async function readStoredSignatureImage(input: {
   };
 }
 
+export async function readConfiguredSignatureImage(input: {
+  key: string | null | undefined;
+  provider?: SignatureStorageProvider | null;
+}): Promise<LoadedSignatureImage | null> {
+  if (!input.key) return null;
+
+  try {
+    return await readStoredSignatureImage({
+      key: input.key,
+      provider: input.provider ?? getSignatureStorageProvider(),
+    });
+  } catch {
+    return null;
+  }
+}
+
 export async function removeStoredSignatureImage(input: {
   key: string | null;
   path?: string | null;

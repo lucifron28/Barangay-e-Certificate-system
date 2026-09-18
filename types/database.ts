@@ -72,6 +72,7 @@ export type CertificateSnapshot = {
   prepared_by_display_name: string;
   authorized_official_display_name: string;
   authorized_official_role?: string;
+  signature_applied_at?: string;
   signature_representation_type:
     | "visual_name_placeholder"
     | "visual_signature_image";
