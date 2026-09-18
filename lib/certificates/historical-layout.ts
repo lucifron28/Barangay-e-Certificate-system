@@ -242,7 +242,7 @@ export function getHistoricalSignatureBlockLayout(
 
   return {
     imageBottomY: lineY + 5,
-    imageMaxHeight: 22,
+    imageMaxHeight: 33,
     labelY: config.signatureY + 43,
     lineEnd: config.signatureX + 90,
     lineStart: config.signatureX - 90,
@@ -909,7 +909,7 @@ function drawSignature(
   if (signatureImage) {
     const imageSize = fitSignatureImage(
       signatureImage,
-      135,
+      202.5,
       layout.imageMaxHeight,
     );
     page.drawImage(signatureImage, {

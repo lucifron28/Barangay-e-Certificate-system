@@ -601,7 +601,7 @@ export async function generateCertificatePdf({
 
   const signatureY = CERTIFICATE_LAYOUT_REGIONS.signature.y + 42;
   if (embeddedSignatureImage) {
-    const imageSize = fitSignatureImage(embeddedSignatureImage, 145, 44);
+    const imageSize = fitSignatureImage(embeddedSignatureImage, 217.5, 66);
     page.drawImage(embeddedSignatureImage, {
       height: imageSize.height,
       width: imageSize.width,
