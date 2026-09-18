@@ -18,9 +18,9 @@ export const CERTIFICATE_TEMPLATE_SALUTATIONS: Record<CertificateType, string> =
 export const CERTIFICATE_TEMPLATE_SIGNATURE_ROLES: Record<CertificateType, string> =
   {
     barangay_clearance: "Barangay Chairman",
-    barangay_certificate: "Punong Barangay",
+    barangay_certificate: "PUNONG BARANGAY",
     barangay_indigency: "Barangay Chairman",
-    barangay_residency: "Barangay Chairman",
+    barangay_residency: "Acting Barangay Chairman",
   };
 
 export const CERTIFICATE_TEMPLATE_SIGNATURE_LABELS: Record<CertificateType, string> =
