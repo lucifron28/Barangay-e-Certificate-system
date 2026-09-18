@@ -72,34 +72,55 @@ function Watermark({
 
 function SignatureBlocks({
   barangayCaptainName,
+  draft,
   signatureImageUrl,
   signatureLabel,
   signatureRole,
 }: {
   barangayCaptainName: string;
+  draft: boolean;
   signatureImageUrl?: string | null;
   signatureLabel: string;
   signatureRole: string;
 }) {
   return (
-    <div className="mt-16 flex justify-end text-center">
-      <div className="w-56">
-        <p className="mb-2 font-serif text-base">{signatureLabel}</p>
-        <div className="relative mx-auto h-12">
-          {signatureImageUrl ? (
+    <section
+      aria-label="Certificate signer block"
+      className="mt-12 flex justify-end"
+    >
+      <div className="w-[2.45in] max-w-full font-serif text-right">
+        <p className="mb-0.5 text-[12pt]">
+          {draft ? "Unsigned draft" : signatureLabel}
+        </p>
+        <div className="flex h-[0.4in] items-end justify-center">
+          {draft ? (
+            <span className="pb-1 text-[9pt] font-semibold uppercase text-neutral/60">
+              Signature applied after signing
+            </span>
+          ) : signatureImageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={signatureImageUrl}
               alt="Authorized official visual signature"
-              className="absolute inset-x-4 bottom-0 h-14 w-48 object-contain object-bottom"
+              className="max-h-full max-w-[2.1in] object-contain object-bottom"
             />
           ) : null}
-          <div className="absolute inset-x-0 bottom-0 h-px bg-neutral" />
         </div>
-        <p className="font-semibold uppercase">{barangayCaptainName}</p>
-        <p className="text-xs uppercase">{signatureRole}</p>
+        <div
+          aria-hidden="true"
+          className="h-px w-full bg-neutral"
+          data-signature-line="true"
+        />
+        {!draft ? (
+          <>
+            <p className="mt-1 font-semibold uppercase underline decoration-1 underline-offset-1">
+              {barangayCaptainName}
+            </p>
+            <p className="text-xs uppercase">{signatureRole}</p>
+          </>
+        ) : null}
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -301,9 +322,15 @@ export function PrintableCertificate({
   signatureImageUrl,
   snapshot,
 }: PrintableCertificateProps) {
-  const templateData = getCertificateTemplateData(request, dateIssued, snapshot);
-  const effectiveCertificateNumber = snapshot?.certificate_number ?? certificateNumber;
-  const effectiveCaptainName = snapshot?.authorized_official_display_name ?? barangayCaptainName;
+  const templateData = getCertificateTemplateData(
+    request,
+    dateIssued,
+    snapshot,
+  );
+  const effectiveCertificateNumber =
+    snapshot?.certificate_number ?? certificateNumber;
+  const effectiveCaptainName =
+    snapshot?.authorized_official_display_name ?? barangayCaptainName;
   const effectiveSignatureRole =
     snapshot?.authorized_official_role ??
     certificateTemplateSignatureRole(request.certificate_type);
@@ -316,7 +343,7 @@ export function PrintableCertificate({
       <div className="relative z-10">
         {draft ? (
           <div className="mb-4 border-2 border-dashed border-warning p-2 text-center text-xs font-bold uppercase tracking-normal text-warning">
-            Draft preview - certificate number will be assigned when saved
+            Unsigned draft - not issued
           </div>
         ) : null}
         <Header />
@@ -368,7 +395,7 @@ export function PrintableCertificate({
           {draft ? (
             <>
               Selected issue date: <strong>{templateData.dateIssued}</strong>.
-              Save this preview to issue the certificate.
+              Sign and issue this draft to apply the authorized signature.
             </>
           ) : (
             <>
@@ -381,7 +408,7 @@ export function PrintableCertificate({
         <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
           <p>
             <span className="font-semibold">Certificate No.:</span>{" "}
-            {effectiveCertificateNumber ?? "Assigned when saved"}
+            {effectiveCertificateNumber ?? "Assigned when signed"}
           </p>
           <p>
             <span className="font-semibold">Request No.:</span>{" "}
@@ -391,15 +418,20 @@ export function PrintableCertificate({
 
         <SignatureBlocks
           barangayCaptainName={effectiveCaptainName}
+          draft={draft}
           signatureImageUrl={signatureImageUrl}
-          signatureLabel={certificateTemplateSignatureLabel(request.certificate_type)}
+          signatureLabel={certificateTemplateSignatureLabel(
+            request.certificate_type,
+          )}
           signatureRole={effectiveSignatureRole}
         />
 
-        <div className="mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          {signatureImageUrl
+        <div className="no-print mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
+          {draft
+            ? "Unsigned draft. Signing applies the configured official signature image and printed signer name."
+            : signatureImageUrl
             ? "Visual electronic signature for thesis/demo use only; it is not a legally verified digital signature."
-            : "No signature image is configured. The signer name and line are shown as a thesis/demo fallback."}
+            : "No signature image was recorded in this issuance. The saved certificate PDF remains unchanged."}
         </div>
       </div>
     </article>

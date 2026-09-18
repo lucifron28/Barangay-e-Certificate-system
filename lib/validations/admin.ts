@@ -10,9 +10,10 @@ export const rejectRequestSchema = z.object({
   remarks: z.string().min(1, "Rejection remarks are required."),
 });
 
-export const saveCertificateSchema = z.object({
+export const signCertificateSchema = z.object({
   request_id: z.string().uuid(),
   date_issued: z.string().min(1, "Date issued is required."),
+  signing_confirmation: z.literal("sign"),
 });
 
 export const revokeCertificateSchema = z.object({

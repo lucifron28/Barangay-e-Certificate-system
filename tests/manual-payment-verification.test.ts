@@ -28,6 +28,7 @@ import {
 } from "@/lib/payments/storage";
 import { getLocalDatetimeInputValue } from "@/components/payments/resident-payment-form";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
+import { testSignatureSettings } from "./fixtures/signature-settings";
 
 const adminId = "00000000-0000-4000-8000-000000000001";
 const secretaryId = "00000000-0000-4000-8000-000000000002";
@@ -86,7 +87,7 @@ describe("manual GCash and Maya payment verification", () => {
       preparedBy: "Demo Secretary",
       preparedById: secretaryId,
       request: getRequestById(request!.id)!,
-      settings: { barangayCaptainName: "Authorized Official" },
+      settings: testSignatureSettings,
     });
 
     expect(issued.certificateNumber).toMatch(/^CERT-\d{4}-\d{4}$/);
@@ -366,7 +367,7 @@ describe("manual GCash and Maya payment verification", () => {
         preparedBy: "Demo Main Admin",
         preparedById: adminId,
         request: getRequestById(request!.id)!,
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       }),
     ).rejects.toMatchObject({ code: "PAYMENT_NOT_SETTLED" });
   });

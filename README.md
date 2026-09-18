@@ -383,10 +383,15 @@ The current certificate preview and downloaded PDF use the processed seals in
 the shared header and reuse the Barangay Bato seal as the low-opacity center
 watermark. The Main Admin settings page accepts the selected signer image and
 stores it privately in local `data/signatures/` or Vercel Private Blob. The
-preview uses an authenticated image route; issuance embeds the image into the
-PDF and stores its provider, key, and SHA-256 checksum in the immutable
+preview uses an authenticated image route; the unsigned draft hides both the
+signature image and signer name and is labeled `Unsigned draft - not issued`.
+Signing requires an accessible configured image and signer name. The “Sign &
+Issue Certificate” action is disabled until those are available and links the
+Main Admin to signer settings. Issuance embeds the image into the PDF and stores
+its provider, key, applied timestamp, and SHA-256 checksum in the immutable
 certificate snapshot. Existing issued PDFs are not regenerated when the active
-signature changes.
+signature changes. Tests use a synthetic signer image in an isolated ignored
+directory; the test runner removes it after execution.
 
 The printable certificate shows only the official certification/signature
 block. The logged-in administrator remains stored as internal issuance and

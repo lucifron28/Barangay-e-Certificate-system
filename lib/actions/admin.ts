@@ -40,7 +40,7 @@ import {
   acceptRequestSchema,
   rejectRequestSchema,
   revokeCertificateSchema,
-  saveCertificateSchema,
+  signCertificateSchema,
   systemSettingsSchema,
 } from "@/lib/validations/admin";
 import { certificateLabel } from "@/lib/utils/format";
@@ -306,10 +306,11 @@ export async function rejectRequestAction(formData: FormData) {
   redirectWithMessage(path, "Request rejected.");
 }
 
-export async function saveCertificateRecordAction(formData: FormData) {
-  const parsed = saveCertificateSchema.safeParse({
+export async function signCertificateAction(formData: FormData) {
+  const parsed = signCertificateSchema.safeParse({
     date_issued: formData.get("date_issued"),
     request_id: formData.get("request_id"),
+    signing_confirmation: formData.get("signing_confirmation"),
   });
 
   if (!parsed.success) {
@@ -350,11 +351,11 @@ export async function saveCertificateRecordAction(formData: FormData) {
   }
 
   await logActivity({
-    action: "Certificate generation",
+    action: "Certificate signed and issued",
     affectedRecordId: request.id,
     affectedTable: "certificate_records",
     profile: context.profile,
-    remarks: `Issued ${issuedCertificate.certificateNumber} with QR verification metadata.`,
+    remarks: `Issued ${issuedCertificate.certificateNumber} with ${settings.barangayCaptainName}'s configured visual signature. Signature SHA-256: ${issuedCertificate.certificateRecord.certificate_snapshot.signature_image_sha256 ?? "unavailable"}.`,
     supabase: context.supabase,
   });
 
@@ -369,7 +370,7 @@ export async function saveCertificateRecordAction(formData: FormData) {
     to: request.resident?.email,
   });
 
-  redirectWithMessage(path, "Certificate record saved.");
+  redirectWithMessage(path, "Certificate signed and issued.");
 }
 
 export async function revokeCertificateRecordAction(formData: FormData) {

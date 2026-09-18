@@ -24,6 +24,7 @@ import {
   generateCertificatePdf,
 } from "@/lib/certificates/pdf-generator";
 import { issueCertificate } from "@/lib/services/certificate-issuance";
+import { testSignatureSettings } from "./fixtures/signature-settings";
 import {
   getPrivateCertificateStorageDirectory,
   removePrivateCertificatePdf,
@@ -146,7 +147,7 @@ describe("request, counter, and payment rules", () => {
         preparedBy: "Demo Main Admin",
         preparedById: adminId,
         request: getRequestById(paidRequestId)!,
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       }),
     ).rejects.toMatchObject({ code: "PAYMENT_NOT_SETTLED" });
 
@@ -156,7 +157,7 @@ describe("request, counter, and payment rules", () => {
         preparedBy: "Juan Demo Resident",
         preparedById: residentId,
         request: getRequestById("10000000-0000-4000-8000-000000000004")!,
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       }),
     ).rejects.toMatchObject({ code: "INVALID_ISSUER" });
   });
@@ -218,7 +219,7 @@ describe("issuance and PDF integrity", () => {
         preparedBy: "Demo Main Admin",
         preparedById: adminId,
         request: { ...request!, id: "99999999-9999-4999-8999-999999999999" },
-        settings: { barangayCaptainName: "Authorized Barangay Official" },
+        settings: testSignatureSettings,
       }),
     ).rejects.toMatchObject({ code: "PERSISTENCE_FAILED" });
 
@@ -239,7 +240,7 @@ describe("issuance and PDF integrity", () => {
       preparedBy: "Demo Main Admin",
       preparedById: adminId,
       request: request!,
-      settings: { barangayCaptainName: "Authorized Barangay Official" },
+      settings: testSignatureSettings,
     });
 
     expect(replacement.certificateNumber).not.toBe(previous?.certificate_number);

@@ -296,14 +296,18 @@ async function issueCertificate(page, number, downloadName) {
   await assertText(page, "Printable HTML certificate", `Printable ${number} preview opened`);
   await recordStep(page, `certificate-${number}-preview`, "Printable HTML certificate");
 
-  const saveButton = page.getByRole("button", { name: "Save Certificate Record", exact: true });
-  if ((await saveButton.count()) > 0 && await saveButton.isEnabled()) {
-    await saveButton.click();
-    await waitForStatus(page);
-    await waitForPage(page);
-    await assertText(page, "Certificate record saved", `Certificate ${number} was saved`);
-    await recordStep(page, `certificate-${number}-saved`, "Certificate record saved");
+  const signButton = page.getByRole("button", { name: "Sign & Issue Certificate", exact: true });
+  if ((await signButton.count()) !== 1) {
+    throw new Error(`Sign and issue action missing for ${number}.`);
   }
+  if (!(await signButton.isEnabled())) {
+    throw new Error(`Signing is disabled for ${number}; configure the Main Admin signer image first.`);
+  }
+  await signButton.click();
+  await waitForStatus(page);
+  await waitForPage(page);
+  await assertText(page, "Certificate signed and issued", `Certificate ${number} was signed and issued`);
+  await recordStep(page, `certificate-${number}-signed`, "Certificate signed and issued");
 
   const downloadLink = page.getByRole("link", { name: "Download PDF", exact: true });
   if ((await downloadLink.count()) === 0) throw new Error(`Download PDF link missing for ${number}.`);

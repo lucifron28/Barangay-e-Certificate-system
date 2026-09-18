@@ -81,6 +81,7 @@ export function createCertificateSnapshot(input: {
     prepared_by_display_name: input.preparedBy,
     purpose: textOrNull(common.purpose) ?? input.request.purpose,
     request_number: input.request.request_number,
+    signature_applied_at: input.issuedAt,
     signature_representation_type: input.signatureImageKey
       ? "visual_signature_image"
       : "visual_name_placeholder",

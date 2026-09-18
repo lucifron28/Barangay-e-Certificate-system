@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   persistIssuedCertificate: vi.fn(),
   releaseCertificateIssuanceReservation: vi.fn(),
   reserveCertificateIssuance: vi.fn(),
+  readConfiguredSignatureImage: vi.fn(),
   sha256Hex: vi.fn(),
 }));
 
@@ -52,6 +53,10 @@ vi.mock("@/lib/services/issuance-mode", () => ({
 vi.mock("@/lib/certificates/certificate-status", () => ({
   isVerificationExpired: vi.fn(() => false),
 }));
+vi.mock("@/lib/certificates/signature-storage", () => ({
+  getSignatureStorageProvider: vi.fn(() => "local"),
+  readConfiguredSignatureImage: mocks.readConfiguredSignatureImage,
+}));
 
 import { issueCertificate } from "@/lib/services/certificate-issuance";
 
@@ -87,7 +92,11 @@ async function attemptIssuance() {
     preparedBy: "Demo Main Admin",
     preparedById: "admin-1",
     request,
-    settings: { barangayCaptainName: "Authorized Barangay Official" },
+    settings: {
+      barangayCaptainName: "Synthetic Test Signer",
+      signatureImagePath: "signatures/test-signer.png",
+      signatureImageProvider: "local",
+    },
   });
 }
 
@@ -112,6 +121,22 @@ describe("certificate issuance cleanup", () => {
     mocks.releaseCertificateIssuanceReservation.mockResolvedValue(undefined);
     mocks.persistIssuedCertificate.mockResolvedValue(issuedRecord);
     mocks.sha256Hex.mockReturnValue("pdf-hash");
+    mocks.readConfiguredSignatureImage.mockResolvedValue({
+      bytes: new Uint8Array([137, 80, 78, 71]),
+      contentType: "image/png",
+      sha256: "signature-hash",
+    });
+  });
+
+  it("refuses issuance without the configured signature image before reserving a number", async () => {
+    mocks.readConfiguredSignatureImage.mockResolvedValueOnce(null);
+
+    await expect(attemptIssuance()).rejects.toMatchObject({
+      code: "SIGNATURE_NOT_CONFIGURED",
+    });
+
+    expect(mocks.reserveCertificateIssuance).not.toHaveBeenCalled();
+    expect(mocks.generateCertificatePdf).not.toHaveBeenCalled();
   });
 
   it("releases the reservation after persistence fails", async () => {
@@ -161,6 +186,11 @@ describe("certificate issuance cleanup", () => {
 
     expect(mocks.reserveCertificateIssuance).toHaveBeenCalledTimes(2);
     expect(mocks.releaseCertificateIssuanceReservation).toHaveBeenCalledOnce();
+    expect(mocks.generateCertificatePdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        signatureImage: expect.objectContaining({ contentType: "image/png" }),
+      }),
+    );
   });
 
   it("releases the reservation when PDF generation fails before upload", async () => {

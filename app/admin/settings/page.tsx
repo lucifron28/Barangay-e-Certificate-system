@@ -126,8 +126,8 @@ export default async function AdminSettingsPage({
                 </div>
               ) : (
                 <p className="mt-2 text-sm text-base-content/70">
-                  No signature image is configured. New certificates will use the
-                  printed-name fallback until Main Admin uploads one.
+                  No signature image is configured. Certificate signing remains
+                  disabled until the Main Admin uploads an accessible signature image.
                 </p>
               )}
             </div>

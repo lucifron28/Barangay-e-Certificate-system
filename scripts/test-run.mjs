@@ -1,10 +1,15 @@
 import { spawnSync } from "node:child_process";
+import { Buffer } from "node:buffer";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import process from "node:process";
 
 const npmBin = process.platform === "win32" ? ".\\node_modules\\.bin\\tsx.cmd" : "node_modules/.bin/tsx";
 const vitestBin = process.platform === "win32" ? ".\\node_modules\\.bin\\vitest.cmd" : "node_modules/.bin/vitest";
 const env = {
   ...process.env,
+  NODE_ENV: "test",
   DATABASE_PROVIDER: "sqlite",
   CERTIFICATE_STORAGE_DIRECTORY: "data/certificates-test",
   DEMO_VERIFICATION_SAMPLES_PATH: "data/test-verification-samples.json",
@@ -26,20 +31,42 @@ const env = {
   CERTIFICATE_STORAGE_PROVIDER: "local",
 };
 
-const reset = spawnSync(npmBin, ["--tsconfig", "scripts/tsconfig.json", "scripts/demo-reset.ts"], {
-  env,
-  shell: process.platform === "win32",
-  stdio: "inherit",
-});
+const signatureDirectory = mkdtempSync(
+  path.join(os.tmpdir(), "barangay-bato-signatures-test-"),
+);
+env.SIGNATURE_STORAGE_DIRECTORY = signatureDirectory;
+writeFileSync(
+  path.join(signatureDirectory, "test-signer.png"),
+  Buffer.from(
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+    "base64",
+  ),
+);
 
-if (reset.status !== 0) {
-  process.exit(reset.status ?? 1);
+let exitCode;
+try {
+  const reset = spawnSync(
+    npmBin,
+    ["--tsconfig", "scripts/tsconfig.json", "scripts/demo-reset.ts"],
+    {
+      env,
+      shell: process.platform === "win32",
+      stdio: "inherit",
+    },
+  );
+
+  if (reset.status === 0) {
+    const tests = spawnSync(vitestBin, ["run", ...process.argv.slice(2)], {
+      env,
+      shell: process.platform === "win32",
+      stdio: "inherit",
+    });
+    exitCode = tests.status ?? 1;
+  } else {
+    exitCode = reset.status ?? 1;
+  }
+} finally {
+  rmSync(signatureDirectory, { force: true, recursive: true });
 }
 
-const tests = spawnSync(vitestBin, ["run", ...process.argv.slice(2)], {
-  env,
-  shell: process.platform === "win32",
-  stdio: "inherit",
-});
-
-process.exit(tests.status ?? 1);
+process.exit(exitCode);
