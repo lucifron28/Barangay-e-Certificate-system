@@ -86,15 +86,15 @@ function SignatureBlocks({
   return (
     <section
       aria-label="Certificate signer block"
-      className="mt-12 flex justify-end"
+      className="mt-10 flex justify-end"
     >
-      <div className="w-[2.45in] max-w-full font-serif text-right">
-        <p className="mb-0.5 text-[12pt]">
+      <div className="w-[4.2in] max-w-full font-serif text-right">
+        <p className="mb-2 text-[12pt]">
           {draft ? "Unsigned draft" : signatureLabel}
         </p>
         <div
           data-signature-image-box="true"
-          className="flex h-[0.4in] items-end justify-center"
+          className="flex h-[1.225in] w-full items-end justify-center"
         >
           {draft ? (
             <span className="pb-1 text-[9pt] font-semibold uppercase text-neutral/60">
@@ -105,13 +105,13 @@ function SignatureBlocks({
             <img
               src={signatureImageUrl}
               alt="Authorized official visual signature"
-              className="h-[0.875in] w-[3in] max-w-none object-contain object-bottom"
+              className="h-full w-full object-contain object-bottom"
             />
           ) : null}
         </div>
         <div
           aria-hidden="true"
-          className="h-px w-full bg-neutral"
+          className="mt-[0.1in] ml-auto h-px w-[2.45in] bg-neutral"
           data-signature-line="true"
         />
         {!draft ? (
