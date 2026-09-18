@@ -1,6 +1,7 @@
 import { spawnSync } from "node:child_process";
 import { Buffer } from "node:buffer";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 
@@ -11,7 +12,6 @@ const env = {
   NODE_ENV: "test",
   DATABASE_PROVIDER: "sqlite",
   CERTIFICATE_STORAGE_DIRECTORY: "data/certificates-test",
-  SIGNATURE_STORAGE_DIRECTORY: "data/signatures-test",
   DEMO_VERIFICATION_SAMPLES_PATH: "data/test-verification-samples.json",
   SQLITE_DATABASE_URL: "file:./data/test.sqlite",
   SMTP_USER: "",
@@ -31,8 +31,10 @@ const env = {
   CERTIFICATE_STORAGE_PROVIDER: "local",
 };
 
-const signatureDirectory = path.resolve(process.cwd(), env.SIGNATURE_STORAGE_DIRECTORY);
-mkdirSync(signatureDirectory, { recursive: true });
+const signatureDirectory = mkdtempSync(
+  path.join(os.tmpdir(), "barangay-bato-signatures-test-"),
+);
+env.SIGNATURE_STORAGE_DIRECTORY = signatureDirectory;
 writeFileSync(
   path.join(signatureDirectory, "test-signer.png"),
   Buffer.from(
