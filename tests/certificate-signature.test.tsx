@@ -155,6 +155,38 @@ describe("official signer signature", () => {
     },
   );
 
+  it("enlarges the HTML signature bounds without moving signer geometry", () => {
+    const markup = renderToStaticMarkup(
+      <PrintableCertificate
+        dateIssued="2026-09-02"
+        request={syntheticRequest()}
+        signatureImageUrl="/api/admin/signature"
+      />,
+    );
+    const signatureLabelIndex = markup.indexOf("Certified by:");
+    const imageBoxIndex = markup.indexOf('data-signature-image-box="true"');
+    const signatureImageIndex = markup.indexOf('src="/api/admin/signature"');
+    const signatureLineIndex = markup.indexOf('data-signature-line="true"');
+    const signerNameIndex = markup.indexOf("DIOGENES E. MANAOG");
+    const signerRoleIndex = markup.indexOf("Barangay Chairman");
+
+    expect(markup).toContain('class="mt-12 flex justify-end"');
+    expect(markup).toContain(
+      'data-signature-image-box="true" class="flex h-[0.4in] items-end justify-center"',
+    );
+    expect(markup).toContain(
+      'class="h-[0.875in] w-[3in] max-w-none object-contain object-bottom"',
+    );
+    expect(markup).toContain('class="h-px w-full bg-neutral" data-signature-line="true"');
+    expect(signatureLabelIndex).toBeGreaterThanOrEqual(0);
+    expect(imageBoxIndex).toBeGreaterThanOrEqual(0);
+    expect(signatureLabelIndex).toBeLessThan(signatureImageIndex);
+    expect(imageBoxIndex).toBeLessThan(signatureImageIndex);
+    expect(signatureImageIndex).toBeLessThan(signatureLineIndex);
+    expect(signatureLineIndex).toBeLessThan(signerNameIndex);
+    expect(signerNameIndex).toBeLessThan(signerRoleIndex);
+  });
+
   it("clearly renders an unsigned draft without the official name or signature image", () => {
     const markup = renderToStaticMarkup(
       <PrintableCertificate

@@ -92,7 +92,10 @@ function SignatureBlocks({
         <p className="mb-0.5 text-[12pt]">
           {draft ? "Unsigned draft" : signatureLabel}
         </p>
-        <div className="flex h-[0.4in] items-end justify-center">
+        <div
+          data-signature-image-box="true"
+          className="flex h-[0.4in] items-end justify-center"
+        >
           {draft ? (
             <span className="pb-1 text-[9pt] font-semibold uppercase text-neutral/60">
               Signature applied after signing
@@ -102,7 +105,7 @@ function SignatureBlocks({
             <img
               src={signatureImageUrl}
               alt="Authorized official visual signature"
-              className="max-h-full max-w-[2.1in] object-contain object-bottom"
+              className="h-[0.875in] w-[3in] max-w-none object-contain object-bottom"
             />
           ) : null}
         </div>
