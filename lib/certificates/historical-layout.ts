@@ -15,6 +15,10 @@ import QRCode from "qrcode";
 
 import { certificateLabel } from "@/lib/utils/format";
 import {
+  certificateTemplateSignatureLabel,
+  certificateTemplateSignatureRole,
+} from "@/lib/certificates/template-copy";
+import {
   getCertificateTemplateData,
   type CertificateRequestWithResident,
 } from "@/lib/certificates/template-data";
@@ -119,8 +123,6 @@ type HistoricalTemplateConfig = {
   salutation: string;
   salutationY: number;
   sealY: number;
-  signatureLabel: string;
-  signatureRole: string;
   signatureX: number;
   signatureY: number;
   title: string;
@@ -148,8 +150,6 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutation: "To whom it may concern:",
     salutationY: 553,
     sealY: 733,
-    signatureLabel: "Certified by:",
-    signatureRole: "Barangay Chairman",
     signatureX: 430,
     signatureY: 306,
     title: "CERTIFICATION OF CLEARANCE",
@@ -171,8 +171,6 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutation: "Sa kinauukulan:",
     salutationY: 540,
     sealY: 700,
-    signatureLabel: "Pinatunayan ni:",
-    signatureRole: "Punong Barangay",
     signatureX: 446,
     signatureY: 278,
     title: "PAGPAPATUNAY",
@@ -194,8 +192,6 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutation: "To Whom it may concern,",
     salutationY: 474,
     sealY: 686,
-    signatureLabel: "Certified by:",
-    signatureRole: "Barangay Chairman",
     signatureX: 438,
     signatureY: 177,
     title: "CERTIFICATION OF INDIGENCY",
@@ -217,14 +213,46 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutation: "To Whom it may concern,",
     salutationY: 494,
     sealY: 686,
-    signatureLabel: "Certified by:",
-    signatureRole: "Barangay Chairman",
     signatureX: 438,
     signatureY: 188,
     title: "CERTIFICATION OF RESIDENCY",
     titleY: 532,
   },
 };
+
+export type HistoricalSignatureBlockLayout = {
+  imageBottomY: number;
+  imageMaxHeight: number;
+  labelY: number;
+  lineEnd: number;
+  lineStart: number;
+  lineY: number;
+  nameUnderlineY: number;
+  nameY: number;
+  roleY: number;
+  signatureX: number;
+};
+
+export function getHistoricalSignatureBlockLayout(
+  type: HistoricalCertificateType,
+): HistoricalSignatureBlockLayout {
+  const config = HISTORICAL_TEMPLATE_CONFIG[type];
+  const lineY = config.signatureY + 10;
+  const nameY = lineY - 18;
+
+  return {
+    imageBottomY: lineY + 5,
+    imageMaxHeight: 22,
+    labelY: config.signatureY + 43,
+    lineEnd: config.signatureX + 90,
+    lineStart: config.signatureX - 90,
+    lineY,
+    nameUnderlineY: nameY - 2,
+    nameY,
+    roleY: lineY - 36,
+    signatureX: config.signatureX,
+  };
+}
 
 const BODY_LAYOUT_OPTIONS = [
   {
@@ -332,7 +360,7 @@ function drawFittedCenteredText(
   size: number,
   maxWidth: number,
   color: RGB = BODY_COLOR,
-) {
+): { x: number; width: number } {
   const normalized = safePdfText(text);
   let fittedSize = size;
   while (
@@ -341,13 +369,16 @@ function drawFittedCenteredText(
   ) {
     fittedSize -= 0.5;
   }
+  const width = font.widthOfTextAtSize(normalized, fittedSize);
+  const x = centerX - width / 2;
   page.drawText(normalized, {
     color,
     font,
     size: fittedSize,
-    x: centerX - font.widthOfTextAtSize(normalized, fittedSize) / 2,
+    x,
     y,
   });
+  return { x, width };
 }
 
 function splitLongWord(
@@ -860,52 +891,60 @@ function drawHeader(
 
 function drawSignature(
   page: PDFPage,
-  config: HistoricalTemplateConfig,
+  type: HistoricalCertificateType,
   captainName: string,
   fonts: HistoricalFonts,
   signatureImage?: PDFImage | null,
 ) {
-  const lineY = config.signatureY;
-  const lineStart = config.signatureX - 90;
-  const lineEnd = config.signatureX + 90;
+  const layout = getHistoricalSignatureBlockLayout(type);
 
   centerTextAt(
     page,
-    config.signatureLabel,
-    config.signatureX,
-    lineY + 43,
+    certificateTemplateSignatureLabel(type),
+    layout.signatureX,
+    layout.labelY,
     fonts.bold,
     14,
   );
   if (signatureImage) {
-    const imageSize = fitSignatureImage(signatureImage, 135, 44);
+    const imageSize = fitSignatureImage(
+      signatureImage,
+      135,
+      layout.imageMaxHeight,
+    );
     page.drawImage(signatureImage, {
       height: imageSize.height,
       width: imageSize.width,
-      x: config.signatureX - imageSize.width / 2,
-      y: lineY + 4,
+      x: layout.signatureX - imageSize.width / 2,
+      y: layout.imageBottomY,
     });
   }
   page.drawLine({
     color: BODY_COLOR,
-    start: { x: lineStart, y: lineY + 10 },
-    end: { x: lineEnd, y: lineY + 10 },
+    start: { x: layout.lineStart, y: layout.lineY },
+    end: { x: layout.lineEnd, y: layout.lineY },
     thickness: 0.8,
   });
-  drawFittedCenteredText(
+  const printedName = drawFittedCenteredText(
     page,
     captainName.toUpperCase(),
-    config.signatureX,
-    lineY - 1,
+    layout.signatureX,
+    layout.nameY,
     fonts.bold,
     12,
     190,
   );
+  page.drawLine({
+    color: BODY_COLOR,
+    start: { x: printedName.x, y: layout.nameUnderlineY },
+    end: { x: printedName.x + printedName.width, y: layout.nameUnderlineY },
+    thickness: 0.45,
+  });
   centerTextAt(
     page,
-    config.signatureRole,
-    config.signatureX,
-    lineY - 19,
+    certificateTemplateSignatureRole(type),
+    layout.signatureX,
+    layout.roleY,
     fonts.bold,
     10,
   );
@@ -1169,7 +1208,7 @@ export async function generateHistoricalCertificatePdf({
 
   drawSignature(
     page,
-    config,
+    type,
     effectiveCaptainName,
     fonts,
     embeddedSignatureImage,

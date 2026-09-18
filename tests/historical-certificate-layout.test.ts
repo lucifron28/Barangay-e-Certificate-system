@@ -3,13 +3,18 @@ import { PDFDocument } from "pdf-lib";
 
 import {
   calculateHistoricalCertificateBodyLayout,
+  getHistoricalSignatureBlockLayout,
   generateHistoricalCertificatePdf,
   HISTORICAL_CERTIFICATE_TYPES,
   isHistoricalCertificateType,
   type HistoricalCertificateType,
 } from "@/lib/certificates/historical-layout";
 import { getRequestById } from "@/lib/db/sqlite/queries";
-import { certificateTemplateTitle } from "@/lib/certificates/template-copy";
+import {
+  certificateTemplateSignatureLabel,
+  certificateTemplateSignatureRole,
+  certificateTemplateTitle,
+} from "@/lib/certificates/template-copy";
 
 const syntheticName = "Alexis Example Santos";
 const syntheticAddress = "Sample Street, Barangay Bato";
@@ -17,26 +22,36 @@ const syntheticPurpose = "Synthetic Purpose for Testing";
 
 const cases: Array<{
   label: string;
+  signatureLabel: string;
+  signatureRole: string;
   title: string;
   type: HistoricalCertificateType;
 }> = [
   {
     label: "Barangay Residency",
+    signatureLabel: "Certified by:",
+    signatureRole: "Acting Barangay Chairman",
     title: "CERTIFICATION OF RESIDENCY",
     type: "barangay_residency",
   },
   {
     label: "Barangay Clearance",
+    signatureLabel: "Certified by:",
+    signatureRole: "Barangay Chairman",
     title: "CERTIFICATION OF CLEARANCE",
     type: "barangay_clearance",
   },
   {
     label: "Barangay Certificate",
+    signatureLabel: "Pinatunayan ni:",
+    signatureRole: "PUNONG BARANGAY",
     title: "PAGPAPATUNAY",
     type: "barangay_certificate",
   },
   {
     label: "Barangay Indigency",
+    signatureLabel: "Certified by:",
+    signatureRole: "Barangay Chairman",
     title: "CERTIFICATION OF INDIGENCY",
     type: "barangay_indigency",
   },
@@ -84,6 +99,24 @@ describe("historical certificate template alignment", () => {
       "barangay_residency",
     ]);
   });
+
+  it.each(cases)(
+    "keeps the $type signer image, rule, name, and role separated on the right",
+    ({ signatureLabel, signatureRole, type }) => {
+      const layout = getHistoricalSignatureBlockLayout(type);
+
+      expect(layout.lineStart).toBeGreaterThan(306);
+      expect(layout.lineEnd).toBeLessThan(612);
+      expect(layout.imageBottomY).toBeGreaterThan(layout.lineY);
+      expect(layout.imageBottomY + layout.imageMaxHeight).toBeLessThan(
+        layout.labelY,
+      );
+      expect(layout.nameY).toBeLessThan(layout.lineY);
+      expect(layout.roleY).toBeLessThan(layout.nameY);
+      expect(certificateTemplateSignatureLabel(type)).toBe(signatureLabel);
+      expect(certificateTemplateSignatureRole(type)).toBe(signatureRole);
+    },
+  );
 
   it.each(cases)(
     "generates a valid $type PDF with digital metadata",
