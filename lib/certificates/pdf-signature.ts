@@ -22,7 +22,7 @@ export async function embedSignatureImage(
 }
 
 export function fitSignatureImage(
-  image: PDFImage,
+  image: Pick<PDFImage, "height" | "width">,
   maxWidth: number,
   maxHeight: number,
 ) {

@@ -9,6 +9,7 @@ import {
   isHistoricalCertificateType,
   type HistoricalCertificateType,
 } from "@/lib/certificates/historical-layout";
+import { fitSignatureImage } from "@/lib/certificates/pdf-signature";
 import { getRequestById } from "@/lib/db/sqlite/queries";
 import {
   certificateTemplateSignatureLabel,
@@ -101,22 +102,38 @@ describe("historical certificate template alignment", () => {
   });
 
   it.each(cases)(
-    "keeps the $type signer image, rule, name, and role separated on the right",
+    "keeps the $type signer image clear of the label, body, rule, name, and page edges",
     ({ signatureLabel, signatureRole, type }) => {
       const layout = getHistoricalSignatureBlockLayout(type);
+      const imageTopY = layout.imageBottomY + layout.imageMaxHeight;
+      const labelGlyphTopY = layout.labelY + 11;
 
       expect(layout.lineStart).toBeGreaterThan(306);
       expect(layout.lineEnd).toBeLessThan(612);
-      expect(layout.imageBottomY).toBeGreaterThan(layout.lineY);
-      expect(layout.imageBottomY + layout.imageMaxHeight).toBeLessThan(
-        layout.labelY,
-      );
+      expect(layout.labelY - imageTopY).toBeGreaterThanOrEqual(12);
+      expect(layout.bodyBottomY - labelGlyphTopY).toBeGreaterThanOrEqual(6);
+      expect(layout.imageBottomY - layout.lineY).toBe(5);
+      expect(imageTopY).toBeLessThan(792);
+      expect(layout.signatureX - layout.imageMaxWidth / 2).toBeGreaterThan(0);
+      expect(layout.signatureX + layout.imageMaxWidth / 2).toBeLessThan(612);
+      expect(layout.roleY).toBeGreaterThan(0);
+      expect(layout.lineY - layout.nameY).toBe(18);
       expect(layout.nameY).toBeLessThan(layout.lineY);
       expect(layout.roleY).toBeLessThan(layout.nameY);
       expect(certificateTemplateSignatureLabel(type)).toBe(signatureLabel);
       expect(certificateTemplateSignatureRole(type)).toBe(signatureRole);
     },
   );
+
+  it("fits the measured signature aspect ratio at exactly 1.5x without distortion", () => {
+    const image = { height: 155, width: 249 };
+    const original = fitSignatureImage(image, 135, 22);
+    const enlarged = fitSignatureImage(image, 202.5, 33);
+
+    expect(enlarged.width / original.width).toBeCloseTo(1.5);
+    expect(enlarged.height / original.height).toBeCloseTo(1.5);
+    expect(enlarged.width / enlarged.height).toBeCloseTo(249 / 155);
+  });
 
   it.each(cases)(
     "generates a valid $type PDF with digital metadata",
