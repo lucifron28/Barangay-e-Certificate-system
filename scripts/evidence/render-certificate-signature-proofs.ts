@@ -13,6 +13,9 @@ const syntheticName = "Synthetic Resident Example";
 const syntheticAddress = "Sample Sitio, Barangay Bato";
 const syntheticPurpose = "Thesis presentation layout proof";
 const issuedAt = "2026-09-18T04:00:00.000Z";
+const proofSignerName =
+  process.env.CERTIFICATE_PROOF_SIGNER_NAME?.trim() ||
+  "Synthetic Barangay Captain";
 
 function syntheticRequest(
   type: HistoricalCertificateType,
@@ -97,7 +100,7 @@ async function main() {
   for (const type of HISTORICAL_CERTIFICATE_TYPES) {
     const outputPath = resolve(outputDirectory, `${type}.pdf`);
     const pdfBytes = await generateHistoricalCertificatePdf({
-      barangayCaptainName: "DIOGENES E. MANAOG",
+      barangayCaptainName: proofSignerName,
       certificateNumber: `CERT-PROOF-${type}`,
       dateIssued: "2026-09-18",
       preparedBy: "Synthetic Demo Administrator",

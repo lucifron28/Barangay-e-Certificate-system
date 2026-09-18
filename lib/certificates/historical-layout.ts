@@ -124,7 +124,8 @@ type HistoricalTemplateConfig = {
   salutationY: number;
   sealY: number;
   signatureX: number;
-  signatureY: number;
+  signatureLabelY: number;
+  signatureLineY: number;
   title: string;
   titleY: number;
 };
@@ -151,7 +152,8 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutationY: 553,
     sealY: 733,
     signatureX: 430,
-    signatureY: 306,
+    signatureLabelY: 349,
+    signatureLineY: 299,
     title: "CERTIFICATION OF CLEARANCE",
     titleY: 606,
   },
@@ -172,7 +174,8 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutationY: 540,
     sealY: 700,
     signatureX: 446,
-    signatureY: 278,
+    signatureLabelY: 311,
+    signatureLineY: 261,
     title: "PAGPAPATUNAY",
     titleY: 566,
   },
@@ -193,7 +196,8 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutationY: 474,
     sealY: 686,
     signatureX: 438,
-    signatureY: 177,
+    signatureLabelY: 220,
+    signatureLineY: 170,
     title: "CERTIFICATION OF INDIGENCY",
     titleY: 554,
   },
@@ -214,15 +218,18 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     salutationY: 494,
     sealY: 686,
     signatureX: 438,
-    signatureY: 188,
+    signatureLabelY: 231,
+    signatureLineY: 181,
     title: "CERTIFICATION OF RESIDENCY",
     titleY: 532,
   },
 };
 
 export type HistoricalSignatureBlockLayout = {
+  bodyBottomY: number;
   imageBottomY: number;
   imageMaxHeight: number;
+  imageMaxWidth: number;
   labelY: number;
   lineEnd: number;
   lineStart: number;
@@ -237,13 +244,15 @@ export function getHistoricalSignatureBlockLayout(
   type: HistoricalCertificateType,
 ): HistoricalSignatureBlockLayout {
   const config = HISTORICAL_TEMPLATE_CONFIG[type];
-  const lineY = config.signatureY + 10;
+  const lineY = config.signatureLineY;
   const nameY = lineY - 18;
 
   return {
+    bodyBottomY: config.bodyBottom,
     imageBottomY: lineY + 5,
     imageMaxHeight: 33,
-    labelY: config.signatureY + 43,
+    imageMaxWidth: 202.5,
+    labelY: config.signatureLabelY,
     lineEnd: config.signatureX + 90,
     lineStart: config.signatureX - 90,
     lineY,
@@ -909,7 +918,7 @@ function drawSignature(
   if (signatureImage) {
     const imageSize = fitSignatureImage(
       signatureImage,
-      202.5,
+      layout.imageMaxWidth,
       layout.imageMaxHeight,
     );
     page.drawImage(signatureImage, {
