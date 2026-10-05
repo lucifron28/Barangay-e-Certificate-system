@@ -83,6 +83,16 @@ async function openGenerateCertificatePage(page, requestId) {
   return signBtn;
 }
 
+// Helper: generate 13-digit numeric GCash reference: YYMMDD + 7 random digits
+function generateGcash13DigitRef(date = new Date()) {
+  const yy = date.getFullYear().toString().slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  const yymmdd = `${yy}${mm}${dd}`;
+  const random7 = Math.floor(1000000 + Math.random() * 9000000).toString();
+  return `${yymmdd}${random7}`;
+}
+
 // ---------------------------------------------------------------------------
 // Main QA Simulation Runner
 // ---------------------------------------------------------------------------
@@ -157,8 +167,8 @@ async function runSimulation() {
     assertTest('Scenario 1 - GCash', 'Official Merchant Identity Displayed', paymentText1.includes('Barangay Bato Treasury'));
     assertTest('Scenario 1 - GCash', 'No Demo Mode Banners Exposed', !paymentText1.includes('Demo payment mode'));
 
-    // Strictly 13 numeric digits per official GCash merchant guidance: YYYYMMDD (8) + 9 (QA marker) + 4 digits = 13 digits
-    const syntheticGcashRef = `202610059${timestampPrefix.slice(-4)}`;
+    // Strictly 13 numeric digits: YYMMDD (6 digits) + 7 random digits = 13 digits
+    const syntheticGcashRef = generateGcash13DigitRef();
     const proofForm1 = res1PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm1.locator('input[name="reference_number"]').fill(syntheticGcashRef);
     await proofForm1.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
@@ -450,8 +460,8 @@ async function runSimulation() {
     const rejViewText = await res1ResubPage.textContent('body');
     assertTest('Scenario 3 - Rejection', 'Resident Sees Rejection Feedback', rejViewText.includes('Transaction reference was absent') || rejViewText.includes('Reference not found'));
 
-    // Strictly 13 numeric digits per official GCash merchant guidance: YYYYMMDD (8) + 8 (QA resub marker) + 4 digits = 13 digits
-    const correctedRef = `202610058${timestampPrefix.slice(-4)}`;
+    // Strictly 13 numeric digits: YYMMDD (6 digits) + 7 random digits = 13 digits
+    const correctedRef = generateGcash13DigitRef();
     const resubForm = res1ResubPage.locator('form:has(input[name="reference_number"])');
     await resubForm.locator('input[name="reference_number"]').fill(correctedRef);
     await resubForm.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);

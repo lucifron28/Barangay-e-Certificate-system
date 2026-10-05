@@ -245,10 +245,10 @@ The QA simulation represents the citizen's external submission of transaction ev
 To test the system reliably without conducting real monetary transactions or moving live funds:
 | Simulation Parameter | Standardized QA Value | Purpose / Assertions |
 |---|---|---|
-| **GCash Success Reference** | `202610051234567` (13 digits) | Exercises standard GCash happy path $\rightarrow$ Approved $\rightarrow$ Certificate issued. |
-| **Maya Success Reference** | `MAYA-2026-999888` (Alphanumeric) | Exercises Maya happy path $\rightarrow$ Approved $\rightarrow$ Certificate issued. |
-| **Rejection Test Reference** | `WRONG-REF-000000` | Exercises staff rejection $\rightarrow$ Verifies resident feedback $\rightarrow$ Status: `failed`. |
-| **Resubmission Reference** | `2026100588888` | Exercises corrected resubmission $\rightarrow$ Staff approves $\rightarrow$ Status: `paid`. |
+| **GCash Success Reference** | `YYMMDD` + 7 random digits (e.g. `2610061193041`, 13 digits) | Conforms to official GCash 13-digit Transaction Reference ID $\rightarrow$ Approved $\rightarrow$ Issued. |
+| **GCash Resubmission Ref** | `YYMMDD` + 7 random digits (13 digits) | Corrected 13-digit numeric replacement $\rightarrow$ Staff approves $\rightarrow$ Status: `paid`. |
+| **Maya Success Reference** | `MAYA-QA-` + `YYYYMMDD` + `-` + 6 digits (24 chars) | Conforms to official Maya Developer RRN specification $\rightarrow$ Approved $\rightarrow$ Issued. |
+| **Rejection Test Reference** | `QA-REJECT-` + `YYYYMMDD` + `-` + 6 digits | Exercises staff rejection $\rightarrow$ Verifies resident feedback $\rightarrow$ Status: `failed`. |
 | **Synthetic Receipt Image** | Valid PNG image ($\le 5\text{ MB}$) | Exercises magic-byte detection, SHA-256 calculation, and private Blob upload. |
 | **Free Certificate Flow** | Indigency (₱0 fee) | Verifies automatic payment bypass and immediate issuance eligibility. |
 | **Isolation Tests** | Foreign request ID | Asserts that residents cannot access or pay for other residents' certificate requests. |
