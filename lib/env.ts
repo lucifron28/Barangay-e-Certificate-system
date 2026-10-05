@@ -105,6 +105,20 @@ export function getProductionEnvErrors() {
   if (!env.smtpUser) errors.push("SMTP_USER is required for production notifications.");
   if (!env.smtpPass) errors.push("SMTP_PASS is required for production notifications.");
   if (!env.emailFrom) errors.push("EMAIL_FROM is required for production notifications.");
+  if (process.env.PAYMENT_DEMO_MODE === "true") {
+    errors.push("PAYMENT_DEMO_MODE must be false or unset in production.");
+  }
+  for (const name of [
+    "LOCAL_DEMO_ADMIN_EMAIL",
+    "LOCAL_DEMO_ADMIN_PASSWORD",
+    "LOCAL_DEMO_SECRET",
+    "DEMO_ADMIN_PASSWORD",
+    "DEMO_RESIDENT_PASSWORD",
+  ]) {
+    if (process.env[name]?.trim()) {
+      errors.push(`${name} must be unset in production.`);
+    }
+  }
   return errors;
 }
 
