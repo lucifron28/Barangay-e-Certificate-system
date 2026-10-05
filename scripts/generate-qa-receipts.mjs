@@ -47,11 +47,11 @@ async function generateReceipts() {
       </head>
       <body>
         <div class="receipt">
-          <div class="watermark">QA SIMULATION ONLY<br>NO REAL MONEY MOVED</div>
+          <div class="watermark">GCASH QA PAYMENT SIMULATION<br>NO REAL MONEY MOVED</div>
           <div class="header">
             <h1>GCash Payment Sent</h1>
             <p>Official Transaction Receipt</p>
-            <div class="badge-qa">CONTROLLED QA ARTIFACT</div>
+            <div class="badge-qa">GCASH QA PAYMENT SIMULATION</div>
           </div>
           <div class="content">
             <div class="amount-box">
@@ -119,11 +119,11 @@ async function generateReceipts() {
       </head>
       <body>
         <div class="receipt">
-          <div class="watermark">QA SIMULATION ONLY<br>NO REAL MONEY MOVED</div>
+          <div class="watermark">MAYA QA PAYMENT SIMULATION<br>NO REAL MONEY MOVED</div>
           <div class="header">
             <h1>Maya Transaction Completed</h1>
             <p>Official Merchant Receipt</p>
-            <div class="badge-qa">CONTROLLED QA ARTIFACT</div>
+            <div class="badge-qa">MAYA QA PAYMENT SIMULATION</div>
           </div>
           <div class="content">
             <div class="amount-box">
