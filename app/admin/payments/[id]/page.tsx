@@ -248,7 +248,7 @@ export default async function AdminPaymentReviewPage({
                     <div className="timeline-middle">
                       <CheckCircle2 className="size-4 text-primary" aria-hidden />
                     </div>
-                    <div className="timeline-end timeline-box my-1">
+                    <div className="timeline-end timeline-box my-1 max-w-full overflow-hidden break-words">
                       <div className="flex items-center justify-between gap-4">
                         <span className="font-bold text-xs capitalize">
                           {event.event_type.replace(/_/g, " ")}
@@ -258,7 +258,7 @@ export default async function AdminPaymentReviewPage({
                         </span>
                       </div>
                       {typeof event.payload === "object" && event.payload !== null && (
-                        <p className="mt-1 text-xs text-base-content/70">
+                        <p className="mt-1 break-all text-xs text-base-content/70">
                           {JSON.stringify(event.payload)}
                         </p>
                       )}

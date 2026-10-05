@@ -29,6 +29,7 @@ const env = {
   LOCAL_DEMO_SECRET: "test-local-demo-secret-that-is-long-enough",
   LOCAL_DEMO_ADMIN_PASSWORD: "local-seed-key-2026-strong",
   CERTIFICATE_STORAGE_PROVIDER: "local",
+  PAYMENT_DEMO_MODE: "false",
 };
 
 const signatureDirectory = mkdtempSync(
