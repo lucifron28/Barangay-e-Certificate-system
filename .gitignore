@@ -35,3 +35,10 @@ tmp/
 .env*.local
 .artifacts/
 artifacts/playwright-demo/
+artifacts/payment-qa/generated/
+artifacts/payment-qa/screenshots/
+artifacts/payment-qa/videos/
+artifacts/payment-qa/traces/
+artifacts/payment-qa/logs/
+artifacts/payment-qa/downloads/
+artifacts/production-qa/
