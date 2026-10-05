@@ -157,7 +157,7 @@ async function runSimulation() {
     assertTest('Scenario 1 - GCash', 'Official Merchant Identity Displayed', paymentText1.includes('Barangay Bato Treasury'));
     assertTest('Scenario 1 - GCash', 'No Demo Mode Banners Exposed', !paymentText1.includes('Demo payment mode'));
 
-    const syntheticGcashRef = `20261005${timestampPrefix}1`;
+    const syntheticGcashRef = `GCASH-QA-20261005-${timestampPrefix}`;
     const proofForm1 = res1PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm1.locator('input[name="reference_number"]').fill(syntheticGcashRef);
     await proofForm1.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
@@ -300,7 +300,7 @@ async function runSimulation() {
     const paymentText2 = await res2PayPage.textContent('body');
     assertTest('Scenario 2 - Maya', 'Official Maya Merchant Displayed', paymentText2.includes('Barangay Bato Treasury Maya'));
 
-    const syntheticMayaRef = `MAYA-2026-${timestampPrefix}`;
+    const syntheticMayaRef = `MAYA-QA-20261005-${timestampPrefix}`;
     const proofForm2 = res2PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm2.locator('input[name="reference_number"]').fill(syntheticMayaRef);
     await proofForm2.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
@@ -415,7 +415,7 @@ async function runSimulation() {
     await loginUser(res1PayPage3, RESIDENT_1_LOGIN, RESIDENT_1_PASSWORD, '/resident/dashboard');
 
     await res1PayPage3.goto(`${BASE_URL}/resident/payments/${rejRequestId}`, { waitUntil: 'networkidle' });
-    const flawedRef = `FLAWED-${timestampPrefix}`;
+    const flawedRef = `QA-REJECT-20261005-${timestampPrefix}`;
     const proofForm3 = res1PayPage3.locator('form:has(input[name="reference_number"])');
     await proofForm3.locator('input[name="reference_number"]').fill(flawedRef);
     await proofForm3.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
@@ -449,7 +449,7 @@ async function runSimulation() {
     const rejViewText = await res1ResubPage.textContent('body');
     assertTest('Scenario 3 - Rejection', 'Resident Sees Rejection Feedback', rejViewText.includes('Transaction reference was absent') || rejViewText.includes('Reference not found'));
 
-    const correctedRef = `20261005${timestampPrefix}8`;
+    const correctedRef = `GCASH-QA-RESUB-20261005-${timestampPrefix}`;
     const resubForm = res1ResubPage.locator('form:has(input[name="reference_number"])');
     await resubForm.locator('input[name="reference_number"]').fill(correctedRef);
     await resubForm.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
