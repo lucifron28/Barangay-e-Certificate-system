@@ -21,6 +21,21 @@ if (!process.env.SMTP_USER) errors.push("SMTP_USER is required for production no
 if (!process.env.SMTP_PASS) errors.push("SMTP_PASS is required for production notifications.");
 if (!process.env.EMAIL_FROM) errors.push("EMAIL_FROM is required for production notifications.");
 
+if (process.env.PAYMENT_DEMO_MODE === "true") {
+  errors.push("PAYMENT_DEMO_MODE must be false or unset in production.");
+}
+for (const name of [
+  "LOCAL_DEMO_ADMIN_EMAIL",
+  "LOCAL_DEMO_ADMIN_PASSWORD",
+  "LOCAL_DEMO_SECRET",
+  "DEMO_ADMIN_PASSWORD",
+  "DEMO_RESIDENT_PASSWORD",
+]) {
+  if (process.env[name]?.trim()) {
+    errors.push(`${name} must be unset in production.`);
+  }
+}
+
 if (errors.length) {
   console.error("Production environment is not ready:");
   for (const error of errors) console.error(`- ${error}`);
