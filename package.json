@@ -20,6 +20,7 @@
     "lint": "eslint",
     "lint:fix": "eslint --fix",
     "test": "node scripts/test-run.mjs",
+    "qa:simulate-payments": "node scripts/qa-payment-simulation.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
