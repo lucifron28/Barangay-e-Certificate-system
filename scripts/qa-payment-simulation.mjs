@@ -157,7 +157,8 @@ async function runSimulation() {
     assertTest('Scenario 1 - GCash', 'Official Merchant Identity Displayed', paymentText1.includes('Barangay Bato Treasury'));
     assertTest('Scenario 1 - GCash', 'No Demo Mode Banners Exposed', !paymentText1.includes('Demo payment mode'));
 
-    const syntheticGcashRef = `GCASH-QA-20261005-${timestampPrefix}`;
+    // Strictly 13 numeric digits per official GCash merchant guidance: YYYYMMDD (8) + 9 (QA marker) + 4 digits = 13 digits
+    const syntheticGcashRef = `202610059${timestampPrefix.slice(-4)}`;
     const proofForm1 = res1PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm1.locator('input[name="reference_number"]').fill(syntheticGcashRef);
     await proofForm1.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
@@ -449,7 +450,8 @@ async function runSimulation() {
     const rejViewText = await res1ResubPage.textContent('body');
     assertTest('Scenario 3 - Rejection', 'Resident Sees Rejection Feedback', rejViewText.includes('Transaction reference was absent') || rejViewText.includes('Reference not found'));
 
-    const correctedRef = `GCASH-QA-RESUB-20261005-${timestampPrefix}`;
+    // Strictly 13 numeric digits per official GCash merchant guidance: YYYYMMDD (8) + 8 (QA resub marker) + 4 digits = 13 digits
+    const correctedRef = `202610058${timestampPrefix.slice(-4)}`;
     const resubForm = res1ResubPage.locator('form:has(input[name="reference_number"])');
     await resubForm.locator('input[name="reference_number"]').fill(correctedRef);
     await resubForm.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
