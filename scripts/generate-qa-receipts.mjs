@@ -47,7 +47,7 @@ async function generateReceipts() {
       </head>
       <body>
         <div class="receipt">
-          <div class="watermark">GCASH QA PAYMENT SIMULATION<br>NO REAL MONEY MOVED</div>
+          <div class="watermark">GCASH QA PAYMENT SIMULATION<br>NOT A REAL FINANCIAL TRANSACTION</div>
           <div class="header">
             <h1>GCash Payment Sent</h1>
             <p>Official Transaction Receipt</p>
@@ -76,7 +76,7 @@ async function generateReceipts() {
             </div>
           </div>
           <div class="footer">
-            <strong>SYNTHETIC QA RECEIPT ARTIFACT</strong>
+            <strong>NOT A REAL FINANCIAL TRANSACTION</strong>
             This is an automated simulation screenshot for software quality assurance.
           </div>
         </div>
@@ -119,7 +119,7 @@ async function generateReceipts() {
       </head>
       <body>
         <div class="receipt">
-          <div class="watermark">MAYA QA PAYMENT SIMULATION<br>NO REAL MONEY MOVED</div>
+          <div class="watermark">MAYA QA PAYMENT SIMULATION<br>NOT A REAL FINANCIAL TRANSACTION</div>
           <div class="header">
             <h1>Maya Transaction Completed</h1>
             <p>Official Merchant Receipt</p>
@@ -148,7 +148,7 @@ async function generateReceipts() {
             </div>
           </div>
           <div class="footer">
-            <strong>SYNTHETIC QA RECEIPT ARTIFACT</strong>
+            <strong>NOT A REAL FINANCIAL TRANSACTION</strong>
             This is an automated simulation screenshot for software quality assurance.
           </div>
         </div>
