@@ -38,7 +38,9 @@ Payments are made using external GCash/Maya apps to the configured official
 Barangay merchant QR code. Residents submit their transaction reference number
 and screenshot proof. Authorized Barangay staff verify the merchant ledger and
 approve or reject the submission. No automated payment gateway API is used.
-
+For comprehensive technical specifications, merchant settlement ledgers,
+reconciliation matching rules, and QA simulation standards, refer to
+`docs/manual-payment-workflow-and-reconciliation.md`.
 ## Email
 
 Gmail SMTP sends accepted, rejected, and certificate-ready notifications when
