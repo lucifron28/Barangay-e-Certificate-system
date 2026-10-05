@@ -12,6 +12,8 @@ In compliance with the **Local Government Code of 1991 (RA 7160)** and **Commiss
 2. **COA Custodianship Invariants:** All collections must be accounted for in full and deposited directly into designated government depository accounts (e.g. LandBank of the Philippines or Development Bank of the Philippines).
 3. **No Direct Banking API Required:** The system operates as a human-in-the-loop manual reconciliation workflow. Residents pay off-platform via their personal mobile wallets, and authorized Barangay Treasury staff verifies incoming funds before approving certificate issuance.
 
+### Non-Financial Fiduciary Boundary: No Claim of Fund Movement
+The Barangay Bato e-Certificate System is strictly an administrative document-gating and evidence-management platform. It does **not** process monetary transactions, maintain ledger deposits, connect to banking switches, or assert that actual money moved. The system records citizen-submitted claims (reference numbers and screenshot artifacts) and human staff adjudication decisions. In real life, verification of actual fund movement is conducted by staff inspecting their physical collection terminal off-platform. During QA simulations, synthetic inputs exercise the document-intake and verification pipeline without fabricating banking settlement claims or pretending that real funds were transferred.
 ---
 
 ## 2. Channel Profiles: GCash vs. Maya
@@ -238,8 +240,9 @@ The application codebase strictly enforces:
 
 ## 10. Controlled QA Simulation Standards
 
-To test the system reliably without conducting real monetary transactions or moving live funds:
+The QA simulation represents the citizen's external submission of transaction evidence only. It must **never** claim, simulate, or pretend that actual money moved or that banking clearing occurred. The system does not hold or transfer funds; the verified status in the database reflects human staff approval of the submitted evidence artifact, not programmatic proof of an interbank financial settlement.
 
+To test the system reliably without conducting real monetary transactions or moving live funds:
 | Simulation Parameter | Standardized QA Value | Purpose / Assertions |
 |---|---|---|
 | **GCash Success Reference** | `202610051234567` (13 digits) | Exercises standard GCash happy path $\rightarrow$ Approved $\rightarrow$ Certificate issued. |
