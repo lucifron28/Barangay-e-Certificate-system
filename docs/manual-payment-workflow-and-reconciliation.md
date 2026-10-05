@@ -1,4 +1,4 @@
-# Barangay Bato e-Certificate System: Manual Payment Workflow & Merchant Reconciliation Guide
+# Barangay Bato e-Certificate System: Manual Payment Workflow, Developer Specifications & Reconciliation Reference
 
 ---
 
@@ -18,7 +18,7 @@ In compliance with the **Local Government Code of 1991 (RA 7160)** and **Commiss
 
 | Specification | GCash (G-Xchange, Inc. / Mynt) | Maya (Maya Philippines, Inc.) |
 |---|---|---|
-| **Official Documentation** | [help.gcash.com](https://help.gcash.com) (GCash for Business) | [support.maya.ph](https://support.maya.ph) (Maya Business Manager) |
+| **Official Documentation** | [help.gcash.com](https://help.gcash.com) (GCash for Business) | [developers.maya.ph](https://developers.maya.ph) & [support.maya.ph](https://support.maya.ph) |
 | **Merchant Naming Standard** | Institutional Title: `Barangay Bato Treasury` | Institutional Title: `Barangay Bato Treasury Maya` |
 | **Reference Number Format** | **13 digits** numeric string (e.g., `1000 2345 6789`) | **12 digits** numeric or alphanumeric (e.g., `MAYA-2026-999888`) |
 | **Payer Confirmation Surface** | • Post-transaction digital receipt<br>• In-app Transactions log (90 days / 4-yr PDF)<br>• SMS notification from `2882` | • Post-transaction digital receipt ("View receipt")<br>• In-app Transaction History<br>• SMS notification from `MAYA` |
@@ -27,7 +27,51 @@ In compliance with the **Local Government Code of 1991 (RA 7160)** and **Commiss
 
 ---
 
-## 3. End-to-End Operational Lifecycle
+## 3. Official Maya Developer Hub Specifications (`developers.maya.ph`)
+
+### 3.1 Maya API Environments
+
+According to the official [Maya Developer Hub — API Environments](https://developers.maya.ph/reference/api-environments):
+
+| Environment | Component / Resource | Official URL / Domain |
+|---|---|---|
+| **Sandbox** | **API Gateway Hostname** | `https://pg-sandbox.paymaya.com` |
+| | **Hosted Payment Page (Webview)** | `https://payments-web-sandbox.paymaya.com` |
+| | **Sandbox Merchant Manager** | `https://manager-sandbox.paymaya.com` |
+| **Production** | **API Gateway Hostname** | `https://pg.maya.ph` |
+| | **Hosted Payment Page** | `https://payments.maya.ph` or `https://payments.paymaya.com` |
+| | **Live Business Manager Dashboard** | `https://pbm.paymaya.com` |
+
+### 3.2 Standardized Mock Test Credentials (Developer Sandbox)
+According to [Maya Sandbox Credentials and Cards](https://developers.maya.ph/reference/sandbox-credentials-and-cards):
+* **Sandbox Maya E-Wallet Account:**
+  * Registered Mobile: `09193890579` | Password: `Password@1` | OTP: `123456`
+* **Mock Credit Cards:**
+  * Successful Capture: `5123456789012346` | Expiry: `12/25` | CVV: `111`
+  * 3DS Passkey Challenge: `5453010000064154` | Expiry: `12/25` | CVV: `111` | Passkey: `secbarry1`
+  * Insufficient Balance: `5596459277363286` | Expiry: `12/25` | CVV: `121` | Passkey: `paymaya12`
+
+### 3.3 Official Sandbox Policy on QR Ph
+From the official Maya Developer Hub documentation ([How to Try Our Online Payment Endpoints](https://developers.maya.ph/reference/how-to-try-our-online-payment-endpoints)):
+> *"Note: Maya e-wallet is typically the primary wallet available for testing inside the sandbox; other alternative payment channels (like QRPh, GCash, or ShopeePay) are generally reserved for validation in the live production space."*
+
+**Architectural Implication:** Because the national QR Ph switch and static merchant standees operate off-platform tied to registered depository accounts, neither Maya nor BSP provides a consumer sandbox mobile app for scanning physical/static QR codes with mock funds. Testing for static QR Ph must be conducted via **Controlled QA Simulation** within the application layer.
+
+### 3.4 Merchant Request Reference Number (`Request-Reference-Number`)
+According to [Maya Developer Reference — Remittance & Payment Prerequisites](https://developers.maya.ph/reference/remittance-know-before-you-code) and [Retrieve Payment via RRN](https://developers.maya.ph/reference/getpaymentviarequestreferencenumber-1):
+1. **Schema Definition:**
+   - Field name: `Request-Reference-Number` (in HTTP headers) or `requestReferenceNumber` (in JSON payloads).
+   - Type: **Alphanumeric string**.
+   - Length constraint: **Minimum 1 character, Maximum 50 characters**.
+2. **Idempotency Guarantee:**
+   - Maya uses the merchant RRN as an **idempotency key**. Duplicate API calls with the same RRN prevent accidental double-billing.
+3. **Query Endpoint:**
+   - Merchants query payment status using their own internal tracking number:
+     $$\texttt{GET /v1/payments/rrns/}\{rrn\}$$
+
+---
+
+## 4. End-to-End Operational Lifecycle
 
 ```mermaid
 sequenceDiagram
@@ -76,7 +120,7 @@ sequenceDiagram
 
 ---
 
-## 4. The 4-Way Staff Reconciliation Protocol
+## 5. The 4-Way Staff Reconciliation Protocol
 
 When Barangay staff accesses `/admin/payments/[paymentId]`, they must execute a **4-way matching cross-check** against the Barangay Treasury's live merchant device before confirming payment:
 
@@ -89,7 +133,69 @@ When Barangay staff accesses `/admin/payments/[paymentId]`, they must execute a 
 
 ---
 
-## 5. Handling Failed, Delayed, or Missing Transactions
+## 6. Merchant Transaction History & Settlement Ledger Schema
+
+When the Barangay Treasurer reconciles collections at the end of the day or exports statements for COA audit, the merchant portals provide these standardized columns:
+
+### A. GCash for Business CSV Export
+- **Reference Number:** 13-digit tracking code matching customer receipt.
+- **Date and Time:** Exact timestamp of transfer in PhST.
+- **Status:** `Success`, `Failed`, or `Pending`.
+- **Gross Amount:** Total fee paid (`₱50.00`).
+- **Service Fees:** MDR deducted (if applicable).
+- **Net Amount:** Net funds credited to municipal wallet (`₱50.00`).
+- **Product Name:** `QR Payment` / `Scan to Pay`.
+- **Source / Destination Details:** Sender mobile and Barangay Merchant ID.
+
+### B. Maya Business Manager Export
+- **Transaction ID / Reference Number:** 12-digit or alphanumeric ID.
+- **Request Reference Number (RRN):** Merchant's internal request number (`REQ-YYYY-NNNN`).
+- **Date and Time:** Exact settlement timestamp in PhST.
+- **Payment Channel:** `Maya QR` / `QR Ph P2M`.
+- **Gross Amount:** Total fee (`₱50.00`).
+- **Net Settled Amount:** Net funds credited to Barangay deposit account.
+- **Settlement Status:** `SETTLED` / `SUCCESS`.
+
+---
+
+## 7. The 4-Tier Identifier Topology
+
+```mermaid
+erDiagram
+    certificate_requests ||--o{ payments : "has payment attempt"
+    certificate_requests ||--o| certificate_records : "issues"
+    certificate_records ||--o| certificate_verifications : "verifies via"
+
+    certificate_requests {
+        string id PK "UUID v4"
+        string request_number "Tier 2 Merchant RRN: REQ-2026-0072"
+        string control_number "Tier 2 Statutory No: BCL-2026-9001"
+        string payment_status "unpaid | paid | free"
+    }
+
+    payments {
+        string id PK "Tier 1 Internal Payment ID: UUID v4"
+        string provider_transaction_id "Tier 1 PSP Reference: 202610051234567"
+        string status "pending | paid | failed"
+        string proof_sha256 "Binary Cryptographic Hash"
+    }
+
+    certificate_records {
+        string id PK "UUID v4"
+        string certificate_number "Tier 3 Document No: CERT-2026-0036"
+        string pdf_sha256 "PDF Integrity Hash"
+    }
+
+    certificate_verifications {
+        string id PK "UUID v4"
+        string short_verification_code "Tier 4 Public QR Code: BB-C94F11D4"
+        string status "valid | revoked"
+    }
+```
+
+---
+
+## 8. Handling Failed, Delayed, or Missing Transactions
 
 Official guidelines from the **GCash Help Center** and **Maya Support** establish the following operational rules:
 
@@ -106,7 +212,7 @@ Official guidelines from the **GCash Help Center** and **Maya Support** establis
 
 ---
 
-## 6. Security Invariants & Anti-Shortcut Enforcements
+## 9. Security Invariants & Anti-Shortcut Enforcements
 
 The application codebase strictly enforces:
 
@@ -119,15 +225,18 @@ The application codebase strictly enforces:
    - Before staff confirms approval, the server re-reads the private Blob file and verifies that the binary checksum matches.
 3. **Hard Certificate Issuance Gate:**
    - The `/admin/generate-certificate/[id]` route enforces:
-     $$\text{isCertificateIssuanceEligible} \iff \text{request.status} = \text{'accepted'} \land (\text{payment\_status} = \text{'paid'} \lor \text{fee} = 0)$$
+     $$\text{isCertificateIssuanceEligible} \iff \text{request.status} = \text{'accepted'} \land (\text{request.payment\_status} = \text{'paid'} \lor \text{request.fee\_amount} = 0)$$
    - Certificate generation remains physically locked until payment is verified.
 4. **Production Demo Mode Suppression:**
    - `lib/env.ts` enforces `paymentDemoMode = process.env.NODE_ENV !== "production" && process.env.PAYMENT_DEMO_MODE === "true"`.
    - In production, demo banners, "thesis presentation only" warnings, and fallback test accounts are completely suppressed.
+5. **Private Blob Proxying (Anti-IDOR):**
+   - Proof images are proxied through `/api/payments/proof/[id]`.
+   - Enforces strict role isolation: staff can view all municipal proofs; residents can only stream proofs tied to their own profile. Unauthorized third-party requests receive `HTTP 403 Forbidden`.
 
 ---
 
-## 7. Controlled QA Simulation Standards
+## 10. Controlled QA Simulation Standards
 
 To test the system reliably without conducting real monetary transactions or moving live funds:
 
@@ -143,7 +252,7 @@ To test the system reliably without conducting real monetary transactions or mov
 
 ---
 
-## 8. Verified Live Production Artifacts
+## 11. Verified Live Production Artifacts
 
 Verified live on `https://barangay-bato-ecertificate-system.vercel.app`:
 
