@@ -1,6 +1,5 @@
 /* global console */
 import { chromium } from '@playwright/test';
-import { Buffer } from 'node:buffer';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
@@ -25,11 +24,9 @@ fs.mkdirSync(SCREENSHOT_DIR, { recursive: true });
 fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
 // Ensure synthetic receipt image exists in gitignored storage
-const SYNTHETIC_RECEIPT_PATH = path.join(ARTIFACT_DIR, 'payment-receipt.png');
-if (!fs.existsSync(SYNTHETIC_RECEIPT_PATH)) {
-  const png1x1 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=', 'base64');
-  fs.writeFileSync(SYNTHETIC_RECEIPT_PATH, png1x1);
-}
+const GCASH_RECEIPT_PATH = path.join(ARTIFACT_DIR, 'gcash-qa-receipt.png');
+const MAYA_RECEIPT_PATH = path.join(ARTIFACT_DIR, 'maya-qa-receipt.png');
+const SYNTHETIC_RECEIPT_PATH = fs.existsSync(GCASH_RECEIPT_PATH) ? GCASH_RECEIPT_PATH : path.join(ARTIFACT_DIR, 'payment-receipt.png');
 
 // ---------------------------------------------------------------------------
 // Logging & Assertion Tracker
@@ -171,7 +168,7 @@ async function runSimulation() {
     const syntheticGcashRef = generateGcash13DigitRef();
     const proofForm1 = res1PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm1.locator('input[name="reference_number"]').fill(syntheticGcashRef);
-    await proofForm1.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
+    await proofForm1.locator('input[name="proof_image"]').setInputFiles(fs.existsSync(GCASH_RECEIPT_PATH) ? GCASH_RECEIPT_PATH : SYNTHETIC_RECEIPT_PATH);
 
     await submitFormAndWait(res1PayPage, proofForm1.locator('button[type="submit"]'));
 
@@ -314,7 +311,7 @@ async function runSimulation() {
     const syntheticMayaRef = `MAYA-QA-20261005-${timestampPrefix}`;
     const proofForm2 = res2PayPage.locator('form:has(input[name="reference_number"])');
     await proofForm2.locator('input[name="reference_number"]').fill(syntheticMayaRef);
-    await proofForm2.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
+    await proofForm2.locator('input[name="proof_image"]').setInputFiles(fs.existsSync(MAYA_RECEIPT_PATH) ? MAYA_RECEIPT_PATH : SYNTHETIC_RECEIPT_PATH);
 
     await submitFormAndWait(res2PayPage, proofForm2.locator('button[type="submit"]'));
 
@@ -464,7 +461,7 @@ async function runSimulation() {
     const correctedRef = generateGcash13DigitRef();
     const resubForm = res1ResubPage.locator('form:has(input[name="reference_number"])');
     await resubForm.locator('input[name="reference_number"]').fill(correctedRef);
-    await resubForm.locator('input[name="proof_image"]').setInputFiles(SYNTHETIC_RECEIPT_PATH);
+    await resubForm.locator('input[name="proof_image"]').setInputFiles(fs.existsSync(GCASH_RECEIPT_PATH) ? GCASH_RECEIPT_PATH : SYNTHETIC_RECEIPT_PATH);
     await submitFormAndWait(res1ResubPage, resubForm.locator('button[type="submit"]'));
     const resubText = await res1ResubPage.textContent('body');
     assertTest('Scenario 3 - Rejection', 'Resubmission Transitions Back to Pending', resubText.includes('Pending Verification') || resubText.includes('submitted successfully'));
