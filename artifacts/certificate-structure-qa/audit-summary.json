@@ -1,0 +1,82 @@
+[
+  {
+    "certificateType": "barangay_clearance",
+    "expectedOfficeTitle": "OFFICE OF THE BARANGAY CHAIRMAN",
+    "expectedSignerRole": "Barangay Chairman",
+    "expectedTitle": "CERTIFICATION OF CLEARANCE",
+    "desktopScreenshot": "barangay_clearance-preview-desktop.png",
+    "tabletScreenshot": "barangay_clearance-preview-tablet.png",
+    "mobileScreenshot": "barangay_clearance-preview-mobile.png",
+    "pdfGenerated": "barangay_clearance-synthetic.pdf",
+    "pdfRendered": "barangay_clearance-pdf-rendered.png",
+    "status": "PASS",
+    "checks": {
+      "actingTitleCorrected": true,
+      "officeTitleMatches": true,
+      "pdfGeneratedSuccessfully": true,
+      "signerNamePresent": true,
+      "signerRoleMatches": true,
+      "titleMatches": true
+    }
+  },
+  {
+    "certificateType": "barangay_certificate",
+    "expectedOfficeTitle": "TANGGAPAN NG PUNONG BARANGAY",
+    "expectedSignerRole": "PUNONG BARANGAY",
+    "expectedTitle": "PAGPAPATUNAY",
+    "desktopScreenshot": "barangay_certificate-preview-desktop.png",
+    "tabletScreenshot": "barangay_certificate-preview-tablet.png",
+    "mobileScreenshot": "barangay_certificate-preview-mobile.png",
+    "pdfGenerated": "barangay_certificate-synthetic.pdf",
+    "pdfRendered": "barangay_certificate-pdf-rendered.png",
+    "status": "PASS",
+    "checks": {
+      "actingTitleCorrected": true,
+      "officeTitleMatches": true,
+      "pdfGeneratedSuccessfully": true,
+      "signerNamePresent": true,
+      "signerRoleMatches": true,
+      "titleMatches": true
+    }
+  },
+  {
+    "certificateType": "barangay_indigency",
+    "expectedOfficeTitle": "OFFICE OF THE BARANGAY CHAIRMAN",
+    "expectedSignerRole": "Barangay Chairman",
+    "expectedTitle": "CERTIFICATION OF INDIGENCY",
+    "desktopScreenshot": "barangay_indigency-preview-desktop.png",
+    "tabletScreenshot": "barangay_indigency-preview-tablet.png",
+    "mobileScreenshot": "barangay_indigency-preview-mobile.png",
+    "pdfGenerated": "barangay_indigency-synthetic.pdf",
+    "pdfRendered": "barangay_indigency-pdf-rendered.png",
+    "status": "PASS",
+    "checks": {
+      "actingTitleCorrected": true,
+      "officeTitleMatches": true,
+      "pdfGeneratedSuccessfully": true,
+      "signerNamePresent": true,
+      "signerRoleMatches": true,
+      "titleMatches": true
+    }
+  },
+  {
+    "certificateType": "barangay_residency",
+    "expectedOfficeTitle": "OFFICE OF THE BARANGAY CHAIRMAN",
+    "expectedSignerRole": "Barangay Chairman",
+    "expectedTitle": "CERTIFICATION OF RESIDENCY",
+    "desktopScreenshot": "barangay_residency-preview-desktop.png",
+    "tabletScreenshot": "barangay_residency-preview-tablet.png",
+    "mobileScreenshot": "barangay_residency-preview-mobile.png",
+    "pdfGenerated": "barangay_residency-synthetic.pdf",
+    "pdfRendered": "barangay_residency-pdf-rendered.png",
+    "status": "PASS",
+    "checks": {
+      "actingTitleCorrected": true,
+      "officeTitleMatches": true,
+      "pdfGeneratedSuccessfully": true,
+      "signerNamePresent": true,
+      "signerRoleMatches": true,
+      "titleMatches": true
+    }
+  }
+]

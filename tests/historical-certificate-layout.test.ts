@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import zlib from "node:zlib";
 import { PDFDocument } from "pdf-lib";
 
 import {
@@ -21,6 +22,44 @@ const syntheticName = "Alexis Example Santos";
 const syntheticAddress = "Sample Street, Barangay Bato";
 const syntheticPurpose = "Synthetic Purpose for Testing";
 
+interface PdfStreamLike {
+  getContents(): Uint8Array;
+}
+
+function isPdfStreamLike(val: unknown): val is PdfStreamLike {
+  if (val && typeof val === "object" && "getContents" in val) {
+    return typeof val.getContents === "function";
+  }
+  return false;
+}
+
+function decodeHexText(streamText: string): string {
+  return streamText.replace(/<([0-9A-Fa-f\s]+)>/g, (_, hex: string) => {
+    const clean = hex.replace(/\s+/g, "");
+    if (clean.length % 2 !== 0) return _;
+    try {
+      return Buffer.from(clean, "hex").toString("latin1");
+    } catch {
+      return _;
+    }
+  });
+}
+
+function extractPdfStreamText(pdfDoc: PDFDocument): string {
+  let text = "";
+  for (const [, object] of pdfDoc.context.enumerateIndirectObjects()) {
+    if (isPdfStreamLike(object)) {
+      const raw = object.getContents();
+      try {
+        text += zlib.inflateSync(Buffer.from(raw)).toString("latin1") + "\n";
+      } catch {
+        text += Buffer.from(raw).toString("latin1") + "\n";
+      }
+    }
+  }
+  return decodeHexText(text);
+}
+
 const cases: Array<{
   label: string;
   signatureLabel: string;
@@ -31,7 +70,7 @@ const cases: Array<{
   {
     label: "Barangay Residency",
     signatureLabel: "Certified by:",
-    signatureRole: "Acting Barangay Chairman",
+    signatureRole: "Barangay Chairman",
     title: "CERTIFICATION OF RESIDENCY",
     type: "barangay_residency",
   },
@@ -202,4 +241,64 @@ describe("historical certificate template alignment", () => {
       expect(pdf.getPageCount()).toBe(1);
     },
   );
+
+  it("verifies expected signer roles across all four certificate types", () => {
+    expect(certificateTemplateSignatureRole("barangay_clearance")).toBe(
+      "Barangay Chairman",
+    );
+    expect(certificateTemplateSignatureRole("barangay_indigency")).toBe(
+      "Barangay Chairman",
+    );
+    expect(certificateTemplateSignatureRole("barangay_residency")).toBe(
+      "Barangay Chairman",
+    );
+    expect(certificateTemplateSignatureRole("barangay_certificate")).toBe(
+      "PUNONG BARANGAY",
+    );
+  });
+
+  it("honors snapshot.authorized_official_role in generateHistoricalCertificatePdf without overwriting historical records", async () => {
+    const request = syntheticRequest("barangay_residency");
+    const bytes = await generateHistoricalCertificatePdf({
+      barangayCaptainName: "DIOGENES E. MANAOG",
+      certificateNumber: "CERT-HIST-CUSTOM-001",
+      dateIssued: "2026-08-01",
+      preparedBy: "Synthetic Admin User",
+      request,
+      snapshot: {
+        authorized_official_display_name: "HON. FIRST LASTNAME",
+        authorized_official_role: "Acting Barangay Chairman",
+        certificate_number: "CERT-HIST-CUSTOM-001",
+        certificate_type: "barangay_residency",
+        control_number: "CTRL-001",
+        date_issued: "2026-08-01",
+        holder_address_sitio: "Sitio Centro",
+        holder_age: 40,
+        holder_birthdate: "1986-05-10",
+        holder_contact_number: null,
+        holder_full_name: "Resident Name",
+        holder_place_of_birth: null,
+        holder_years_of_residency: 10,
+        issued_at: "2026-08-01T00:00:00.000Z",
+        issuance_mode: "fully_online_demo",
+        prepared_by_display_name: "Synthetic Admin User",
+        purpose: "For Testing",
+        request_number: "REQ-001",
+        signature_applied_at: "2026-08-01T00:00:00.000Z",
+        signature_representation_type: "visual_name_placeholder",
+        signature_image_key: null,
+        signature_image_provider: null,
+        signature_image_sha256: null,
+        verification_expires_at: "2026-08-31T00:00:00.000Z",
+      },
+      verificationCode: "HIST-001",
+      verificationExpiresAt: "2026-08-31T00:00:00.000Z",
+      verificationUrl: "http://localhost:3000/verify/hist-001",
+    });
+
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(1);
+    const pdfContent = extractPdfStreamText(pdf);
+    expect(pdfContent).toContain("Acting Barangay Chairman");
+  });
 });

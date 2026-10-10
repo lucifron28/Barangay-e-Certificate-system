@@ -15,8 +15,11 @@ import QRCode from "qrcode";
 
 import { certificateLabel } from "@/lib/utils/format";
 import {
+  buildCertificateBodyContent,
   certificateTemplateSignatureLabel,
   certificateTemplateSignatureRole,
+  CERTIFICATE_TEMPLATE_HEADER_LINES,
+  CERTIFICATE_TEMPLATE_OFFICE_TITLES,
 } from "@/lib/certificates/template-copy";
 import {
   getCertificateTemplateData,
@@ -138,14 +141,9 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     bodyBottom: 392,
     bodyMaxWidth: 540,
     bodyStartY: 522,
-    headerLines: [
-      "Republic of the Philippines",
-      "Province of Quezon",
-      "Municipality of Mauban",
-      "Barangay BATO",
-    ],
+    headerLines: [...CERTIFICATE_TEMPLATE_HEADER_LINES.barangay_clearance],
     headerStartY: 746,
-    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
+    officeTitle: CERTIFICATE_TEMPLATE_OFFICE_TITLES.barangay_clearance,
     officeY: 650,
     paperFieldsY: 212,
     salutation: "To whom it may concern:",
@@ -161,14 +159,9 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     bodyBottom: 328,
     bodyMaxWidth: 468,
     bodyStartY: 492,
-    headerLines: [
-      "Republic of the Philippines",
-      "Municipality of Mauban",
-      "Province of Quezon",
-      "Barangay BATO",
-    ],
+    headerLines: [...CERTIFICATE_TEMPLATE_HEADER_LINES.barangay_certificate],
     headerStartY: 706,
-    officeTitle: "TANGGAPAN NG PUNONG BARANGAY",
+    officeTitle: CERTIFICATE_TEMPLATE_OFFICE_TITLES.barangay_certificate,
     officeY: 602,
     salutation: "Sa kinauukulan:",
     salutationY: 540,
@@ -183,14 +176,9 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     bodyBottom: 286,
     bodyMaxWidth: 488,
     bodyStartY: 430,
-    headerLines: [
-      "Republic of the Philippines",
-      "Municipality of Mauban",
-      "Province of Quezon",
-      "Barangay BATO",
-    ],
+    headerLines: [...CERTIFICATE_TEMPLATE_HEADER_LINES.barangay_indigency],
     headerStartY: 690,
-    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
+    officeTitle: CERTIFICATE_TEMPLATE_OFFICE_TITLES.barangay_indigency,
     officeY: 608,
     salutation: "To Whom it may concern,",
     salutationY: 474,
@@ -205,14 +193,9 @@ const HISTORICAL_TEMPLATE_CONFIG: Record<
     bodyBottom: 294,
     bodyMaxWidth: 488,
     bodyStartY: 455,
-    headerLines: [
-      "Republic of the Philippines",
-      "Municipality of Mauban",
-      "Province of Quezon",
-      "Barangay BATO",
-    ],
+    headerLines: [...CERTIFICATE_TEMPLATE_HEADER_LINES.barangay_residency],
     headerStartY: 690,
-    officeTitle: "OFFICE OF THE BARANGAY CHAIRMAN",
+    officeTitle: CERTIFICATE_TEMPLATE_OFFICE_TITLES.barangay_residency,
     officeY: 565,
     salutation: "To Whom it may concern,",
     salutationY: 494,
@@ -531,137 +514,7 @@ function buildHistoricalBody(
   snapshot?: CertificateSnapshot,
 ) {
   const data = getCertificateTemplateData(request, dateIssued, snapshot);
-  const residentLocality = formatResidentLocality(data.address);
-  const regular = (text: string): HistoricalTextRun => ({ text });
-  const bold = (text: string): HistoricalTextRun => ({ bold: true, text });
-
-  switch (type) {
-    case "barangay_clearance":
-      return {
-        issue: [
-          regular(
-            `Issued upon request of the interested party this ${data.dateIssued} at the Office of the Sangguniang Barangay of Barangay Bato, Mauban, Quezon.`,
-          ),
-        ],
-        paragraphs: [
-          [
-            regular("This is to certify that "),
-            bold(data.name),
-            regular(
-              `, ${data.age} years old whose signature appears below is a bona fide resident of `,
-            ),
-            bold(residentLocality),
-            regular(
-              " and personally known to be a person of good moral character and has no criminal record in this office.",
-            ),
-          ],
-          [
-            regular(
-              "This Certification is being issued in connection to his/her ",
-            ),
-            bold(data.purpose),
-            regular(" and for whatever legal purpose it may serve."),
-          ],
-        ],
-      };
-    case "barangay_certificate":
-      return {
-        issue: [
-          regular(
-            `Ipinagkaloob ngayong ${data.dateIssued} sa tanggapan ng Punong Barangay ng Barangay Bato, Mauban, Quezon.`,
-          ),
-        ],
-        paragraphs: [
-          [
-            regular("Pinatutunayan ng tanggapan na ito na si "),
-            bold(data.name),
-            regular(", "),
-            bold(data.age),
-            regular(" taong gulang, ay ipinanganak sa "),
-            bold(data.birthDetails),
-            regular(" at lehitimong naninirahan sa "),
-            bold(residentLocality),
-            regular("."),
-          ],
-          [
-            regular(
-              "Ang pagpapatunay na ito ay ipinagkakaloob sa kahilingan ng nasabing tao para sa layuning ",
-            ),
-            bold(data.purpose),
-            regular("."),
-          ],
-        ],
-      };
-    case "barangay_indigency":
-      return {
-        issue: [
-          regular(
-            `This certification is being issued this ${data.dateIssued} for whatever legal purpose it may serve.`,
-          ),
-        ],
-        paragraphs: [
-          [
-            regular("This is to certify that "),
-            bold(data.name),
-            regular(`, ${data.age} years old, is a bona fide resident of `),
-            bold(residentLocality),
-            regular("."),
-          ],
-          [
-            regular(
-              "This certifies that the above-named person belongs to an indigent family of the barangay and needs this certification for ",
-            ),
-            bold(data.purpose),
-            regular("."),
-          ],
-        ],
-      };
-    case "barangay_residency":
-      return {
-        issue: [
-          regular(
-            `Issued this ${data.dateIssued} at Barangay Bato, Mauban, Quezon.`,
-          ),
-        ],
-        paragraphs: [
-          [
-            regular("This is to certify that "),
-            bold(data.name),
-            regular(", "),
-            bold(data.age),
-            regular(" years old born on "),
-            bold(data.birthday),
-            regular(" is a bona fide resident of "),
-            bold(residentLocality),
-            regular(" and has been residing in the barangay for "),
-            bold(data.yearsOfResidency),
-            regular(" year(s) up to present."),
-          ],
-          [
-            regular(
-              "This undersigned has certified that after a reasonable inquiry, I have verified the authenticity of Barangay residency showing that the applicant has been residing in the barangay for at least six (6) months prior to the application of this Affidavit of Residency.",
-            ),
-          ],
-          [
-            regular(
-              "This Certification is issued upon the request of the above named person as a supporting document for ",
-            ),
-            bold(data.purpose),
-            regular("."),
-          ],
-        ],
-      };
-  }
-}
-
-function formatResidentLocality(address: string) {
-  const value = address.trim();
-  const normalized = value.toLowerCase();
-  const parts = value ? [value] : [];
-  if (!normalized.includes("barangay bato")) parts.push("Barangay Bato");
-  if (!normalized.includes("mauban")) parts.push("Mauban");
-  if (!normalized.includes("quezon")) parts.push("Quezon");
-  return parts.join(", ");
+  return buildCertificateBodyContent(type, data);
 }
 
 function getTemplateConfig(type: HistoricalCertificateType) {
@@ -904,8 +757,10 @@ function drawSignature(
   captainName: string,
   fonts: HistoricalFonts,
   signatureImage?: PDFImage | null,
+  signatureRole?: string,
 ) {
   const layout = getHistoricalSignatureBlockLayout(type);
+  const effectiveRole = signatureRole || certificateTemplateSignatureRole(type);
 
   centerTextAt(
     page,
@@ -951,7 +806,7 @@ function drawSignature(
   });
   centerTextAt(
     page,
-    certificateTemplateSignatureRole(type),
+    effectiveRole,
     layout.signatureX,
     layout.roleY,
     fonts.bold,
@@ -1140,7 +995,9 @@ export async function generateHistoricalCertificatePdf({
   const effectiveDateIssued = snapshot?.date_issued ?? dateIssued;
   const effectiveCaptainName =
     snapshot?.authorized_official_display_name ?? barangayCaptainName;
-  // The preparer remains in the issuance snapshot and database audit record;
+  const effectiveSignatureRole =
+    snapshot?.authorized_official_role ??
+    certificateTemplateSignatureRole(type);
   // the official printable layout intentionally shows only the authorized signer.
   void preparedBy;
   const effectiveVerificationExpiresAt =
@@ -1221,6 +1078,7 @@ export async function generateHistoricalCertificatePdf({
     effectiveCaptainName,
     fonts,
     embeddedSignatureImage,
+    effectiveSignatureRole,
   );
   if (config.paperFieldsY) {
     drawClearancePaperFields(page, config.paperFieldsY, fonts);

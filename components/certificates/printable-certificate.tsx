@@ -1,11 +1,13 @@
-import { certificateLabel } from "@/lib/utils/format";
 import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import {
+  buildCertificateBodyContent,
   certificateTemplateSignatureLabel,
   certificateTemplateSignatureRole,
   certificateTemplateSalutation,
   certificateTemplateTitle,
+  CERTIFICATE_TEMPLATE_HEADER_LINES,
+  CERTIFICATE_TEMPLATE_OFFICE_TITLES,
 } from "@/lib/certificates/template-copy";
 import type { CertificateRequestWithResident } from "@/lib/certificates/template-data";
 import type { CertificateRequest, CertificateSnapshot } from "@/types/database";
@@ -27,7 +29,14 @@ const WATERMARK_SIZE_CLASSES = {
   barangay_residency: "size-[6.5in]",
 } as const;
 
-function Header() {
+function Header({
+  certificateType,
+}: {
+  certificateType: CertificateRequest["certificate_type"];
+}) {
+  const headerLines = CERTIFICATE_TEMPLATE_HEADER_LINES[certificateType];
+  const officeTitle = CERTIFICATE_TEMPLATE_OFFICE_TITLES[certificateType];
+
   return (
     <header className="relative text-center">
       {/* TODO: Confirm final seal size and exact print positioning against the approved certificate template. */}
@@ -40,13 +49,15 @@ function Header() {
           className="size-full object-contain"
         />
       </div>
-      <p className="text-sm uppercase">Republic of the Philippines</p>
-      <p className="text-sm">Province of Quezon</p>
-      <p className="text-sm">Municipality of Mauban</p>
+      <p className="text-sm uppercase">{headerLines[0]}</p>
+      <p className="text-sm">{headerLines[1]}</p>
+      <p className="text-sm">{headerLines[2]}</p>
       <h1 className="mt-2 text-2xl font-bold uppercase tracking-normal">
-        Barangay Bato
+        {headerLines[3]}
       </h1>
-      <p className="text-sm uppercase">Office of the Punong Barangay</p>
+      <p className="mt-2 font-serif text-lg font-bold uppercase tracking-wide text-[#3873b8]">
+        {officeTitle}
+      </p>
     </header>
   );
 }
@@ -127,194 +138,7 @@ function SignatureBlocks({
   );
 }
 
-function ClearanceBody({
-  address,
-  age,
-  name,
-  purpose,
-  request,
-}: {
-  address: string;
-  age: string;
-  name: string;
-  purpose: string;
-  request: CertificateRequest;
-}) {
-  return (
-    <>
-      <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        {certificateTemplateTitle(request.certificate_type)}
-      </h2>
-      <p className="mt-10 text-lg font-semibold">
-        {certificateTemplateSalutation(request.certificate_type)}
-      </p>
-      <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
-        <p>
-          This is to certify that <strong>{name}</strong>, <strong>{age}</strong>{" "}
-          years old, resident of <strong>{address}</strong>, Barangay Bato,
-          Mauban, Quezon, is personally known to be a person with good moral
-          character and has no derogatory record in this office.
-        </p>
-        <p>
-          This certification is issued upon request of the interested party in
-          connection with <strong>{purpose}</strong>.
-        </p>
-      </div>
-      <div className="mt-8 grid gap-4 text-sm sm:grid-cols-3">
-        <p>
-          <span className="font-semibold">Control No.:</span>{" "}
-          {request.control_number ?? "Pending"}
-        </p>
-        <p>
-          <span className="font-semibold">Place Issued:</span> Mauban, Quezon
-        </p>
-        <p>
-          <span className="font-semibold">Request No.:</span>{" "}
-          {request.request_number}
-        </p>
-      </div>
-    </>
-  );
-}
 
-function BarangayCertificateBody({
-  age,
-  birthDetails,
-  locality,
-  name,
-  purpose,
-  request,
-}: {
-  age: string;
-  birthDetails: string;
-  locality: string;
-  name: string;
-  purpose: string;
-  request: CertificateRequest;
-}) {
-  return (
-    <>
-      <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        {certificateTemplateTitle(request.certificate_type)}
-      </h2>
-      <p className="mt-10 text-lg font-semibold">
-        {certificateTemplateSalutation(request.certificate_type)}
-      </p>
-      <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
-        <p>
-          Pinatutunayan ng tanggapang ito na si <strong>{name}</strong>,{" "}
-          <strong>{age}</strong> taong gulang, ay lehitimong naninirahan sa{" "}
-          <strong>{locality}</strong>.
-        </p>
-        <p>
-          Ang talaang ito ay inihanda batay sa kahilingang isinumite sa sistema.
-          Detalye ng kapanganakan: <strong>{birthDetails}</strong>.
-        </p>
-        <p>
-          Ipinagkaloob ang pagpapatunay na ito para sa layuning{" "}
-          <strong>{purpose}</strong>.
-        </p>
-      </div>
-      <p className="mt-8 text-sm">
-        <span className="font-semibold">Request No.:</span>{" "}
-        {request.request_number}
-      </p>
-    </>
-  );
-}
-
-function IndigencyBody({
-  address,
-  age,
-  name,
-  purpose,
-  request,
-}: {
-  address: string;
-  age: string;
-  name: string;
-  purpose: string;
-  request: CertificateRequest;
-}) {
-  return (
-    <>
-      <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        {certificateTemplateTitle(request.certificate_type)}
-      </h2>
-      <p className="mt-10 text-lg font-semibold">
-        {certificateTemplateSalutation(request.certificate_type)}
-      </p>
-      <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
-        <p>
-          This certifies that <strong>{name}</strong>, <strong>{age}</strong>{" "}
-          years old, is a bona fide resident of <strong>{address}</strong>,
-          Barangay Bato, Mauban, Quezon.
-        </p>
-        <p>
-          The above-named person belongs to an indigent family of the barangay
-          and needs this certification for <strong>{purpose}</strong>.
-        </p>
-        <p>
-          This certification is issued upon request for whatever legal purpose it
-          may serve.
-        </p>
-      </div>
-      <p className="mt-8 text-sm">
-        <span className="font-semibold">Request No.:</span>{" "}
-        {request.request_number}
-      </p>
-    </>
-  );
-}
-
-function ResidencyBody({
-  address,
-  age,
-  birthday,
-  name,
-  purpose,
-  request,
-  yearsOfResidency,
-}: {
-  address: string;
-  age: string;
-  birthday: string;
-  name: string;
-  purpose: string;
-  request: CertificateRequest;
-  yearsOfResidency: string;
-}) {
-  return (
-    <>
-      <h2 className="mt-10 text-center text-2xl font-black uppercase tracking-normal">
-        {certificateTemplateTitle(request.certificate_type)}
-      </h2>
-      <p className="mt-10 text-lg font-semibold">
-        {certificateTemplateSalutation(request.certificate_type)}
-      </p>
-      <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
-        <p>
-          This certifies that <strong>{name}</strong>, <strong>{age}</strong>{" "}
-          years old, born on <strong>{birthday}</strong>, is a bona fide resident
-          of <strong>{address}</strong>, Barangay Bato, Mauban, Quezon.
-        </p>
-        <p>
-          This document is issued as supporting proof of residency and
-          authenticity showing that the applicant has been residing in the
-          barangay for <strong>{yearsOfResidency}</strong> year(s) prior to the
-          application.
-        </p>
-        <p>
-          This certification is issued for <strong>{purpose}</strong>.
-        </p>
-      </div>
-      <p className="mt-8 text-sm">
-        <span className="font-semibold">Request No.:</span>{" "}
-        {request.request_number}
-      </p>
-    </>
-  );
-}
 
 export function PrintableCertificate({
   barangayCaptainName = "DIOGENES E. MANAOG",
@@ -349,66 +173,68 @@ export function PrintableCertificate({
             Unsigned draft - not issued
           </div>
         ) : null}
-        <Header />
-        <div className="mt-8 text-center text-xs uppercase tracking-normal">
-          {certificateLabel(request.certificate_type)}
-        </div>
-
-        {request.certificate_type === "barangay_clearance" ? (
-          <ClearanceBody
-            address={templateData.address}
-            age={templateData.age}
-            name={templateData.name}
-            purpose={templateData.purpose}
-            request={request}
-          />
-        ) : null}
-        {request.certificate_type === "barangay_certificate" ? (
-          <BarangayCertificateBody
-            age={templateData.age}
-            birthDetails={templateData.birthDetails}
-            locality={templateData.locality}
-            name={templateData.name}
-            purpose={templateData.purpose}
-            request={request}
-          />
-        ) : null}
-        {request.certificate_type === "barangay_indigency" ? (
-          <IndigencyBody
-            address={templateData.address}
-            age={templateData.age}
-            name={templateData.name}
-            purpose={templateData.purpose}
-            request={request}
-          />
-        ) : null}
-        {request.certificate_type === "barangay_residency" ? (
-          <ResidencyBody
-            address={templateData.address}
-            age={templateData.age}
-            birthday={templateData.birthday}
-            name={templateData.name}
-            purpose={templateData.purpose}
-            request={request}
-            yearsOfResidency={templateData.yearsOfResidency}
-          />
-        ) : null}
-
-        <p className="mt-10 text-[15px] leading-8">
-          {draft ? (
-            <>
-              Selected issue date: <strong>{templateData.dateIssued}</strong>.
-              Sign and issue this draft to apply the authorized signature.
-            </>
-          ) : (
-            <>
-              Issued this <strong>{templateData.dateIssued}</strong> at
-              Barangay Bato, Mauban, Quezon.
-            </>
-          )}
+        <Header certificateType={request.certificate_type} />
+        <h2 className="mt-8 text-center font-serif text-2xl font-bold uppercase tracking-wide text-neutral">
+          {certificateTemplateTitle(request.certificate_type)}
+        </h2>
+        <p className="mt-8 font-serif text-lg font-bold">
+          {certificateTemplateSalutation(request.certificate_type)}
         </p>
 
-        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-2">
+        {(() => {
+          const bodyContent = buildCertificateBodyContent(
+            request.certificate_type,
+            templateData,
+          );
+          return (
+            <>
+              <div className="mt-6 space-y-5 text-justify text-[15px] leading-8">
+                {bodyContent.paragraphs.map((paragraph, pIndex) => (
+                  <p key={pIndex}>
+                    {paragraph.map((part, runIndex) =>
+                      part.bold ? (
+                        <strong key={runIndex}>{part.text}</strong>
+                      ) : (
+                        <span key={runIndex}>{part.text}</span>
+                      ),
+                    )}
+                  </p>
+                ))}
+              </div>
+
+              <p className="mt-8 text-[15px] leading-8">
+                {draft ? (
+                  <>
+                    Selected issue date:{" "}
+                    <strong>{templateData.dateIssued}</strong>. Sign and issue
+                    this draft to apply the authorized signature.
+                  </>
+                ) : (
+                  bodyContent.issue.map((part, index) =>
+                    part.bold ? (
+                      <strong key={index}>{part.text}</strong>
+                    ) : (
+                      <span key={index}>{part.text}</span>
+                    ),
+                  )
+                )}
+              </p>
+            </>
+          );
+        })()}
+
+        {request.certificate_type === "barangay_clearance" ? (
+          <div className="mt-6 grid grid-cols-2 gap-4 text-xs font-serif">
+            <div className="space-y-1">
+              <p>CTC No.: ________________________</p>
+              <p>DATE OF ISSUED: ________________</p>
+              <p>PLACE OF ISSUED: Mauban, Quezon</p>
+              <p>O.R. No.: ________________________</p>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
           <p>
             <span className="font-semibold">Certificate No.:</span>{" "}
             {effectiveCertificateNumber ?? "Assigned when signed"}
@@ -417,8 +243,11 @@ export function PrintableCertificate({
             <span className="font-semibold">Request No.:</span>{" "}
             {request.request_number}
           </p>
+          <p>
+            <span className="font-semibold">Control No.:</span>{" "}
+            {request.control_number ?? "Pending"}
+          </p>
         </div>
-
         <SignatureBlocks
           barangayCaptainName={effectiveCaptainName}
           draft={draft}

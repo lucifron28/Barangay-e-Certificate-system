@@ -1,5 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
+import zlib from "node:zlib";
 import { PDFDocument } from "pdf-lib";
 
 import { PrintableCertificate } from "@/components/certificates/printable-certificate";
@@ -38,7 +39,7 @@ const signerCases: Array<{
   },
   {
     label: "Certified by:",
-    role: "Acting Barangay Chairman",
+    role: "Barangay Chairman",
     type: "barangay_residency",
   },
 ];
@@ -83,6 +84,45 @@ function imageCount(bytes: Uint8Array) {
     Buffer.from(bytes).toString("latin1").split("/Subtype /Image").length - 1
   );
 }
+
+interface PdfStreamLike {
+  getContents(): Uint8Array;
+}
+
+function isPdfStreamLike(val: unknown): val is PdfStreamLike {
+  if (val && typeof val === "object" && "getContents" in val) {
+    return typeof val.getContents === "function";
+  }
+  return false;
+}
+
+function decodeHexText(streamText: string): string {
+  return streamText.replace(/<([0-9A-Fa-f\s]+)>/g, (_, hex: string) => {
+    const clean = hex.replace(/\s+/g, "");
+    if (clean.length % 2 !== 0) return _;
+    try {
+      return Buffer.from(clean, "hex").toString("latin1");
+    } catch {
+      return _;
+    }
+  });
+}
+
+function extractPdfStreamText(pdfDoc: PDFDocument): string {
+  let text = "";
+  for (const [, object] of pdfDoc.context.enumerateIndirectObjects()) {
+    if (isPdfStreamLike(object)) {
+      const raw = object.getContents();
+      try {
+        text += zlib.inflateSync(Buffer.from(raw)).toString("latin1") + "\n";
+      } catch {
+        text += Buffer.from(raw).toString("latin1") + "\n";
+      }
+    }
+  }
+  return decodeHexText(text);
+}
+
 
 describe("official signer signature", () => {
   it("accepts only PNG and JPEG signature assets", () => {
@@ -255,4 +295,90 @@ describe("official signer signature", () => {
       );
     },
   );
+
+  it("honors the saved signer role from an existing historical snapshot in both HTML preview and PDF", async () => {
+    const request = syntheticRequest("barangay_residency");
+    const historicalSnapshot = createCertificateSnapshot({
+      authorizedOfficialName: "HON. FIRST LASTNAME",
+      authorizedOfficialRole: "Acting Barangay Chairman",
+      certificateNumber: "CERT-HISTORICAL-RESIDENCY-001",
+      dateIssued: "2026-08-01",
+      issuedAt: "2026-08-01T00:00:00.000Z",
+      issuanceMode: "fully_online_demo",
+      preparedBy: "Staff Member",
+      request,
+      verificationExpiresAt: "2026-08-30T00:00:00.000Z",
+    });
+
+    // Historical snapshot retains "Acting Barangay Chairman"
+    expect(historicalSnapshot.authorized_official_role).toBe(
+      "Acting Barangay Chairman",
+    );
+
+    // HTML preview must display the snapshot's recorded role
+    const markup = renderToStaticMarkup(
+      <PrintableCertificate
+        request={request}
+        snapshot={historicalSnapshot}
+        signatureImageUrl="/api/admin/signature"
+      />,
+    );
+    expect(markup).toContain("Acting Barangay Chairman");
+    expect(markup).toContain("HON. FIRST LASTNAME");
+
+    // PDF must also honor the snapshot's recorded role
+    const pdfBytes = await generateHistoricalCertificatePdf({
+      preparedBy: "Staff Member",
+      request,
+      snapshot: historicalSnapshot,
+      verificationCode: "HIST-VERIFY-01",
+      verificationExpiresAt: "2026-08-30T00:00:00.000Z",
+      verificationUrl: "http://localhost:3000/verify/hist-verify-01",
+    });
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    expect(pdfDoc.getPageCount()).toBe(1);
+
+    const pdfText = extractPdfStreamText(pdfDoc);
+    expect(pdfText).toContain("Acting Barangay Chairman");
+  });
+
+  it("uses 'Barangay Chairman' by default for newly issued Residency certificates without a pre-existing role", async () => {
+    const request = syntheticRequest("barangay_residency");
+    const newSnapshot = createCertificateSnapshot({
+      authorizedOfficialName: "DIOGENES E. MANAOG",
+      authorizedOfficialRole: "",
+      certificateNumber: "CERT-NEW-RESIDENCY-001",
+      dateIssued: "2026-10-10",
+      issuedAt: "2026-10-10T00:00:00.000Z",
+      issuanceMode: "fully_online_demo",
+      preparedBy: "Staff Member",
+      request,
+      verificationExpiresAt: "2026-11-10T00:00:00.000Z",
+    });
+
+    expect(newSnapshot.authorized_official_role).toBe("Barangay Chairman");
+
+    const markup = renderToStaticMarkup(
+      <PrintableCertificate
+        request={request}
+        snapshot={newSnapshot}
+        signatureImageUrl="/api/admin/signature"
+      />,
+    );
+    expect(markup).toContain("Barangay Chairman");
+    expect(markup).not.toContain("Acting Barangay Chairman");
+
+    const pdfBytes = await generateHistoricalCertificatePdf({
+      preparedBy: "Staff Member",
+      request,
+      snapshot: newSnapshot,
+      verificationCode: "NEW-VERIFY-01",
+      verificationExpiresAt: "2026-11-10T00:00:00.000Z",
+      verificationUrl: "http://localhost:3000/verify/new-verify-01",
+    });
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const pdfText = extractPdfStreamText(pdfDoc);
+    expect(pdfText).toContain("Barangay Chairman");
+    expect(pdfText).not.toContain("Acting Barangay Chairman");
+  });
 });
