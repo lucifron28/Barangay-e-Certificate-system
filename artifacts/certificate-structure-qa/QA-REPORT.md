@@ -11,7 +11,7 @@
 
 This report documents the correction from “ACTING BRGY CHAIRMAN” to “BARANGAY CHAIRMAN” for newly issued Residency certificates, preservation of issuance-time signer roles, and alignment of certificate copy, headings, verification QR, and metadata between HTML preview and PDF output.
 
-All four templates passed local automated tests, Playwright QA, static checks, and production build. GitHub CI passed on the final application source commit, and the production deployment was verified `READY`.
+All four templates passed local automated tests, Playwright QA, static checks, and production build. GitHub CI passed on the final application commit, and the production deployment is `READY`.
 
 ---
 
@@ -134,10 +134,10 @@ Local: 31 test files passed; 180 tests passed.
 Typecheck: passed.
 Lint: passed.
 Build: passed (Next.js 16.3 / Turbopack).
-Playwright: all four templates; desktop 1440x900, tablet 768x1024, mobile 390x844; four synthetic PDFs rendered at 1224x1584.
+Playwright: four templates; desktop 1440x900, tablet 768x1024, mobile 390x844; HTML native print output is one 612x792pt Letter page; four synthetic application PDFs rendered at 1224x1584.
 ```
 
-**GitHub Actions CI:** PASS for `534c440e755ff231a0aee645708199fde9e9d1cd` — [run 38072167008](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38072167008).
+**GitHub Actions CI:** PASS for `553e40a827682193cf88d775222ab8f5e60cff3b` — [run 38073932625](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38073932625).
 
 The first CI run exposed two test-harness prerequisites: Chromium was not installed, and the Playwright screenshot test ran before `.next` CSS existed. CI now installs Chromium and runs the production build before the test suite.
 
@@ -161,24 +161,25 @@ The first CI run exposed two test-harness prerequisites: Chromium was not instal
 | Four HTML previews include verification code, expiry, and QR | **PASS** | Issued previews use the persisted short code and public `/verify?code=` route; lookup is tested. |
 | All four PDF structures include verification metadata and QR | **PASS** | Synthetic PDFs render one Letter page with the QR and secondary metadata layer. |
 | Letter format persists at desktop, tablet, and mobile | **PASS** | CSS scales the fixed Letter page; Playwright asserts a 8.5:11 aspect ratio at every viewport. |
+| HTML browser print output is one Letter page | **PASS** | Playwright `page.pdf` asserted one 612×792pt page with `@page size: Letter`. |
 | Signature block/name/title layout has no tested overlap | **PASS** | Browser bounding-box checks and PDF layout tests pass. Screenshots use a transparent placeholder; the private signature is excluded. |
 | No demo payment flag/UI is enabled in Production | **PASS** | Removed `PAYMENT_DEMO_MODE` from Vercel Production; environment inventory no longer lists it; public smoke returned HTTP 200 with no demo-payment label. |
 | Client reference structure checked | **PASS** | Local references are present; the renderer follows structural decisions recorded in `docs/certificate-template-alignment.md`. No pixel-perfect equivalence is claimed. |
-| Actual production deployment status verified | **PASS** | Vercel deployment `dpl_GQq7jryVa2M4aJjZdscRKVCoontp` inspected as `READY`; public production alias smoke returned HTTP 200. |
+| Actual production deployment status verified | **PASS** | Vercel deployment `dpl_DWsaCUvfdXjeCvS7ecDpsJNkGKs9` inspected as `READY`; public production alias smoke returned HTTP 200. |
 
 ---
 
 ## 9. Production Deployment & Configuration
 
-- **Application source commit:** `534c440e755ff231a0aee645708199fde9e9d1cd` (`main`).
-- **GitHub Actions CI:** [run 38072167008](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38072167008) — `success` for the same commit.
-- **Vercel deployment:** `dpl_GQq7jryVa2M4aJjZdscRKVCoontp`.
+- **Application source commit:** `553e40a827682193cf88d775222ab8f5e60cff3b` (`main`).
+- **GitHub Actions CI:** [run 38073932625](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38073932625) — `success` for the same commit.
+- **Vercel deployment:** `dpl_DWsaCUvfdXjeCvS7ecDpsJNkGKs9`.
 - **Target/status:** Production / `READY`.
-- **Deployment URL:** <https://barangay-bato-ecertificate-system-755qy7h5a-ron-cada-projects.vercel.app>
+- **Deployment URL:** <https://barangay-bato-ecertificate-system-8r0urq9n0-ron-cada-projects.vercel.app>
 - **Production alias:** <https://barangay-bato-ecertificate-system.vercel.app>.
-- **Source verification note:** Deployment used the checked-out `main` tree at the SHA above via Vercel CLI. `vercel inspect` confirms deployment ID, Production target, READY status, and aliases; the CLI output does not expose a Git source field for a direct CLI upload.
+- **Source verification note:** The deployment was launched from the checked-out `main` tree at the SHA above via Vercel CLI. `vercel inspect` confirms deployment ID, Production target, READY status, and aliases; it does not expose a Git source field for a direct CLI upload.
 - **Read-only smoke:** Production alias returned HTTP 200 with the expected page title. The public page contained no Acting BRGY Chairman text or demo-payment label. No production admin credentials were used.
-- **Production payment flag:** Removed `PAYMENT_DEMO_MODE` from the Vercel Production environment. A fresh `vercel env ls` no longer lists it. Turso and private Blob environment-variable names remain present and encrypted.
+- **Production payment flag:** Removed `PAYMENT_DEMO_MODE` from Vercel Production. A fresh `vercel env ls` no longer lists it. Turso and private Blob environment-variable names remain present and encrypted.
 - **Data safety:** No production request, account, role, snapshot, verification record, signature object, or issued PDF was created, modified, or deleted.
 
 ---
