@@ -281,23 +281,34 @@ describe("official signer signature", () => {
       request,
       verificationExpiresAt: "2026-08-30T00:00:00.000Z",
     });
+    const savedRequestNumber = historicalSnapshot.request_number;
+    const savedControlNumber = historicalSnapshot.control_number;
+    request.request_number = "REQ-LIVE-CHANGED";
+    request.control_number = "CTRL-LIVE-CHANGED";
 
     // Historical snapshot retains "Acting Barangay Chairman"
     expect(historicalSnapshot.authorized_official_role).toBe(
       "Acting Barangay Chairman",
     );
 
-    // HTML preview must display the snapshot's recorded role
+    // HTML preview must display the snapshot's recorded role and metadata.
     const markup = renderToStaticMarkup(
       <PrintableCertificate
         request={request}
         snapshot={historicalSnapshot}
         signatureImageUrl="/api/admin/signature"
+        verificationCode="BB-0000ABCD"
+        verificationQrCodeUrl="data:image/png;base64,synthetic-qr"
       />,
     );
     expect(markup).toContain("Acting Barangay Chairman");
     expect(markup).toContain("HON. FIRST LASTNAME");
-
+    expect(markup).toContain(savedRequestNumber);
+    expect(markup).toContain(savedControlNumber ?? "Pending");
+    expect(markup).not.toContain("REQ-LIVE-CHANGED");
+    expect(markup).not.toContain("CTRL-LIVE-CHANGED");
+    expect(markup).toContain("BB-0000ABCD");
+    expect(markup).toContain("Aug 30, 2026");
     // PDF must also honor the snapshot's recorded role
     const pdfBytes = await generateHistoricalCertificatePdf({
       preparedBy: "Staff Member",

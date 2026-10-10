@@ -327,9 +327,9 @@ export function PrintableCertificate({
         <div className="mt-10 grid grid-cols-[minmax(0,1fr)_4.2in] items-end gap-4">
           <DigitalVerificationBlock
             certificateNumber={effectiveCertificateNumber}
-            controlNumber={request.control_number ?? "Pending"}
+            controlNumber={templateData.controlNumber}
             draft={draft}
-            requestNumber={request.request_number}
+            requestNumber={templateData.requestNumber}
             verificationCode={verificationCode}
             verificationExpiresAt={effectiveVerificationExpiresAt}
             verificationQrCodeUrl={verificationQrCodeUrl}
