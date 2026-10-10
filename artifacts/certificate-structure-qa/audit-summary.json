@@ -14,9 +14,16 @@
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
       "pdfGeneratedSuccessfully": true,
+      "pdfLetterSizePreserved": true,
+      "qrCodePresent": true,
+      "qrImagePresent": true,
       "signerNamePresent": true,
       "signerRoleMatches": true,
-      "titleMatches": true
+      "signatureLayoutHasNoOverlap": true,
+      "titleMatches": true,
+      "textAndQRFitLetterPage": true,
+      "longSignerNameFits": true,
+      "allBreakpointsKeepLetterRatio": true
     }
   },
   {
@@ -34,9 +41,16 @@
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
       "pdfGeneratedSuccessfully": true,
+      "pdfLetterSizePreserved": true,
+      "qrCodePresent": true,
+      "qrImagePresent": true,
       "signerNamePresent": true,
       "signerRoleMatches": true,
-      "titleMatches": true
+      "signatureLayoutHasNoOverlap": true,
+      "titleMatches": true,
+      "textAndQRFitLetterPage": true,
+      "longSignerNameFits": true,
+      "allBreakpointsKeepLetterRatio": true
     }
   },
   {
@@ -54,9 +68,16 @@
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
       "pdfGeneratedSuccessfully": true,
+      "pdfLetterSizePreserved": true,
+      "qrCodePresent": true,
+      "qrImagePresent": true,
       "signerNamePresent": true,
       "signerRoleMatches": true,
-      "titleMatches": true
+      "signatureLayoutHasNoOverlap": true,
+      "titleMatches": true,
+      "textAndQRFitLetterPage": true,
+      "longSignerNameFits": true,
+      "allBreakpointsKeepLetterRatio": true
     }
   },
   {
@@ -74,9 +95,16 @@
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
       "pdfGeneratedSuccessfully": true,
+      "pdfLetterSizePreserved": true,
+      "qrCodePresent": true,
+      "qrImagePresent": true,
       "signerNamePresent": true,
       "signerRoleMatches": true,
-      "titleMatches": true
+      "signatureLayoutHasNoOverlap": true,
+      "titleMatches": true,
+      "textAndQRFitLetterPage": true,
+      "longSignerNameFits": true,
+      "allBreakpointsKeepLetterRatio": true
     }
   }
 ]

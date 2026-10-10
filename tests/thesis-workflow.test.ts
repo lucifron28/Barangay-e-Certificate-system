@@ -5,7 +5,9 @@ import {
   createCertificateRequest,
   getCertificateRecordById,
   getCertificateRecordByRequestId,
+  getCertificateVerificationByShortCode,
   getCertificateVerificationByToken,
+  getCertificateVerificationShortCodeByRecordId,
   getRequestById,
   revokeCertificateRecord,
   submitPaymentProof,
@@ -78,6 +80,16 @@ describe("isolated thesis certificate workflow", () => {
       expect(issued.certificateNumber).toMatch(/^CERT-\d{4}-\d{4}$/);
       expect(getCertificateVerificationByToken(issued.verificationToken)).toMatchObject({
         certificateNumber: issued.certificateNumber,
+        status: "valid",
+      });
+
+      const shortCode = getCertificateVerificationShortCodeByRecordId(
+        issued.certificateRecord.id,
+      );
+      expect(shortCode).toMatch(/^BB-[0-9A-F]{8}$/);
+      expect(getCertificateVerificationByShortCode(shortCode!)).toMatchObject({
+        certificateNumber: issued.certificateNumber,
+        shortCode,
         status: "valid",
       });
 

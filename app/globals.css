@@ -65,6 +65,22 @@
   width: 100%;
 }
 
+@media (max-width: 639px) {
+  .certificate-preview-container {
+    width: 8.5in;
+    max-width: none;
+    zoom: 0.42;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 815px) {
+  .certificate-preview-container {
+    width: 8.5in;
+    max-width: none;
+    zoom: 0.88;
+  }
+}
+
 @media print {
   @page {
     size: Letter;
@@ -73,6 +89,12 @@
 
   .no-print {
     display: none !important;
+  }
+
+  .certificate-preview-container {
+    width: 8.5in !important;
+    max-width: none !important;
+    zoom: 1 !important;
   }
 
   .print-surface {

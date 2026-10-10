@@ -1910,6 +1910,16 @@ export async function getCertificateVerificationByShortCode(rawShortCode: string
   } as const;
 }
 
+export async function getCertificateVerificationShortCodeByRecordId(
+  certificateRecordId: string,
+) {
+  const row = await prepareTurso<Row>(
+    "SELECT short_verification_code FROM certificate_verifications WHERE certificate_record_id = ? ORDER BY created_at DESC LIMIT 1",
+    [certificateRecordId],
+  );
+  return asText(row?.short_verification_code);
+}
+
 export async function createActivityLog(input: {
   action: string;
   affected_record_id?: string | null;

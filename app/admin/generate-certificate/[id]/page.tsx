@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import Link from "next/link";
 import { ArrowLeft, FileDown } from "lucide-react";
 import { CertificateIssuanceEditor } from "@/components/certificates/certificate-issuance-editor";
@@ -15,8 +16,12 @@ import {
   getAdminRequest,
   getSystemSettings,
 } from "@/lib/services/certificate-data";
-import { getCertificateRecordByRequestId } from "@/lib/db/queries";
+import {
+  getCertificateRecordByRequestId,
+  getCertificateVerificationShortCodeByRecordId,
+} from "@/lib/db/queries";
 import { getDatabaseProvider } from "@/lib/db/provider";
+import { getPublicAppUrl } from "@/lib/certificates/verification-url";
 import { readConfiguredSignatureImage } from "@/lib/certificates/signature-storage";
 import { isCertificateIssuanceEligible } from "@/lib/services/certificate-issuance";
 import {
@@ -66,6 +71,20 @@ export default async function GenerateCertificatePage({
   const signatureImageUrl = hasActiveCertificate &&
     certificateRecord?.certificate_snapshot?.signature_image_key
     ? `/api/admin/signature?record_id=${encodeURIComponent(certificateRecord.id)}`
+    : null;
+  const verificationCode =
+    hasActiveCertificate && certificateRecord
+      ? await getCertificateVerificationShortCodeByRecordId(certificateRecord.id)
+      : null;
+  const verificationUrl = verificationCode
+    ? `${getPublicAppUrl()}/verify?code=${encodeURIComponent(verificationCode)}`
+    : null;
+  const verificationQrCodeUrl = verificationUrl
+    ? await QRCode.toDataURL(verificationUrl, {
+        errorCorrectionLevel: "M",
+        margin: 1,
+        width: 128,
+      })
     : null;
   const configuredSignatureImage = hasActiveCertificate
     ? null
@@ -130,6 +149,8 @@ export default async function GenerateCertificatePage({
             request={request}
             signatureImageUrl={signatureImageUrl}
             snapshot={certificateRecord?.certificate_snapshot}
+            verificationCode={verificationCode}
+            verificationQrCodeUrl={verificationQrCodeUrl}
           />
         ) : (
           <CertificateIssuanceEditor

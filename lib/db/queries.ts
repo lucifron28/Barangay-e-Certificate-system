@@ -290,6 +290,14 @@ export async function getCertificateVerificationByShortCode(shortCode: string) {
   return (await loadProviderModule()).getCertificateVerificationByShortCode(shortCode);
 }
 
+export async function getCertificateVerificationShortCodeByRecordId(
+  certificateRecordId: string,
+) {
+  return (await loadProviderModule()).getCertificateVerificationShortCodeByRecordId(
+    certificateRecordId,
+  );
+}
+
 export async function createActivityLog(
   input: Parameters<typeof sqlite.createActivityLog>[0],
 ) {

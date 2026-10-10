@@ -1,3 +1,4 @@
+import { formatDateTime } from "@/lib/utils/format";
 import { SealImage } from "@/components/branding/seal-image";
 import { getCertificateTemplateData } from "@/lib/certificates/template-data";
 import {
@@ -20,6 +21,9 @@ type PrintableCertificateProps = {
   request: CertificateRequestWithResident;
   signatureImageUrl?: string | null;
   snapshot?: CertificateSnapshot;
+  verificationCode?: string | null;
+  verificationExpiresAt?: string | null;
+  verificationQrCodeUrl?: string | null;
 };
 
 const WATERMARK_SIZE_CLASSES = {
@@ -97,7 +101,7 @@ function SignatureBlocks({
   return (
     <section
       aria-label="Certificate signer block"
-      className="mt-10 flex justify-end"
+      className="flex justify-end"
     >
       <div className="w-[4.2in] max-w-full font-serif text-right">
         <p className="mb-2 text-[12pt]">
@@ -127,13 +131,93 @@ function SignatureBlocks({
         />
         {!draft ? (
           <>
-            <p className="mt-1 font-semibold uppercase underline decoration-1 underline-offset-1">
+            <p
+              className="mt-1 max-w-full break-words text-[10pt] font-semibold uppercase leading-tight underline decoration-1 underline-offset-1"
+              data-signature-name="true"
+            >
               {barangayCaptainName}
             </p>
-            <p className="text-xs uppercase">{signatureRole}</p>
+            <p className="text-xs uppercase" data-signature-role="true">
+              {signatureRole}
+            </p>
           </>
         ) : null}
       </div>
+    </section>
+  );
+}
+
+function DigitalVerificationBlock({
+  certificateNumber,
+  controlNumber,
+  draft,
+  requestNumber,
+  verificationCode,
+  verificationExpiresAt,
+  verificationQrCodeUrl,
+}: {
+  certificateNumber?: string;
+  controlNumber: string;
+  draft: boolean;
+  requestNumber: string;
+  verificationCode?: string | null;
+  verificationExpiresAt?: string | null;
+  verificationQrCodeUrl?: string | null;
+}) {
+  return (
+    <section
+      aria-label="Digital certificate verification"
+      className="grid min-w-0 grid-cols-[minmax(0,1fr)_0.85in] gap-2 rounded border border-neutral/40 p-2 font-sans text-[8pt] leading-tight"
+    >
+      <div className="min-w-0 space-y-1">
+        <p className="font-semibold uppercase">
+          Digital Verification (Secondary)
+        </p>
+        <p className="break-words">
+          <span className="font-semibold">Certificate No.:</span>{" "}
+          {certificateNumber ?? (draft ? "Assigned when signed" : "Unavailable")}
+        </p>
+        <p className="break-words">
+          <span className="font-semibold">Request No.:</span> {requestNumber}
+        </p>
+        <p className="break-words">
+          <span className="font-semibold">Control No.:</span> {controlNumber}
+        </p>
+        <p className="break-words">
+          <span className="font-semibold">Code:</span>{" "}
+          {verificationCode ?? (draft ? "Assigned on issuance" : "Unavailable")}
+        </p>
+        <p className="break-words">
+          <span className="font-semibold">Expires:</span>{" "}
+          {verificationExpiresAt
+            ? formatDateTime(verificationExpiresAt)
+            : draft
+              ? "Set on issuance"
+              : "Unavailable"}
+        </p>
+      </div>
+      <div className="flex flex-col items-center justify-end gap-1 text-center">
+        {verificationQrCodeUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={verificationQrCodeUrl}
+            alt="QR code for certificate verification"
+            className="size-[0.85in] object-contain"
+          />
+        ) : (
+          <div
+            aria-label={draft ? "QR assigned on issuance" : "QR unavailable"}
+            className="flex size-[0.85in] items-center justify-center border border-dashed border-neutral/40 px-1 text-[7pt]"
+          >
+            {draft ? "Assigned on issue" : "QR unavailable"}
+          </div>
+        )}
+        <span className="text-[7pt]">Scan to verify</span>
+      </div>
+      <p className="col-span-2 border-t border-neutral/30 pt-1 text-center text-[7pt]">
+        System record verification does not establish physical-document
+        originality.
+      </p>
     </section>
   );
 }
@@ -148,6 +232,9 @@ export function PrintableCertificate({
   request,
   signatureImageUrl,
   snapshot,
+  verificationCode,
+  verificationExpiresAt,
+  verificationQrCodeUrl,
 }: PrintableCertificateProps) {
   const templateData = getCertificateTemplateData(
     request,
@@ -161,9 +248,12 @@ export function PrintableCertificate({
   const effectiveSignatureRole =
     snapshot?.authorized_official_role ??
     certificateTemplateSignatureRole(request.certificate_type);
+  const effectiveVerificationExpiresAt =
+    snapshot?.verification_expires_at ?? verificationExpiresAt;
 
   return (
-    <article className="print-surface relative mx-auto min-h-[11in] w-[8.5in] max-w-full overflow-hidden rounded-lg border border-base-300 bg-white p-[0.55in] text-neutral shadow-sm">
+    <div className="certificate-preview-container mx-auto w-[8.5in] max-w-full">
+      <article className="print-surface relative min-h-[11in] w-full overflow-hidden rounded-lg border border-base-300 bg-white p-[0.55in] text-neutral shadow-sm">
       {/* TODO: Exact positioning must be revisited with the client before production printing. */}
       {/* TODO: Final production handling may use controlled Supabase Storage assets. */}
       <Watermark certificateType={request.certificate_type} />
@@ -234,38 +324,36 @@ export function PrintableCertificate({
           </div>
         ) : null}
 
-        <div className="mt-4 grid gap-2 text-xs sm:grid-cols-3">
-          <p>
-            <span className="font-semibold">Certificate No.:</span>{" "}
-            {effectiveCertificateNumber ?? "Assigned when signed"}
-          </p>
-          <p>
-            <span className="font-semibold">Request No.:</span>{" "}
-            {request.request_number}
-          </p>
-          <p>
-            <span className="font-semibold">Control No.:</span>{" "}
-            {request.control_number ?? "Pending"}
-          </p>
+        <div className="mt-10 grid grid-cols-[minmax(0,1fr)_4.2in] items-end gap-4">
+          <DigitalVerificationBlock
+            certificateNumber={effectiveCertificateNumber}
+            controlNumber={request.control_number ?? "Pending"}
+            draft={draft}
+            requestNumber={request.request_number}
+            verificationCode={verificationCode}
+            verificationExpiresAt={effectiveVerificationExpiresAt}
+            verificationQrCodeUrl={verificationQrCodeUrl}
+          />
+          <SignatureBlocks
+            barangayCaptainName={effectiveCaptainName}
+            draft={draft}
+            signatureImageUrl={signatureImageUrl}
+            signatureLabel={certificateTemplateSignatureLabel(
+              request.certificate_type,
+            )}
+            signatureRole={effectiveSignatureRole}
+          />
         </div>
-        <SignatureBlocks
-          barangayCaptainName={effectiveCaptainName}
-          draft={draft}
-          signatureImageUrl={signatureImageUrl}
-          signatureLabel={certificateTemplateSignatureLabel(
-            request.certificate_type,
-          )}
-          signatureRole={effectiveSignatureRole}
-        />
 
-        <div className="no-print mt-8 rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
-          {draft
-            ? "Unsigned draft. Signing applies the configured official signature image and printed signer name."
-            : signatureImageUrl
+      </div>
+      </article>
+      <div className="no-print mt-4 w-full rounded border border-dashed border-neutral/40 p-4 text-center text-xs">
+        {draft
+          ? "Unsigned draft. Signing applies the configured official signature image and printed signer name."
+          : signatureImageUrl
             ? "Visual electronic signature for thesis/demo use only; it is not a legally verified digital signature."
             : "No signature image was recorded in this issuance. The saved certificate PDF remains unchanged."}
-        </div>
       </div>
-    </article>
+    </div>
   );
 }

@@ -2042,6 +2042,19 @@ export function getCertificateVerificationByShortCode(rawShortCode: string) {
   } as const;
 }
 
+export function getCertificateVerificationShortCodeByRecordId(
+  certificateRecordId: string,
+) {
+  const row = getSqliteDb()
+    .prepare(
+      "SELECT short_verification_code FROM certificate_verifications WHERE certificate_record_id = ? ORDER BY created_at DESC LIMIT 1",
+    )
+    .get(certificateRecordId) as
+    | { short_verification_code: string }
+    | undefined;
+  return row?.short_verification_code ?? null;
+}
+
 export function createActivityLog(input: {
   action: string;
   affected_record_id?: string | null;

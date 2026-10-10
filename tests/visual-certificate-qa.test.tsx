@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
+import QRCode from "qrcode";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -30,16 +31,6 @@ const VIEWPORTS = [
   { name: "mobile", width: 390, height: 844 },
 ] as const;
 
-// Synthetic signature PNG (an anonymized stylized curve) for safe QA artifacts
-const syntheticSignatureBase64 =
-  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
-
-const syntheticSignatureBytes = Uint8Array.from(
-  Buffer.from(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-    "base64",
-  ),
-);
 
 function buildSyntheticRequest(type: HistoricalCertificateType): CertificateRequestWithResident {
   return {
@@ -95,12 +86,13 @@ async function getSealBase64(filename: string): Promise<string> {
 
 async function getCompiledCss(): Promise<string> {
   const cssDir = path.join(root, ".next", "static", "chunks");
-  const filename = "2hhdpfzbn54hy.css";
-  try {
-    return await readFile(path.join(cssDir, filename), "utf8");
-  } catch {
-    return "";
-  }
+  const cssFiles = (await readdir(cssDir)).filter((filename) =>
+    filename.endsWith(".css"),
+  );
+  const stylesheets = await Promise.all(
+    cssFiles.map((filename) => readFile(path.join(cssDir, filename), "utf8")),
+  );
+  return stylesheets.join("\n");
 }
 
 describe("Playwright Visual QA across four certificate templates", () => {
@@ -123,6 +115,17 @@ describe("Playwright Visual QA across four certificate templates", () => {
       const workerCode = await workerResponse.text();
       const browser = await chromium.launch({ headless: true });
       const page = await browser.newPage();
+      // A transparent raster exercises the image box without exposing or
+      // imitating the configured official's private signature asset.
+      const syntheticSignatureDataUrl = await page.evaluate(() => {
+        const canvas = document.createElement("canvas");
+        canvas.width = 1;
+        canvas.height = 1;
+        return canvas.toDataURL("image/png");
+      });
+      const syntheticSignatureBytes = Uint8Array.from(
+        Buffer.from(syntheticSignatureDataUrl.split(",")[1] ?? "", "base64"),
+      );
 
       const auditSummary: Array<{
         certificateType: string;
@@ -140,19 +143,37 @@ describe("Playwright Visual QA across four certificate templates", () => {
 
       for (const type of CERTIFICATE_TYPES) {
         const req = buildSyntheticRequest(type);
-
         const expectedTitle = certificateTemplateTitle(type);
         const expectedSignerRole = certificateTemplateSignatureRole(type);
         const expectedOfficeTitle = certificateTemplateOfficeTitle(type);
+        const signerName =
+          type === "barangay_residency"
+            ? "HON. ALEXANDER BARANGAY CHAIRMAN WITH A LONG SYNTHETIC NAME"
+            : "DIOGENES E. MANAOG";
+        const verificationCode = `BB-${(CERTIFICATE_TYPES.indexOf(type) + 1)
+          .toString(16)
+          .padStart(8, "0")
+          .toUpperCase()}`;
+        const verificationExpiresAt = "2026-11-10T00:00:00.000Z";
+        const verificationUrl =
+          `https://qa.example.test/verify?code=${encodeURIComponent(verificationCode)}`;
+        const verificationQrCodeUrl = await QRCode.toDataURL(verificationUrl, {
+          errorCorrectionLevel: "M",
+          margin: 1,
+          width: 128,
+        });
 
-        // 1. Generate HTML preview with inlined styling and assets
+        // The synthetic signer name and transparent signature pixel are QA-only.
         const rawMarkup = renderToStaticMarkup(
           <PrintableCertificate
-            barangayCaptainName="DIOGENES E. MANAOG"
+            barangayCaptainName={signerName}
             certificateNumber="CERT-2026-9901"
             dateIssued="2026-10-10"
             request={req}
-            signatureImageUrl={syntheticSignatureBase64}
+            signatureImageUrl={syntheticSignatureDataUrl}
+            verificationCode={verificationCode}
+            verificationExpiresAt={verificationExpiresAt}
+            verificationQrCodeUrl={verificationQrCodeUrl}
           />,
         );
         const markupWithInlinedAssets = rawMarkup
@@ -167,7 +188,7 @@ describe("Playwright Visual QA across four certificate templates", () => {
   <title>${expectedTitle} Preview</title>
   <style>
     ${compiledCss}
-    body { margin: 0; padding: 24px; background: #f3f4f6; display: flex; justify-content: center; }
+    body { margin: 0; padding: 24px; background: #f3f4f6; display: flex; flex-direction: column; align-items: center; }
   </style>
 </head>
 <body>
@@ -180,6 +201,7 @@ describe("Playwright Visual QA across four certificate templates", () => {
         let tabletShot = "";
         let mobileShot = "";
 
+        const responsivePageSizes: boolean[] = [];
         for (const vp of VIEWPORTS) {
           await page.setViewportSize({ width: vp.width, height: vp.height });
           await page.setContent(fullHtml, { waitUntil: "load" });
@@ -187,31 +209,128 @@ describe("Playwright Visual QA across four certificate templates", () => {
           const shotName = `${type}-preview-${vp.name}.png`;
           const shotPath = path.join(outputDir, shotName);
           await page.screenshot({ path: shotPath, fullPage: true });
+          const pageBox = await page.locator("article.print-surface").boundingBox();
+          const pageAspectRatio = pageBox ? pageBox.width / pageBox.height : 0;
+          const letterPageFitsViewport = Boolean(
+            pageBox &&
+              Math.abs(pageAspectRatio - 8.5 / 11) < 0.01 &&
+              pageBox.width <= vp.width - 40,
+          );
+          responsivePageSizes.push(letterPageFitsViewport);
+          expect(letterPageFitsViewport).toBe(true);
 
           if (vp.name === "desktop") desktopShot = shotName;
           if (vp.name === "tablet") tabletShot = shotName;
           if (vp.name === "mobile") mobileShot = shotName;
         }
 
-        // 3. Verify HTML preview content
+        await page.setViewportSize({ width: 1440, height: 900 });
+        await page.setContent(fullHtml, { waitUntil: "load" });
         const htmlPageText = (await page.textContent("body")) ?? "";
         expect(htmlPageText.toUpperCase()).toContain(expectedTitle.toUpperCase());
         expect(htmlPageText.toUpperCase()).toContain(expectedSignerRole.toUpperCase());
         expect(htmlPageText.toUpperCase()).toContain(expectedOfficeTitle.toUpperCase());
-        expect(htmlPageText).toContain("DIOGENES E. MANAOG");
+        expect(htmlPageText).toContain(signerName);
+        expect(htmlPageText).toContain(verificationCode);
+        expect(htmlPageText).toContain("Nov 10, 2026");
+        expect(htmlPageText.toUpperCase()).toContain(
+          "DIGITAL VERIFICATION (SECONDARY)",
+        );
+        expect(
+          await page
+            .getByAltText("QR code for certificate verification")
+            .count(),
+        ).toBe(1);
+
+        const layoutMetrics = await page.evaluate(() => {
+          const article = document.querySelector("article.print-surface");
+          const footer = document.querySelector(
+            'section[aria-label="Digital certificate verification"]',
+          );
+          const signature = document.querySelector(
+            'section[aria-label="Certificate signer block"]',
+          );
+          const imageBox = document.querySelector(
+            '[data-signature-image-box="true"]',
+          );
+          const signatureLine = document.querySelector(
+            '[data-signature-line="true"]',
+          );
+          const signerNameElement = document.querySelector(
+            '[data-signature-name="true"]',
+          );
+          const signerRole = document.querySelector(
+            '[data-signature-role="true"]',
+          );
+          const qr = document.querySelector(
+            'img[alt="QR code for certificate verification"]',
+          );
+          if (
+            !article ||
+            !footer ||
+            !signature ||
+            !imageBox ||
+            !signatureLine ||
+            !signerNameElement ||
+            !signerRole ||
+            !qr
+          ) {
+            return null;
+          }
+          const rect = (element: Element) => element.getBoundingClientRect();
+          const articleRect = rect(article);
+          const footerRect = rect(footer);
+          const signatureRect = rect(signature);
+          const imageRect = rect(imageBox);
+          const lineRect = rect(signatureLine);
+          const nameRect = rect(signerNameElement);
+          const roleRect = rect(signerRole);
+          const qrRect = rect(qr);
+          return {
+            articleHeight: articleRect.height,
+            articleWidth: articleRect.width,
+            articleContentNotClipped: article.scrollHeight <= article.clientHeight,
+            footerWithinPage: footerRect.bottom <= articleRect.bottom,
+            imageAboveLine: imageRect.bottom <= lineRect.top,
+            lineAboveName: lineRect.bottom <= nameRect.top,
+            nameFits: signerNameElement.scrollWidth <= signerNameElement.clientWidth,
+            nameAboveRole: nameRect.bottom <= roleRect.top,
+            qrWithinPage: qrRect.left >= articleRect.left && qrRect.right <= articleRect.right,
+            verificationAndSignatureDoNotOverlap:
+              footerRect.right <= signatureRect.left ||
+              signatureRect.right <= footerRect.left ||
+              footerRect.bottom <= signatureRect.top ||
+              signatureRect.bottom <= footerRect.top,
+          };
+        });
+        expect(layoutMetrics).not.toBeNull();
+        expect(layoutMetrics?.articleWidth).toBeCloseTo(816, 0);
+        expect(layoutMetrics?.articleHeight).toBeLessThanOrEqual(1058);
+        expect(layoutMetrics?.articleContentNotClipped).toBe(true);
+        expect(layoutMetrics?.footerWithinPage).toBe(true);
+        expect(layoutMetrics?.qrWithinPage).toBe(true);
+        expect(layoutMetrics?.imageAboveLine).toBe(true);
+        expect(layoutMetrics?.lineAboveName).toBe(true);
+        expect(layoutMetrics?.nameFits).toBe(true);
+        expect(layoutMetrics?.nameAboveRole).toBe(true);
+        expect(layoutMetrics?.verificationAndSignatureDoNotOverlap).toBe(true);
 
         if (type === "barangay_residency") {
           expect(htmlPageText.toUpperCase()).toContain("BARANGAY CHAIRMAN");
-          expect(htmlPageText.toUpperCase()).not.toContain("ACTING BARANGAY CHAIRMAN");
+          expect(htmlPageText.toUpperCase()).not.toContain(
+            "ACTING BARANGAY CHAIRMAN",
+          );
         }
         if (type === "barangay_certificate") {
           expect(htmlPageText.toUpperCase()).toContain("PUNONG BARANGAY");
-          expect(htmlPageText.toUpperCase()).toContain("TANGGAPAN NG PUNONG BARANGAY");
+          expect(htmlPageText.toUpperCase()).toContain(
+            "TANGGAPAN NG PUNONG BARANGAY",
+          );
         }
 
         // 4. Generate synthetic PDF
         const pdfBytes = await generateHistoricalCertificatePdf({
-          barangayCaptainName: "DIOGENES E. MANAOG",
+          barangayCaptainName: signerName,
           certificateNumber: "CERT-2026-9901",
           dateIssued: "2026-10-10",
           preparedBy: "Barangay Secretary",
@@ -220,9 +339,9 @@ describe("Playwright Visual QA across four certificate templates", () => {
             bytes: syntheticSignatureBytes,
             contentType: "image/png",
           },
-          verificationCode: `VERIFY-QA-${type.toUpperCase()}`,
-          verificationExpiresAt: "2026-11-10T00:00:00.000Z",
-          verificationUrl: `https://barangay-bato-ecertificate-system.vercel.app/verify/qa-${type}`,
+          verificationCode,
+          verificationExpiresAt,
+          verificationUrl,
         });
 
         const pdfName = `${type}-synthetic.pdf`;
@@ -298,17 +417,47 @@ describe("Playwright Visual QA across four certificate templates", () => {
 
         const pdfRenderedName = `${type}-pdf-rendered.png`;
         const canvasElement = page.locator("#pdf-canvas");
+        const pdfCanvasDimensions = await canvasElement.evaluate((canvas) => {
+          const pdfCanvas = canvas as HTMLCanvasElement;
+          return { height: pdfCanvas.height, width: pdfCanvas.width };
+        });
         await canvasElement.screenshot({
           path: path.join(outputDir, pdfRenderedName),
         });
+        expect(pdfCanvasDimensions).toEqual({ height: 1584, width: 1224 });
+
         const checks = {
-          actingTitleCorrected: type === "barangay_residency" ? !htmlPageText.includes("Acting Barangay Chairman") : true,
-          officeTitleMatches: htmlPageText.includes(expectedOfficeTitle),
+          actingTitleCorrected:
+            type === "barangay_residency"
+              ? !htmlPageText.toUpperCase().includes("ACTING BARANGAY CHAIRMAN")
+              : true,
+          officeTitleMatches: htmlPageText.toUpperCase().includes(expectedOfficeTitle),
           pdfGeneratedSuccessfully: pdfBytes.length > 0,
-          signerNamePresent: htmlPageText.includes("DIOGENES E. MANAOG"),
-          signerRoleMatches: htmlPageText.includes(expectedSignerRole),
-          titleMatches: htmlPageText.includes(expectedTitle),
+          pdfLetterSizePreserved:
+            pdfCanvasDimensions.width === 1224 &&
+            pdfCanvasDimensions.height === 1584,
+          qrCodePresent: htmlPageText.includes(verificationCode),
+          qrImagePresent: htmlPageText.includes("Digital Verification"),
+          signerNamePresent: htmlPageText.includes(signerName),
+          signerRoleMatches: htmlPageText.toUpperCase().includes(expectedSignerRole.toUpperCase()),
+          signatureLayoutHasNoOverlap:
+            layoutMetrics?.imageAboveLine === true &&
+            layoutMetrics.lineAboveName &&
+            layoutMetrics.nameAboveRole &&
+            layoutMetrics.verificationAndSignatureDoNotOverlap,
+          titleMatches: htmlPageText.toUpperCase().includes(expectedTitle.toUpperCase()),
+          textAndQRFitLetterPage:
+            layoutMetrics?.articleWidth === 816 &&
+            layoutMetrics.articleHeight <= 1058 &&
+            layoutMetrics.articleContentNotClipped &&
+            layoutMetrics.footerWithinPage &&
+            layoutMetrics.qrWithinPage,
+          longSignerNameFits:
+            type !== "barangay_residency" || layoutMetrics?.nameFits === true,
+          allBreakpointsKeepLetterRatio: responsivePageSizes.every(Boolean),
         };
+        const passed = Object.values(checks).every(Boolean);
+        expect(passed).toBe(true);
 
         auditSummary.push({
           certificateType: type,
@@ -320,7 +469,7 @@ describe("Playwright Visual QA across four certificate templates", () => {
           mobileScreenshot: mobileShot,
           pdfGenerated: pdfName,
           pdfRendered: pdfRenderedName,
-          status: "PASS",
+          status: passed ? "PASS" : "FAIL",
           checks,
         });
       }

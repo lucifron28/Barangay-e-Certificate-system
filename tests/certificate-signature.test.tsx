@@ -195,59 +195,31 @@ describe("official signer signature", () => {
     },
   );
 
-  it("keeps the enlarged HTML signature clear of the signer labels", () => {
+  it("renders the issued short verification code, expiry, and QR in the HTML certificate", () => {
+    const verificationCode = "BB-1234ABCD";
+    const qrCodeUrl =
+      "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
     const markup = renderToStaticMarkup(
       <PrintableCertificate
-        dateIssued="2026-09-02"
-        request={syntheticRequest()}
-        signatureImageUrl="/api/admin/signature"
+        certificateNumber="CERT-2026-VERIFY-01"
+        dateIssued="2026-10-10"
+        request={syntheticRequest("barangay_residency")}
+        verificationCode={verificationCode}
+        verificationExpiresAt="2026-11-10T00:00:00.000Z"
+        verificationQrCodeUrl={qrCodeUrl}
       />,
     );
-    const signatureLabelIndex = markup.indexOf("Certified by:");
-    const imageBoxIndex = markup.indexOf('data-signature-image-box="true"');
-    const signatureImageIndex = markup.indexOf('src="/api/admin/signature"');
-    const signatureLineIndex = markup.indexOf('data-signature-line="true"');
-    const signerNameIndex = markup.indexOf("DIOGENES E. MANAOG");
-    const signerRoleIndex = markup.indexOf("Barangay Chairman");
-    const tailwindSpacingUnitInches = 0.25 / 6;
-    const priorContentClearanceInches = 10 * tailwindSpacingUnitInches;
-    const labelToImageClearanceInches = 2 * tailwindSpacingUnitInches;
-    const imageToLineClearanceInches = 0.1;
-    const currentImageWidthInches = 3;
-    const currentImageHeightInches = 0.875;
-    const targetScale = 1.4;
-    const imageWidthInches = 4.2;
-    const imageHeightInches = 1.225;
 
-    expect(markup).toContain('class="mt-10 flex justify-end"');
-    expect(markup).toContain('class="w-[4.2in] max-w-full font-serif text-right"');
-    expect(markup).toContain('class="mb-2 text-[12pt]"');
-    expect(markup).not.toContain("-top-[0.55in]");
+    expect(markup).toContain("CERT-2026-VERIFY-01");
+    expect(markup).toContain(verificationCode);
+    expect(markup).toContain("Nov 10, 2026");
     expect(markup).toContain(
-      'data-signature-image-box="true" class="flex h-[1.225in] w-full items-end justify-center"',
+      'alt="QR code for certificate verification"',
     );
-    expect(markup).toContain(
-      'class="h-full w-full object-contain object-bottom"',
-    );
-    expect(markup).toContain(
-      'class="mt-[0.1in] ml-auto h-px w-[2.45in] bg-neutral" data-signature-line="true"',
-    );
-    expect(priorContentClearanceInches).toBeGreaterThanOrEqual(0.4);
-    expect(labelToImageClearanceInches).toBeGreaterThanOrEqual(0.08);
-    expect(imageToLineClearanceInches).toBeGreaterThanOrEqual(0.1);
-    expect(imageWidthInches / currentImageWidthInches).toBeCloseTo(targetScale);
-    expect(imageHeightInches / currentImageHeightInches).toBeCloseTo(targetScale);
-    expect(imageWidthInches / imageHeightInches).toBeCloseTo(
-      currentImageWidthInches / currentImageHeightInches,
-    );
-    expect(signatureLabelIndex).toBeGreaterThanOrEqual(0);
-    expect(imageBoxIndex).toBeGreaterThanOrEqual(0);
-    expect(signatureLabelIndex).toBeLessThan(signatureImageIndex);
-    expect(imageBoxIndex).toBeLessThan(signatureImageIndex);
-    expect(signatureImageIndex).toBeLessThan(signatureLineIndex);
-    expect(signatureLineIndex).toBeLessThan(signerNameIndex);
-    expect(signerNameIndex).toBeLessThan(signerRoleIndex);
+    expect(markup).toContain(`src="${qrCodeUrl}"`);
+    expect(markup).toContain("System record verification does not establish");
   });
+
 
   it("clearly renders an unsigned draft without the official name or signature image", () => {
     const markup = renderToStaticMarkup(
