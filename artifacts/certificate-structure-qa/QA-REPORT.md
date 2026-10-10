@@ -1,6 +1,6 @@
 # Barangay Bato e-Certificate System: Certificate Signer Title & Structure QA Report
 
-**Date:** October 10, 2026  
+**Date:** October 11, 2026  
 **System:** Barangay Bato e-Certificate System  
 **Repository:** `lucifron28/Barangay-e-Certificate-system`  
 **Production URL:** `https://barangay-bato-ecertificate-system.vercel.app`
@@ -9,9 +9,9 @@
 
 ## 1. Executive Summary
 
-This report documents the resolution of the Barangay request to change the signature line from `"ACTING BRGY CHAIRMAN"` to `"BARANGAY CHAIRMAN"` on newly issued Barangay Residency certificates, correct the systemic signer consistency across both HTML preview and PDF output, and align the entire four-certificate layout hierarchy (Office Header, Title, Salutation, Body Wording, Paper Fields, and Signer Designation) between the browser preview and generated PDF renderer.
+This report documents the correction from “ACTING BRGY CHAIRMAN” to “BARANGAY CHAIRMAN” for newly issued Residency certificates, preservation of issuance-time signer roles, and alignment of certificate copy, headings, verification QR, and metadata between HTML preview and PDF output.
 
-All automated tests (180 tests across 31 suites), type checks, linters, production builds, and Playwright visual QA at Desktop (1440×900), Tablet (768×1024), and Mobile (390×844) passed without regressions.
+All four templates passed local automated tests, Playwright QA, static checks, and production build. GitHub CI passed on the final application source commit, and the production deployment was verified `READY`.
 
 ---
 
@@ -28,9 +28,14 @@ All automated tests (180 tests across 31 suites), type checks, linters, producti
 - **Resolution:** Refactored `drawSignature()` to accept `signatureRole?: string` and updated `generateHistoricalCertificatePdf` to pass `snapshot?.authorized_official_role ?? certificateTemplateSignatureRole(type)`. Historical records now remain strictly intact without silent rewrites.
 
 ### Issue 3: HTML Preview vs. PDF Document Structure Mismatch
-- **Problem:** `components/certificates/printable-certificate.tsx` rendered a static generic office header (`Office of the Punong Barangay`) for all certificate types and used divergent, outdated body copy, whereas `lib/certificates/historical-layout.ts` rendered certificate-specific blue serif office headings (`OFFICE OF THE BARANGAY CHAIRMAN` vs `TANGGAPAN NG PUNONG BARANGAY`) and client-approved body wording.
-- **Root Cause:** Dual maintenance of certificate copy and headings across separate files with no shared abstraction.
-- **Resolution:** Centralized `CERTIFICATE_TEMPLATE_OFFICE_TITLES`, `CERTIFICATE_TEMPLATE_HEADER_LINES`, and `buildCertificateBodyContent()` in `lib/certificates/template-copy.ts`. Both the HTML preview and the historical PDF renderer now consume the identical single source of truth for paragraphs, bold runs, issue statements, and headings.
+**Problem:** `components/certificates/printable-certificate.tsx` used a generic office header and body copy that diverged from the certificate-specific historical PDF renderer.
+**Root Cause:** Certificate wording and headings were maintained separately in HTML and PDF code.
+**Resolution:** Centralized office titles, header lines, and body runs in `lib/certificates/template-copy.ts`. Both renderers now use the same source for paragraphs, bold runs, issue statements, and headings. Exact client print approval remains distinct from this structural alignment.
+
+### Issue 4: HTML preview lacked a working verification QR and metadata
+- **Problem:** Issued HTML previews showed certificate/request/control numbers but omitted the verification short code, expiry, and QR.
+- **Root Cause:** The full QR token is stored only as a hash. The preview did not query the separate persisted public short code.
+- **Resolution:** Added a provider-backed lookup by certificate-record ID, and rendered the persisted short code, expiry, and QR for the existing `/verify?code=` route. The preview uses the recorded snapshot expiry and does not modify historical snapshots or PDFs. Draft previews state that verification details are assigned on issuance.
 
 ---
 
@@ -40,10 +45,15 @@ All automated tests (180 tests across 31 suites), type checks, linters, producti
 | :--- | :--- |
 | `lib/certificates/template-copy.ts` | Corrected Residency signer title to `"Barangay Chairman"`. Added `CERTIFICATE_TEMPLATE_OFFICE_TITLES`, `CERTIFICATE_TEMPLATE_HEADER_LINES`, `formatResidentLocality()`, and shared `buildCertificateBodyContent()`. |
 | `lib/certificates/historical-layout.ts` | Refactored `drawSignature()` to prioritize `snapshot.authorized_official_role`. Delegated body paragraph construction to `buildCertificateBodyContent()`. Linked office titles and header lines to shared configuration. |
-| `components/certificates/printable-certificate.tsx` | Updated `Header` to render certificate-specific office titles in historical blue serif (`#3873b8`). Replaced divergent body subcomponents with shared `buildCertificateBodyContent()`. Preserved letter dimensions, clearance paper fields, and existing signature data attributes. |
-| `tests/certificate-signature.test.tsx` | Updated signer cases to expect `"Barangay Chairman"`. Added regression tests verifying snapshot role preservation in HTML preview and PDF output. |
-| `tests/historical-certificate-layout.test.ts` | Updated expected roles to `"Barangay Chairman"`. Added regression test verifying historical snapshots retain recorded role without being rewritten. |
-| `tests/visual-certificate-qa.test.tsx` | Added automated Playwright test capturing HTML previews across 3 breakpoints (desktop, tablet, mobile) and rendering synthetic PDFs to canvas images for visual validation. |
+| `components/certificates/printable-certificate.tsx` | Uses shared copy and certificate-specific heading; adds persisted verification code, expiry, and QR footer; aligns it beside the signer block; keeps the HTML page at Letter aspect on mobile/tablet. |
+| `app/admin/generate-certificate/[id]/page.tsx` | Loads the persisted verification short code for issued records and generates a QR for the existing `/verify?code=` route. |
+| `lib/db/queries.ts`, `lib/db/sqlite/queries.ts`, `lib/db/turso/queries.ts` | Added a provider-backed read-only lookup for an issued record's verification short code. |
+| `app/globals.css` | Scales the fixed Letter preview for mobile/tablet screens and resets scaling for print. |
+| `tests/certificate-signature.test.tsx` | Tests corrected roles, historical snapshot preservation, and HTML verification QR/metadata. |
+| `tests/historical-certificate-layout.test.ts` | Tests role defaults, historical saved roles, PDF layout bounds, and signature aspect-ratio fitting. |
+| `tests/thesis-workflow.test.ts` | Verifies a persisted short code resolves to the same issued certificate through the existing public lookup. |
+| `tests/visual-certificate-qa.test.tsx` | Captures all four templates at three viewports; renders synthetic PDFs; checks QR, Letter aspect/dimensions, and signature spacing. |
+| `.github/workflows/ci.yml` | Installs Chromium and builds CSS before running the Playwright visual QA test. |
 
 ---
 
@@ -56,6 +66,8 @@ All automated tests (180 tests across 31 suites), type checks, linters, producti
 | **Barangay Indigency** | `OFFICE OF THE BARANGAY CHAIRMAN` | `CERTIFICATION OF INDIGENCY` | `To Whom it may concern,` | `Barangay Chairman` | Indigent certification statement | **PASS** |
 | **Barangay Residency** | `OFFICE OF THE BARANGAY CHAIRMAN` | `CERTIFICATION OF RESIDENCY` | `To Whom it may concern,` | `Barangay Chairman` | Residency duration, 6-month inquiry verification | **PASS** |
 
+All four templates also include the same digital-verification block: certificate number, request number, control number, persisted short code, expiry, QR for `/verify?code=…`, and the physical-document originality disclaimer.
+
 ---
 
 ## 5. Visual Layout & Verification Summary
@@ -64,21 +76,21 @@ All automated tests (180 tests across 31 suites), type checks, linters, producti
 ```text
                [Visual Signature]
 
-               ________________
-
-              DIOGENES E. MANAOG
+              [CONFIGURED AUTHORIZED OFFICIAL]
                BARANGAY CHAIRMAN
 ```
-- **Image Positioning:** The visual signature image sits directly above the line (5pt clearance in PDF, `items-end` box in HTML preview).
-- **Line Separation:** Line width: 2.45in (HTML) / 180pt (PDF). No overlap with signature image.
-- **Printed Name:** Displayed uppercase with underline formatting.
-- **Signer Designation:** Rendered directly below the printed name with 18pt vertical spacing in PDF and standard margin in HTML preview.
-- **Zero Element Overlap:** Verified across all four certificate types in both rendered previews and PDF canvas captures.
+- **Image Positioning:** HTML and PDF image regions are above their signature rules. Automated image-box/rule/name/role bounds pass for all four templates.
+- **Aspect Ratio and Fit:** HTML uses `object-contain`; PDF uses the shared aspect-ratio fitter. A private local PNG (249×155) embedded in memory only; fitted size was 53.0×33.0pt with its 1.606 aspect ratio preserved. No signature pixels or private-signed PDF were saved.
+- **QA Signature Fixture:** Saved previews and PDFs use a transparent one-pixel image. It validates element placement, not the actual appearance of the private signature artwork.
+- **Line Separation:** The HTML rule is 2.45in; PDF rule is 180pt. The tested image box, rule, printed name, and designation bounds do not overlap.
+- **Printed Name:** Uppercase and underlined; a long synthetic Residency signer name remains within the signer region.
+- **Signer Designation:** Below the name; PDF keeps 18pt baseline spacing.
+- **Responsive Layout:** Letter format scales as a single surface on tablet/mobile rather than reflowing the document body.
 
 ### Responsive Breakpoints Verified
-- **Desktop (1440×900):** Centered letter-size printable surface with dual top seals and clear margins.
-- **Tablet (768×1024):** Letter-size aspect ratio preserved; no clipping or wrapping distortion.
-- **Mobile (390×844):** Responsive container wrapping retains document readability without text overflow.
+- **Desktop (1440×900):** Centered Letter-size printable surface with paired seals and no overflow.
+- **Tablet (768×1024):** Preview is scaled as a single 8.5×11in page; measured Letter aspect ratio preserved.
+- **Mobile (390×844):** Preview is scaled as a single Letter page instead of reflowing certificate content; default text is small and browser zoom may be needed to read details.
 
 ---
 
@@ -118,41 +130,63 @@ All visual QA artifacts are preserved under `artifacts/certificate-structure-qa/
 ## 7. Automated Test Results
 
 ```text
-✓ tests/certificate-signature.test.tsx (14 tests passed)
-✓ tests/historical-certificate-layout.test.ts (16 tests passed)
-✓ tests/visual-certificate-qa.test.tsx (1 test passed with 24 sub-assertions)
-─────────────────────────────────────────────
-Test Files  31 passed (31)
-     Tests  180 passed (180)
-  Duration  26.90s
+Local: 31 test files passed; 180 tests passed.
+Typecheck: passed.
+Lint: passed.
+Build: passed (Next.js 16.3 / Turbopack).
+Playwright: all four templates; desktop 1440x900, tablet 768x1024, mobile 390x844; four synthetic PDFs rendered at 1224x1584.
 ```
 
-### Static & Build Verification
-- `npm run typecheck`: **PASS** (Zero errors)
-- `npm run lint`: **PASS** (Zero warnings / errors)
-- `npm run build`: **PASS** (Turbopack Next.js 16.3 production build succeeded)
+**GitHub Actions CI:** PASS for `534c440e755ff231a0aee645708199fde9e9d1cd` — [run 38072167008](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38072167008).
+
+The first CI run exposed two test-harness prerequisites: Chromium was not installed, and the Playwright screenshot test ran before `.next` CSS existed. CI now installs Chromium and runs the production build before the test suite.
 
 ---
 
 ## 8. Acceptance Criteria Evaluation
 
+### Errors found and fixed
+- Updated stale tests that still expected `Acting Barangay Chairman`.
+- Installed Chromium in CI after the first GitHub run showed the Playwright executable was missing.
+- Moved `npm run build` before `npm run test` in CI after the subsequent run showed the screenshot test requires generated `.next` CSS.
+- Replaced an invalid test PNG that stalled pdf-lib decoding; the QA fixture now uses a valid transparent 1×1 PNG and does not imitate or expose a signature.
+
 | Acceptance Criterion | Status | Evidence / Notes |
 | :--- | :---: | :--- |
-| Newly issued Residency certificates use `Barangay Chairman` | **PASS** | Verified in `template-copy.ts`, automated tests, and visual output |
-| All four certificate signer titles are correct | **PASS** | Clearance, Indigency, Residency = `Barangay Chairman`; PAGPAPATUNAY = `PUNONG BARANGAY` |
-| Preview and PDF contain consistent signer information | **PASS** | HTML preview and PDF layout verified against identical shared models |
-| Saved historical signer roles remain intact | **PASS** | Historical snapshots with custom/acting designations verified to not be rewritten |
-| Existing issued PDFs remain unchanged | **PASS** | No database mutations, seed overwrites, or file regenerations performed |
-| All four certificate structures are checked | **PASS** | Verified seals, headers, titles, salutations, bodies, issue lines, and metadata |
-| No signature or text overlaps exist in tested outputs | **PASS** | Verified across all breakpoints and high-DPI canvas renderings |
-| Automated tests pass | **PASS** | 180 / 180 tests passing |
-| Visual QA evidence is generated | **PASS** | 20 image/PDF artifacts and `audit-summary.json` saved in `artifacts/certificate-structure-qa/` |
-| Client reference assets checked | **PASS** | Aligned with references in `docs/client-assets/certificate-templates/original/` |
-| Actual production deployment status verified | **PASS** | Vercel production deployment inspected and confirmed READY |
+| Newly issued Residency certificates use `Barangay Chairman` | **PASS** | New snapshot default and tests verify the title. |
+| All four certificate signer titles are correct | **PASS** | Clearance, Indigency, Residency = `Barangay Chairman`; PAGPAPATUNAY = `PUNONG BARANGAY`. |
+| Preview and PDF signer name/designation are consistent | **PASS** | Both use the configured name and shared role/copy model; historical roles come from snapshot. |
+| Saved historical signer roles remain intact | **PASS** | Regression tests render the stored acting designation in HTML and PDF without rewriting it. |
+| Existing issued PDFs and snapshots remain unchanged | **PASS** | No production records, snapshots, or stored PDFs were modified or regenerated. |
+| Four HTML previews include verification code, expiry, and QR | **PASS** | Issued previews use the persisted short code and public `/verify?code=` route; lookup is tested. |
+| All four PDF structures include verification metadata and QR | **PASS** | Synthetic PDFs render one Letter page with the QR and secondary metadata layer. |
+| Letter format persists at desktop, tablet, and mobile | **PASS** | CSS scales the fixed Letter page; Playwright asserts a 8.5:11 aspect ratio at every viewport. |
+| Signature block/name/title layout has no tested overlap | **PASS** | Browser bounding-box checks and PDF layout tests pass. Screenshots use a transparent placeholder; the private signature is excluded. |
+| No demo payment flag/UI is enabled in Production | **PASS** | Removed `PAYMENT_DEMO_MODE` from Vercel Production; environment inventory no longer lists it; public smoke returned HTTP 200 with no demo-payment label. |
+| Client reference structure checked | **PASS** | Local references are present; the renderer follows structural decisions recorded in `docs/certificate-template-alignment.md`. No pixel-perfect equivalence is claimed. |
+| Actual production deployment status verified | **PASS** | Vercel deployment `dpl_GQq7jryVa2M4aJjZdscRKVCoontp` inspected as `READY`; public production alias smoke returned HTTP 200. |
 
 ---
 
-## 9. Limitations & Client Handoff Notes
+## 9. Production Deployment & Configuration
 
-1. **Client Asset Confidentiality:** Official signature assets and resident PII are kept strictly private; all QA artifacts use verified synthetic placeholders.
-2. **Physical Printing Verification:** Final seal print diameter and exact margin bleed should be confirmed with the Barangay staff on the physical office printer before large-scale issuance.
+- **Application source commit:** `534c440e755ff231a0aee645708199fde9e9d1cd` (`main`).
+- **GitHub Actions CI:** [run 38072167008](https://github.com/lucifron28/Barangay-e-Certificate-system/actions/runs/38072167008) — `success` for the same commit.
+- **Vercel deployment:** `dpl_GQq7jryVa2M4aJjZdscRKVCoontp`.
+- **Target/status:** Production / `READY`.
+- **Deployment URL:** <https://barangay-bato-ecertificate-system-755qy7h5a-ron-cada-projects.vercel.app>
+- **Production alias:** <https://barangay-bato-ecertificate-system.vercel.app>.
+- **Source verification note:** Deployment used the checked-out `main` tree at the SHA above via Vercel CLI. `vercel inspect` confirms deployment ID, Production target, READY status, and aliases; the CLI output does not expose a Git source field for a direct CLI upload.
+- **Read-only smoke:** Production alias returned HTTP 200 with the expected page title. The public page contained no Acting BRGY Chairman text or demo-payment label. No production admin credentials were used.
+- **Production payment flag:** Removed `PAYMENT_DEMO_MODE` from the Vercel Production environment. A fresh `vercel env ls` no longer lists it. Turso and private Blob environment-variable names remain present and encrypted.
+- **Data safety:** No production request, account, role, snapshot, verification record, signature object, or issued PDF was created, modified, or deleted.
+
+---
+
+## 10. Limitations & Client Handoff Notes
+
+1. **Signature Artwork Privacy:** The actual private signature was not copied into screenshots or committed artifacts. A local PNG was embedded only in memory for dimensions and fit; the production Blob object was not fetched for visual inspection. Saved QA images use a transparent placeholder.
+2. **Reference Comparison:** Original reference PDFs remain local/private. Existing structural decisions in `docs/certificate-template-alignment.md` were reused; no pixel-perfect equivalence or final print approval is claimed.
+3. **Production Access:** The production check was read-only on the public root. No admin account was used to open a live certificate preview, and no production certificate was created.
+4. **Email:** SMTP environment variables remain absent, consistent with the existing handoff limitation; email delivery was outside this certificate-layout change.
+5. **Physical Printing Verification:** Final seal print diameter and exact margin bleed should be confirmed with the Barangay staff on the physical office printer before large-scale issuance.
