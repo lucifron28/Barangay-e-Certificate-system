@@ -13,6 +13,7 @@
     "checks": {
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
+      "htmlPrintLetterSize": true,
       "pdfGeneratedSuccessfully": true,
       "pdfLetterSizePreserved": true,
       "qrCodePresent": true,
@@ -40,6 +41,7 @@
     "checks": {
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
+      "htmlPrintLetterSize": true,
       "pdfGeneratedSuccessfully": true,
       "pdfLetterSizePreserved": true,
       "qrCodePresent": true,
@@ -67,6 +69,7 @@
     "checks": {
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
+      "htmlPrintLetterSize": true,
       "pdfGeneratedSuccessfully": true,
       "pdfLetterSizePreserved": true,
       "qrCodePresent": true,
@@ -94,6 +97,7 @@
     "checks": {
       "actingTitleCorrected": true,
       "officeTitleMatches": true,
+      "htmlPrintLetterSize": true,
       "pdfGeneratedSuccessfully": true,
       "pdfLetterSizePreserved": true,
       "qrCodePresent": true,

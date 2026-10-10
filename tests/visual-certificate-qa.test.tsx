@@ -1,6 +1,7 @@
 import { chromium } from "@playwright/test";
 import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import QRCode from "qrcode";
+import { PDFDocument } from "pdf-lib";
 import path from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
@@ -189,6 +190,7 @@ describe("Playwright Visual QA across four certificate templates", () => {
   <style>
     ${compiledCss}
     body { margin: 0; padding: 24px; background: #f3f4f6; display: flex; flex-direction: column; align-items: center; }
+    @media print { body { padding: 0 !important; background: white !important; } }
   </style>
 </head>
 <body>
@@ -209,7 +211,12 @@ describe("Playwright Visual QA across four certificate templates", () => {
           const shotName = `${type}-preview-${vp.name}.png`;
           const shotPath = path.join(outputDir, shotName);
           await page.screenshot({ path: shotPath, fullPage: true });
-          const pageBox = await page.locator("article.print-surface").boundingBox();
+          const pageBox = await page
+            .locator("article.print-surface")
+            .evaluate((element) => {
+              const bounds = element.getBoundingClientRect();
+              return { height: bounds.height, width: bounds.width };
+            });
           const pageAspectRatio = pageBox ? pageBox.width / pageBox.height : 0;
           const letterPageFitsViewport = Boolean(
             pageBox &&
@@ -226,6 +233,21 @@ describe("Playwright Visual QA across four certificate templates", () => {
 
         await page.setViewportSize({ width: 1440, height: 900 });
         await page.setContent(fullHtml, { waitUntil: "load" });
+        const htmlPrintPdfBytes = await page.pdf({
+          format: "Letter",
+          preferCSSPageSize: true,
+          printBackground: true,
+        });
+        const htmlPrintPdf = await PDFDocument.load(
+          new Uint8Array(htmlPrintPdfBytes),
+        );
+        const htmlPrintPageSize = htmlPrintPdf.getPage(0).getSize();
+        expect(htmlPrintPdf.getPageCount()).toBe(1);
+        expect(htmlPrintPageSize.width).toBeCloseTo(612, 0);
+        expect(htmlPrintPageSize.height).toBeCloseTo(792, 0);
+        const htmlPrintLetterSize =
+          Math.abs(htmlPrintPageSize.width - 612) < 1 &&
+          Math.abs(htmlPrintPageSize.height - 792) < 1;
         const htmlPageText = (await page.textContent("body")) ?? "";
         expect(htmlPageText.toUpperCase()).toContain(expectedTitle.toUpperCase());
         expect(htmlPageText.toUpperCase()).toContain(expectedSignerRole.toUpperCase());
@@ -432,6 +454,7 @@ describe("Playwright Visual QA across four certificate templates", () => {
               ? !htmlPageText.toUpperCase().includes("ACTING BARANGAY CHAIRMAN")
               : true,
           officeTitleMatches: htmlPageText.toUpperCase().includes(expectedOfficeTitle),
+          htmlPrintLetterSize,
           pdfGeneratedSuccessfully: pdfBytes.length > 0,
           pdfLetterSizePreserved:
             pdfCanvasDimensions.width === 1224 &&
