@@ -79,9 +79,9 @@ All four templates also include the same digital-verification block: certificate
               [CONFIGURED AUTHORIZED OFFICIAL]
                BARANGAY CHAIRMAN
 ```
-- **Image Positioning:** HTML and PDF image regions are above their signature rules. Automated image-box/rule/name/role bounds pass for all four templates.
-- **Aspect Ratio and Fit:** HTML uses `object-contain`; PDF uses the shared aspect-ratio fitter. A private local PNG (249×155) embedded in memory only; fitted size was 53.0×33.0pt with its 1.606 aspect ratio preserved. No signature pixels or private-signed PDF were saved.
-- **QA Signature Fixture:** Saved previews and PDFs use a transparent one-pixel image. It validates element placement, not the actual appearance of the private signature artwork.
+- **Image Positioning:** Playwright rendered the private local PNG in memory only (249×155px; 1.606 aspect ratio). Its contained render measured 188.9×117.6 CSS px, with a 9.6px gap above the signature rule; no overlap with line/name/designation. No screenshot was saved.
+- **PDF Fit:** PDF embedding of that local PNG succeeded in memory. The fitter returned 53.0×33.0pt, preserving aspect ratio within the existing signature region; no signed PDF was saved.
+- **QA Artifacts:** Public screenshots and synthetic PDFs use a transparent one-pixel test image, not a generated autograph or the private signature.
 - **Line Separation:** The HTML rule is 2.45in; PDF rule is 180pt. The tested image box, rule, printed name, and designation bounds do not overlap.
 - **Printed Name:** Uppercase and underlined; a long synthetic Residency signer name remains within the signer region.
 - **Signer Designation:** Below the name; PDF keeps 18pt baseline spacing.
@@ -162,7 +162,7 @@ The first CI run exposed two test-harness prerequisites: Chromium was not instal
 | All four PDF structures include verification metadata and QR | **PASS** | Synthetic PDFs render one Letter page with the QR and secondary metadata layer. |
 | Letter format persists at desktop, tablet, and mobile | **PASS** | CSS scales the fixed Letter page; Playwright asserts a 8.5:11 aspect ratio at every viewport. |
 | HTML browser print output is one Letter page | **PASS** | Playwright `page.pdf` asserted one 612×792pt page with `@page size: Letter`. |
-| Signature block/name/title layout has no tested overlap | **PASS** | Browser bounding-box checks and PDF layout tests pass. Screenshots use a transparent placeholder; the private signature is excluded. |
+| Signature block/name/title layout has no tested overlap | **PASS** | Playwright checked the private local image's position and bounds in memory; saved screenshots use a transparent placeholder, so no private signature pixels are committed. |
 | No demo payment flag/UI is enabled in Production | **PASS** | Removed `PAYMENT_DEMO_MODE` from Vercel Production; environment inventory no longer lists it; public smoke returned HTTP 200 with no demo-payment label. |
 | Client reference structure checked | **PASS** | Local references are present; the renderer follows structural decisions recorded in `docs/certificate-template-alignment.md`. No pixel-perfect equivalence is claimed. |
 | Actual production deployment status verified | **PASS** | Vercel deployment `dpl_EJLhzfjTwkQ9gdvtp5uoh4o2SdGv` inspected as `READY`; public production alias smoke returned HTTP 200. |
@@ -186,7 +186,7 @@ The first CI run exposed two test-harness prerequisites: Chromium was not instal
 
 ## 10. Limitations & Client Handoff Notes
 
-1. **Signature Artwork Privacy:** The actual private signature was not copied into screenshots or committed artifacts. A local PNG was embedded only in memory for dimensions and fit; the production Blob object was not fetched for visual inspection. Saved QA images use a transparent placeholder.
+1. **Signature Artwork Privacy:** The private local signature was rendered and measured in memory only. The production Blob object was not fetched; no signature pixels or private-signed PDF are in artifacts.
 2. **Reference Comparison:** Original reference PDFs remain local/private. Existing structural decisions in `docs/certificate-template-alignment.md` were reused; no pixel-perfect equivalence or final print approval is claimed.
 3. **Production Access:** The production check was read-only on the public root. No admin account was used to open a live certificate preview, and no production certificate was created.
 4. **Email:** SMTP environment variables remain absent, consistent with the existing handoff limitation; email delivery was outside this certificate-layout change.
