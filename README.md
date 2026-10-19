@@ -1,546 +1,327 @@
 # Barangay Bato e-Certificate System
 
-Responsive web application for Barangay Bato, Mauban, Quezon. Residents can
-submit certificate requests and track status. Main Admin and Barangay
-Secretary users can review requests, verify GCash and Maya payment proofs,
-issue private certificates, review reports, and inspect activity history.
+A web-based certificate request and issuance system for **Barangay Bato, Mauban, Quezon**. Residents can apply for barangay certificates online, track requests, submit proof of external GCash/Maya payments when a fee is required, and securely download issued certificates. Authorized barangay personnel review requests, manually verify payments, sign/issue certificates, and manage reports and audit history.
 
-This repository is prepared for client preview and deployment handoff. It does
-not connect an automated payment gateway. Residents pay using their external
-GCash or Maya apps, submit transaction proof, and authorized barangay staff
-manually verify each transaction before certificate issuance.
-## Current Deployment Target
+**Live application (client/presentation environment):** https://barangay-bato-ecertificate-system.vercel.app
 
-| Environment | Database | Certificate storage | Email |
-| --- | --- | --- | --- |
-| Local development and CI | SQLite | Local ignored directory | Optional placeholder/logging |
-| Vercel preview/production | Turso | Vercel Private Blob | Gmail SMTP via App Password |
+> **For the client group / thesis readers:** Start with [How the system was developed](#how-the-system-was-developed-step-by-step), [Project structure](#project-structure-where-to-find-the-code), and [End-to-end workflow](#end-to-end-workflow). These sections explain *paano nabuo ang system*, how its parts are organized, and how they work together.
+>
+> **Documentation accuracy:** This is a reconstruction based on the current source code, Git commits, and existing project documents. It describes the implementation phases and traceable technical decisions—not an original day-by-day developer diary, sprint calendar, or claim that every feature was written from scratch in the order listed.
 
-Supabase utilities and migrations remain available as a separate deployment
-option. The active client QA deployment uses Turso, Vercel Private Blob,
-and provider-neutral application services.
-## Tech Stack And Versions
+## Contents
 
-- Next.js 16.3.0 App Router with React 19.2.8
-- TypeScript 6.0.3 (latest version supported by the current TypeScript ESLint
-  release; TypeScript 7.0.2 currently has an incompatible peer range)
-- Tailwind CSS 4.3.3 and daisyUI 5.7.16
-- SQLite with `better-sqlite3` 13.0.3 for local development and CI
-- Turso with `@tursodatabase/serverless` 1.4.0 for remote deployment
-- Vercel Private Blob with `@vercel/blob` 2.8.0 for private PDFs
-- Supabase SSR utilities: `@supabase/ssr` 0.12.4 and
-  `@supabase/supabase-js` 2.112.3, retained for legacy/future compatibility
-- Nodemailer 9.0.5, `pdf-lib` 1.17.1, `write-excel-file` 4.1.1, Zod 4.4.3
-- Vitest 4.1.10, ESLint 10.8.1, Prettier 3.9.6
+1. [System purpose and scope](#system-purpose-and-scope)
+2. [How the system was developed (step by step)](#how-the-system-was-developed-step-by-step)
+3. [Technology stack](#technology-stack)
+4. [System architecture](#system-architecture)
+5. [Project structure: where to find the code](#project-structure-where-to-find-the-code)
+6. [End-to-end workflow](#end-to-end-workflow)
+7. [Database design and data storage](#database-design-and-data-storage)
+8. [How to run and test locally](#how-to-run-and-test-locally)
+9. [Deployment and operational boundaries](#deployment-and-operational-boundaries)
+10. [Testing, evidence, and current limitations](#testing-evidence-and-current-limitations)
+11. [Detailed documentation](#detailed-documentation)
 
-Tailwind v4 is configured with `@tailwindcss/postcss` and
-`@import "tailwindcss"`. The project does not use legacy Tailwind v3 imports,
-`tailwind.config.js` content arrays, or `npx tailwindcss init -p`.
+## System purpose and scope
 
-daisyUI uses the Tailwind v4 plugin syntax in `app/globals.css`:
+The system replaces a paper-only certificate request process with a browser-based workflow. Its goal is to help residents submit requests and help authorized staff maintain a traceable review, payment, issuance, and verification history.
 
-```css
-@import "tailwindcss";
-@plugin "daisyui";
-```
+### Supported users
 
-The App Router is used. The Pages Router, `pages/`, `pages/api/`, `_app.tsx`,
-and `_document.tsx` are not used. Supabase utilities use `@supabase/ssr`; old
-Supabase auth helper packages are not used.
+| Role | Main capabilities |
+| --- | --- |
+| **Resident** | Register/sign in, maintain own profile, request certificates, monitor statuses, cancel eligible pending requests, resubmit rejected requests, submit payment proof, and access own issued PDFs. |
+| **Main Admin** | Handle administrative workflows, configure system/payment receiving settings and official signer information, review records, and access reports and logs. |
+| **Barangay Secretary** | Handle authorized request and payment-review workflows and access appropriate administrative pages. System settings are **view-only** for this role. |
 
-## Existing Repository Status Before This Work
+Role and ownership checks are performed server-side, not only by hiding navigation items.
 
-The repository already contained the App Router MVP, four certificate layout
-implementations, SQLite demo data, role routing, private local certificate
-files, QR verification, PDF integrity checks, revocation/reissue, reports,
-and the SMTP test-isolation remediation. This work preserves those features
-and adds the Turso/Private Blob production boundary, persistent sessions,
-versioned migrations, and client handoff documentation.
+### Certificate types and configured fees
 
-## Users And Roles
+| Type | Fee |
+| --- | ---: |
+| Barangay Clearance | ₱50 |
+| Barangay Certificate / PAGPAPATUNAY | ₱50 |
+| Barangay Residency | ₱50 |
+| Barangay Indigency | Free |
 
-- `resident`: creates an account, submits requests, edits their own profile,
-  cancels pending requests, resubmits rejected requests, and views their own
-  certificates.
-- `main_admin`: full admin-side workflow access and system settings access.
-- `barangay_secretary`: admin-side request, certificate, report, and
-  activity-log access. System settings remain view-only.
+The amounts reflect the currently implemented configuration. They should be checked against approved barangay fee policies before live operational use.
 
-Main Admin and Barangay Secretary share the initial operational permissions,
-but their role values remain separate for future permission refinement.
+## How the system was developed (step by step)
 
-## Confirmed Client Decisions
+This is an **implementation history reconstructed from the repository**. The early App Router/SQLite MVP already existed when later deployment work began; the notes below explain the logical build-up and identify milestone commits where available.
 
-- Web-based system, usable from a phone browser.
-- Four certificate types: Clearance, Certificate/Pagpapatunay, Indigency, and
-  Residency.
-- Fees: PHP 50 for Clearance, Certificate, and Residency; Indigency is free.
-- Payment state is `unpaid`, `paid`, or `free`. Payment is completed via manual
-  GCash or Maya verification where residents pay externally and submit proof
-  for staff review. No automated payment gateway or webhook integration is used.
-  rejected or cancelled by residents.
-- Rejected requests can be resubmitted using the existing request record.
-- Electronic signature output is a visual placeholder, not a legally verified
-  digital signature.
-- Certificate downloads are private, authenticated, integrity-checked, and
-  logged.
+**Step 1 — Define requirements and the resident/staff process.** The project scope established three application roles, four certificate types, applicant data and purpose fields, request statuses, certificate fees, and the need for staff review. The early MVP already provided key public pages and certificate workflows; this README does not claim to document the original team meetings or wireframing dates.
 
-## Features Implemented
+**Step 2 — Build the web interface.** The application was organized using **Next.js App Router** pages for public, resident, and admin experiences. **React**, **TypeScript**, **Tailwind CSS**, and **daisyUI** provide forms, tables, responsive navigation, dashboards, and reusable components.
 
-- Public Home, About, Login, Register, and Certificate Verification pages.
-- Public QR camera scanner, image QR decoder, and manual short-code verification at `/verify`.
-- Responsive resident/admin layouts with theme switching.
-- SQLite authentication with scrypt password hashes and opaque, server-side,
-  revocable sessions.
-- Role-based redirects and access checks for protected routes.
-- Resident profile editing and request forms with saved profile data.
-- All four confirmed certificate request field sets.
-- `REQ-YYYY-0001` request numbers and `BCL-YYYY-0001` Clearance controls.
-- Year-scoped atomic counters for requests, controls, and certificates.
-- Acceptance, rejection with required remarks, cancellation, and rejected
-  request resubmission.
-- Manual GCash and Maya payment proof submission and staff verification queue
-  with private proof image storage and duplicate-reference protection.
-- An explicit thesis demo payment mode can expose clearly marked, generated
-  non-payment QR codes for GCash and Maya when `PAYMENT_DEMO_MODE=true`. The
-  demo flow still requires proof submission and staff verification.
-- Printable certificate HTML and generated PDF layouts based on supplied
-  official reference PDFs.
-- Configurable visual signature for the Barangay Chairman/Punong Barangay:
-  Main Admin uploads a PNG/JPEG, the authenticated preview loads it privately,
-  and issued PDFs embed the exact image bytes used for that issuance.
-- Private local PDF storage and a Vercel Private Blob adapter.
-- Protected resident/admin PDF routes with SHA-256 checks, safe headers,
-  revocation/expiry checks, and download audit logs.
-- Immutable certificate snapshots, exact 72-hour verification expiry, QR
-  verification, revocation, and reissue.
-- Admin reports, printable PDF reports, Excel export, activity logs, and
-  notification-attempt logs.
-- Gmail SMTP notifications that safely skip when not configured.
-- Provider-neutral asynchronous database boundary for SQLite and Turso.
-- Forward-only migrations and guarded migration/reset scripts.
+**Step 3 — Implement accounts, roles, and requests.** The system gained sign-in/registration, server-managed sessions, role and ownership checks, resident profiles, certificate-specific forms, server-generated request/control numbers, and staff actions for acceptance, rejection, cancellation, and resubmission. A local **SQLite** database supports development and tests.
 
-## Placeholders / Pending Client Confirmation
+**Step 4 — Implement certificate generation and verification.** Four certificate layouts were built from the supplied barangay reference formats. The system generates printable HTML and PDFs, stores issuance-time snapshots, provides QR/short-code verification, protects downloads, and records audit events. It also handles expiration, revocation, and reissue.
 
-- Turso and Vercel Private Blob are connected to the live Vercel deployment;
-  backup/restore and operational monitoring still need a client-approved
-  runbook.
-- Gmail delivery requires a client-owned App Password and approved test
-  recipient.
-- The monthly barangay report remains a clean preview format until its final
-  form is supplied.
-- The default Vercel HTTPS domain is live; a custom domain, final seal sizing,
-  retention policy, and print approval remain client handoff items. The
-  configured demo signer is `DIOGENES E. MANAOG`.
-- The client-provided `signature.docx` was inspected with OfficeCLI. The
-  selected top signature is treated as a visual thesis/demo asset and is not a
-  legally verified digital signature. The source DOCX and extracted image are
-  intentionally kept outside Git and are not publicly served; upload the
-  approved PNG/JPEG from Admin > Settings when configuring a fresh environment.
-- Synthetic Main Admin, Barangay Secretary, and resident identities are seeded
-  in the current Turso presentation database. Public registration still cannot
-  create admin roles, and real operator identities must replace the demo users
-  before operational use.
-- A real online payment gateway, provider credentials, refunds, and financial
-  reconciliation remain outside this presentation scope.
-- Blob orphan cleanup is best-effort on issuance failure; a scheduled
-  reconciliation job can be added after production storage is approved.
+**Step 5 — Prepare an online, persistent deployment.** The repository introduced a database-provider boundary and a **Turso** backend for remote persistence, while keeping SQLite for local development and automated tests. A **Vercel Private Blob** adapter stores private certificate files separately from database rows. See [Turso provider milestone](https://github.com/lucifron28/Barangay-e-Certificate-system/commit/36ddf4abb) and [deployment guide](docs/deployment-vercel-turso.md).
 
-## Architecture
+**Step 6 — Replace the earlier simulated payment concept with manual GCash/Maya verification.** The current real-world design shows the barangay's configured receiving QR/account, requires the resident to pay **outside the website**, accepts payment reference, date/time, and screenshot evidence, and queues the claim for an authorized staff decision. Proof upload **does not** mark it paid. See [manual-payment milestone](https://github.com/lucifron28/Barangay-e-Certificate-system/commit/a7369cf6d).
 
-Application code calls `lib/db/queries.ts`, the provider-neutral async
-repository. Provider implementations are isolated under `lib/db/sqlite/` and
-`lib/db/turso/`. SQLite may remain synchronous internally, but the application
-boundary returns Promises. When `DATABASE_PROVIDER=turso`, missing credentials
-throw an error and the application never silently falls back to SQLite.
+**Step 7 — Improve official certificate signing and layouts.** Authorized signer names/images, private signature storage, immutable issued PDFs, barangay/municipal seals, and certificate-specific formats were refined. Newly issued Residency certificates now use **Barangay Chairman** rather than the earlier default **Acting Barangay Chairman**; historical snapshots keep the role recorded at issuance. See [signature workflow](https://github.com/lucifron28/Barangay-e-Certificate-system/commit/4a613bc14) and [structure alignment](https://github.com/lucifron28/Barangay-e-Certificate-system/commit/cb2a3c691).
 
-Certificate files use `lib/certificates/private-storage.ts`. Local mode writes
-to an ignored directory. Turso mode requires
-`CERTIFICATE_STORAGE_PROVIDER=vercel_blob` and a private Blob token. The
-database stores provider, object key, and SHA-256 metadata; PDF bytes are not
-stored in Turso.
+**Step 8 — Test, harden, and document the system.** The repository added database/service tests, browser-based **Playwright** workflows, visual checks for certificate templates, authorization tests, environment validation, and deployment/operations documentation. QA uses clearly marked synthetic fixtures; simulated payment references are **not proof that real money moved**. See [certificate QA report](artifacts/certificate-structure-qa/QA-REPORT.md) and [payment QA report](artifacts/payment-qa/QA-REPORT.md).
 
-## Current Deployment
+**Step 9 — Deploy and perform client acceptance.** The application is deployed on **Vercel**, using **Turso** for the client/presentation database and private object storage for issued files. Deployment alone does not equal final barangay approval; print layout, authorized personnel/merchant accounts, notification setup, and operations policies require client acceptance.
 
-The presentation deployment is live on Vercel:
+For a history of actual code revisions, open the repository's [commit history](https://github.com/lucifron28/Barangay-e-Certificate-system/commits/main/). It is a more reliable source for precise changes than a reconstructed narrative.
 
-- Production: <https://barangay-bato-ecertificate-system.vercel.app>
-- Latest production deployment: <https://barangay-bato-ecertificate-system-raaijeycd-ron-cada-projects.vercel.app>
-- Vercel project: `barangay-bato-ecertificate-system`
-- Database: Turso migrations `0000_initial_schema.sql`,
-  `0001_client_deployment.sql`, and `0002_full_online_workflow.sql` are
-  applied with no pending migrations.
-- Certificate storage: private Vercel Blob is connected for Production,
-  Preview, and Development.
+## Technology stack
 
-The deployment is suitable for controlled presentation testing. Email delivery
-is intentionally disabled until approved SMTP credentials are added. The
-current production database contains only synthetic presentation records; do
-not use these accounts as operational credentials.
-
-### Production QA Accounts And Canonical Samples
-
-The current Vercel deployment is seeded with synthetic accounts and canonical sample requests for all four supported certificate types:
-
-1. Barangay Clearance (`REQ-YYYY-9002`)
-2. Barangay Certificate / PAGPAPATUNAY (`REQ-YYYY-9004`)
-3. Barangay Indigency (`REQ-YYYY-9001`)
-4. Barangay Residency (`REQ-YYYY-9003`)
-
-Passwords are intentionally not stored in this repository or documentation.
-
-| Role | Email | Username |
+| Layer | Technology used | Role in the system |
 | --- | --- | --- |
-| Main Admin | `admin@example.com` | `mainadmin` |
-| Barangay Secretary | `secretary@example.com` | `secretary` |
-| Resident | `resident@example.com` | `juanresident` |
-| Resident | `maria.resident@example.com` | `mariaresident` |
+| Front end / server-rendered web app | **Next.js 16 App Router, React 19, TypeScript** | Pages, UI components, server actions, and API routes. |
+| Styling / interface | **Tailwind CSS 4, daisyUI 5, Lucide** | Responsive layouts, components, and icons. |
+| Validation / security | **Zod, scrypt password hashing, opaque server sessions** | Input checks, authentication, authorization, and server-only secrets. |
+| Development / CI database | **SQLite, better-sqlite3** | Local persistence and isolated automated testing. |
+| Deployed database | **Turso (@tursodatabase/serverless)** | Cloud storage for accounts, requests, payment records, and metadata. |
+| Private file storage | **Local ignored storage / Vercel Private Blob** | Certificate PDFs, authorized signature assets, and protected payment proof files. |
+| Documents / QR | **pdf-lib, qrcode, @zxing/browser** | PDF generation, verification QR codes, scanning/decoding. |
+| Reports / notifications | **write-excel-file, Nodemailer** | Excel exports and optional SMTP email notifications. |
+| Quality assurance | **Vitest, Playwright, ESLint, TypeScript checks** | Unit/integration tests, browser and visual tests, and static checks. |
+| Hosting | **Vercel** | Deploys the Next.js application. |
 
-These accounts and the four canonical sample requests are synthetic client QA data
-only.
+**Supabase** support files remain in the repository as a legacy/alternative integration path; they are **not** the active Turso/Vercel deployment database.
 
-### Safe Requests-Only Sample Maintenance
+## System architecture
 
-To maintain or update canonical QA request fixtures without rotating account passwords or revoking existing active sessions:
-
-```bash
-DATABASE_PROVIDER=turso npm run db:seed:turso-qa-requests -- --confirm-client-qa
+```text
+Resident / Main Admin / Barangay Secretary (web browsers)
+                       |
+                       v
+              Next.js application on Vercel
+                app/ + components/
+                       |
+             Server actions / API routes
+                Authentication and
+             role/ownership validation
+                       |
+                 lib/ services
+            /                        \
+           v                          v
+  Database access layer       Certificate/payment file storage
+  lib/db/queries.ts           lib/certificates/ and payment storage
+     /         \                 /             \
+   SQLite     Turso          Local files    Vercel Private Blob
+ (local/CI) (deployed)       (local/CI)      (deployed)
+                       |
+         QR/short-code verification + audit logs
+         Optional SMTP notification delivery
 ```
 
-The requests-only seed command:
-- requires `DATABASE_PROVIDER=turso`, `TURSO_DATABASE_URL`, and `TURSO_AUTH_TOKEN`
-- requires explicit confirmation (`--confirm-client-qa`)
-- verifies known synthetic resident IDs exist in the database
-- inserts canonical QA request fixtures idempotently
-- NEVER updates profiles or password hashes
-- NEVER revokes `auth_sessions`
-- NEVER deletes existing records or resets the database
-- does NOT require `DEMO_ADMIN_PASSWORD` or `DEMO_RESIDENT_PASSWORD`
+A browser action never directly receives a Turso token or a private Blob credential. Server-side services validate users and data, read/write permitted database records, and stream private files through authorized routes.
 
-### Full Account Bootstrap Seed
+The application deliberately uses **no automated GCash/Maya payment gateway**. It records *submitted proof and staff verification decisions*, not wallet balances, deposits, or provider-confirmed settlement.
 
-To seed or reset accounts on a fresh database only:
+## Project structure: where to find the code
 
-```bash
-DATABASE_PROVIDER=turso npm run db:seed:turso-demo -- --confirm-client-qa
+```text
+Barangay-e-Certificate-system/
+├── app/                    # Next.js App Router pages and API routes
+│   ├── admin/              # Staff/admin dashboards, requests, payments, settings
+│   ├── resident/           # Resident dashboard, requests, payments, certificates
+│   ├── api/                # Protected document/proof/QR endpoints
+│   └── verify/             # Public certificate verification and scanner
+├── components/             # Reusable interface, forms, tables, certificates
+├── lib/
+│   ├── actions/            # Server-side form actions
+│   ├── auth/               # Session and access guards
+│   ├── certificates/       # Templates, PDFs, snapshots, file adapters
+│   ├── db/
+│   │   ├── queries.ts      # Provider-neutral database interface
+│   │   ├── sqlite/         # SQLite database implementation
+│   │   └── turso/          # Turso database implementation
+│   ├── security/           # Input/rate-limit and security helpers
+│   └── services/           # Multi-step business workflows (e.g., issuance)
+├── database/migrations/    # Versioned SQL schema changes
+├── types/                  # Shared TypeScript data types/enums
+├── public/                 # Public assets such as approved seal derivatives
+├── tests/                  # Vitest and browser/visual QA tests
+├── scripts/                # Local setup, migrations, evidence and QA runners
+├── docs/                   # Detailed deployment, operations, acceptance notes
+├── artifacts/              # Selected QA reports; other generated evidence ignored
+├── .github/workflows/      # CI build and test pipeline
+├── .env.example            # Environment-variable template; NO real credentials
+└── package.json            # Dependencies and npm scripts
 ```
 
-The full account seed requires privately supplied `DEMO_ADMIN_PASSWORD` and `DEMO_RESIDENT_PASSWORD` (each at least 14 characters) and revokes existing sessions for the seeded profiles before updating password hashes.
-## Environment Variables
+Useful starting points for reading the implementation:
 
-Copy `.env.example` to `.env.local`. Use placeholders until client resources
-are approved. Never commit `.env`, `.env.local`, `.env.agent`, credentials, or
-generated private PDFs.
+| Question | Where to look |
+| --- | --- |
+| How does a resident request a certificate? | `app/resident/`, `lib/actions/`, `lib/services/` |
+| How do staff review requests and payments? | `app/admin/`, `lib/actions/` |
+| How are login and role permissions enforced? | `lib/auth/`, `lib/security/` |
+| Which database is used? | `lib/db/provider.ts`, `lib/db/queries.ts`, `lib/db/sqlite/`, `lib/db/turso/` |
+| How is the PDF generated and signed? | `components/certificates/printable-certificate.tsx`, `lib/certificates/pdf-generator.ts`, `lib/certificates/historical-layout.ts`, `lib/services/certificate-issuance.ts` |
+| Where are the database tables defined? | `database/migrations/` |
+| How do QR verification and downloads work? | `app/verify/`, `app/api/`, `lib/certificates/` |
+| How is the system tested and deployed? | `tests/`, `.github/workflows/ci.yml`, `docs/deployment-vercel-turso.md` |
 
-Local minimum:
+## End-to-end workflow
 
-```env
-DATABASE_PROVIDER=sqlite
-SQLITE_DATABASE_URL=file:./data/dev.sqlite
-CERTIFICATE_STORAGE_PROVIDER=local
-SESSION_COOKIE_SECRET=replace-with-at-least-32-random-characters
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+### Resident request to issued certificate
+
+```text
+Resident signs in / registers
+  -> selects one of four certificates and submits required details
+  -> request receives a tracking number and initial status
+  -> authorized staff reviews request
+       -> reject with reason -> resident may resubmit
+       -> accept -> proceed to fee evaluation
+  -> if fee = ₱0: no payment required
+  -> if fee > ₱0:
+       resident selects an enabled GCash/Maya receiving method
+       -> pays externally using the genuine wallet application
+       -> enters reference number, transaction time, receipt image
+       -> payment is PENDING (request is not paid)
+       -> staff cross-checks merchant-account transaction history
+            -> reject with reason -> resident may correct/resubmit
+            -> approve only if money was actually received
+  -> authorized issuer signs/issues the certificate
+  -> private PDF becomes available to its resident
+  -> verification code/QR can be checked on the public verify page
 ```
 
-`LOCAL_DEMO_SECRET` may be used instead of `SESSION_COOKIE_SECRET` locally.
-Production must use `SESSION_COOKIE_SECRET`.
+A fee-paying certificate **cannot** be issued merely because someone uploaded a screenshot or typed a reference. Staff must explicitly approve an eligible GCash/Maya payment after an off-platform account-history check. Free certificate requests bypass the payment requirement. Other actions include cancellation where allowed, revocation, reissue, and activity logging.
 
-Production minimum:
+### Payment boundaries
 
-```env
-DATABASE_PROVIDER=turso
-TURSO_DATABASE_URL=<database-scoped-url>
-TURSO_AUTH_TOKEN=<database-scoped-token>
-CERTIFICATE_STORAGE_PROVIDER=vercel_blob
-BLOB_READ_WRITE_TOKEN=<private-blob-token>
-SESSION_COOKIE_SECRET=<at-least-32-random-characters>
-NEXT_PUBLIC_APP_URL=https://<approved-domain>
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=465
-SMTP_SECURE=true
-SMTP_USER=<approved-gmail-address>
-SMTP_PASS=<gmail-app-password>
-EMAIL_FROM=Barangay Bato e-Certificate <approved-gmail-address>
-```
+- **Real operation:** Actual money moves in the resident's GCash/Maya app, outside this website; receiving records must be checked by staff.
+- **In the system:** Proof submission creates a pending record; staff approve/reject it; the reviewer, time, remarks, and payment events are recorded.
+- **During QA:** Synthetic reference numbers/receipts test the application workflow only. They are not real payment confirmations.
+- **Production:** `PAYMENT_DEMO_MODE` is disabled at runtime under `NODE_ENV=production`; production environment checks reject enabling it.
 
-Run `npm run check:production-env` to validate production requirements without
-printing secret values. It should fail until real approved values are set.
+### Certificate issuance and verification
 
-## SQLite Local Setup
+The system creates a PDF with certificate-specific content, configured signer identity/image, seal assets, and a verification record. The issued document keeps an issuance-time snapshot so later changes to a name/title or signer do not silently rewrite an older certificate. PDF access uses authorization and stored SHA-256 integrity metadata. QR verification reports the record/status; it does **not** independently establish legal authenticity of the physical paper or constitute a cryptographic digital signature.
 
-```bash
-npm ci
-npm run db:sqlite:reset
-npm run dev
-```
+## Database design and data storage
 
-The reset command is SQLite-only and refuses to load for Turso. It requires
-`LOCAL_DEMO_ADMIN_PASSWORD` to be set in the local shell and never uses a
-default password. It creates synthetic data in `data/dev.sqlite`; it never
-imports that file into Turso.
-Tests use separate `data/test.sqlite` and `data/certificates-test/` paths.
+The canonical SQL migrations are located in `database/migrations/`:
 
-Useful commands:
+- `0000_initial_schema.sql` — main business entities.
+- `0001_client_deployment.sql` — persistent session and deployment-related tables/metadata.
+- `0002_full_online_workflow.sql` — transition of previous pickup-ready records to the secure online-download workflow.
 
-```bash
-npm run db:status
-npm run lint
-npm run typecheck
-npm test
-npm run build
-```
+Selected tables (refer to the SQL files for exact columns, relationships, and constraints):
 
-### Local Demo Accounts
+| Table | Stores |
+| --- | --- |
+| `profiles` | Residents and staff profiles/role data. |
+| `auth_sessions` | Revocable, hashed session tokens and expiry metadata. |
+| `certificate_requests` | Applications, status, purpose, fee, and ownership. |
+| `payments`, `payment_events` | Resident payment claims, proof metadata, decisions, and history. |
+| `certificate_records`, `certificate_verifications` | Issued records, immutable snapshots, verification status/codes. |
+| `certificate_download_logs`, `activity_logs` | Downloads and important staff/user actions. |
+| `system_settings`, `document_counters` | Official configurations and unique-number counters. |
+| `notification_logs`, `rate_limit_attempts` | Email attempt history and abuse controls. |
 
-| Role | Email | Username |
+**Database choice:** Local/CI = **SQLite**; deployed client application = **Turso**. The code selects a provider through `DATABASE_PROVIDER` and calls the shared `lib/db/queries.ts` interface. Turso mode fails when its credentials are missing instead of silently switching to local SQLite.
+
+**File choice:** PDFs, payment proof images, and private signatures belong in private storage; database rows hold relevant storage keys/provider and integrity metadata. Production certificate files use **Vercel Private Blob**, not public URLs.
+
+## How to run and test locally
+
+You need Node.js and npm compatible with this repository, plus access to the local source code. These commands are for a **local development copy**, not for deployment:
+
+1. Clone the repository and install its locked dependencies:
+
+   ```bash
+   git clone https://github.com/lucifron28/Barangay-e-Certificate-system.git
+   cd Barangay-e-Certificate-system
+   npm ci
+   ```
+
+2. Copy `.env.example` into a private `.env.local` file and configure a **local-only** SQLite environment:
+
+   ```env
+   DATABASE_PROVIDER=sqlite
+   SQLITE_DATABASE_URL=file:./data/dev.sqlite
+   CERTIFICATE_STORAGE_PROVIDER=local
+   SESSION_COOKIE_SECRET=<generate-a-new-secret-of-at-least-32-characters>
+   NEXT_PUBLIC_APP_URL=http://localhost:3000
+   ```
+
+   Never use real production Turso/Blob/SMTP credentials for a local demo, and never commit the local environment file.
+
+3. Apply the local schema, start the application, and open `http://localhost:3000`:
+
+   ```bash
+   npm run db:migrate
+   npm run dev
+   ```
+
+   Local role/test accounts require a separate authorized setup; do not assume publicly listed credentials work. Local-only demo reset/seed commands exist for isolated test data and **must never be used on Turso production**.
+
+4. Validate the project:
+
+   ```bash
+   npm run lint
+   npm run typecheck
+   npm test
+   npm run build
+   ```
+
+The GitHub Actions workflow in `.github/workflows/ci.yml` performs dependency installation, an isolated SQLite test setup, Chromium installation, lint, typecheck, build, and automated tests. For the full operational setup, use [deployment instructions](docs/deployment-vercel-turso.md), not the local examples above.
+
+## Deployment and operational boundaries
+
+| Setting | Local / test | Client/presentation deployment |
 | --- | --- | --- |
-| Main Admin | `admin@example.com` | `mainadmin` |
-| Barangay Secretary | `secretary@example.com` | `secretary` |
-| Resident | `resident@example.com` | `juanresident` |
-| Resident | `maria.resident@example.com` | `mariaresident` |
+| Application | Local Next.js server | Vercel (HTTPS) |
+| Database | SQLite | Turso |
+| Private certificate storage | Ignored local directory | Vercel Private Blob |
+| Authentication | Server-side sessions | Server-side sessions with secure deployment settings |
+| Email | Optional/not required for local work | Nodemailer SMTP integration, subject to approved credentials |
+| Payment | Clearly labelled controlled QA when used | Real external GCash/Maya transfers **manually verified** by staff |
 
-These accounts and records are synthetic and local-preview only. Keep the
-password value in a local secret manager or shell, not in source control.
+Production-like configuration needs the appropriate Turso URL/token, private Blob token, session cookie secret, public HTTPS app URL, and approved SMTP settings if notifications are enabled. **Do not put any actual values in Git.** `npm run check:production-env` checks required production variables and currently also requires SMTP sender details; it may fail when email has intentionally not been configured even though the web app can skip notification delivery.
 
-## Turso Setup
+Operational rules:
 
-Turso is the production database target. The selected SDK is
-`@tursodatabase/serverless`, the current direct asynchronous TypeScript SDK
-for serverless runtimes. `@libsql/client` was not added because no ORM or
-compatibility requirement calls for it.
+- **Preserve existing accounts and their sessions:** Normal code/documentation updates do not require seeding, database resets, password changes, or direct SQL modifications.
+- **Do not run Turso demo/account seed scripts** against an existing client database; some seed tools are capable of updating seeded passwords and invalidating sessions.
+- Migrate schemas using the reviewed, forward-only migration procedure and a client-approved backup plan.
+- Never publish private PDFs, resident documents, raw payment receipts, official signer artwork, tokens, or real account passwords.
+- Review printer output and authorized signer/merchant settings with the barangay before real operational use.
 
-Use the current Turso CLI flow with a database-scoped token:
+The live URL is a deployment location, **not a guarantee that the latest GitHub commit is deployed**. Check the current Vercel deployment's commit and status during each release.
 
-```bash
-turso auth login
-turso db create barangay-bato-ecert
-turso db show barangay-bato-ecert --url
-turso db tokens create barangay-bato-ecert
-```
+## Testing, evidence, and current limitations
 
-Store the returned URL and token only in the selected Vercel environment or a
-secret manager. Do not commit or print the token. Apply the remote schema with:
+The repository contains automated unit/integration tests and Playwright browser/visual checks. Two documented QA efforts are:
 
-```bash
-DATABASE_PROVIDER=turso npm run db:migrate:turso
-DATABASE_PROVIDER=turso npm run db:status
-```
+- [Payment simulation research and QA report](artifacts/payment-qa/QA-REPORT.md) — controlled synthetic GCash/Maya proof workflows and verification logic.
+- [Certificate structure and visual QA report](artifacts/certificate-structure-qa/QA-REPORT.md) — four certificate templates, signer-title fixes, Letter print checks, and viewport comparisons.
 
-PowerShell users should set variables with `$env:` or Vercel environment
-configuration rather than committing secrets to shell history.
+These are **reports of specific past test runs**, not proof of a new run against every future deployment. Synthetic payment approvals in a QA record are not evidence of actual GCash/Maya settlement.
 
-## Database Schema And Migrations
+Known acceptance boundaries:
 
-`database/migrations/0000_initial_schema.sql` is the canonical SQLite/Turso
-business schema. `0001_client_deployment.sql` adds persistent sessions,
-issuance reservations, and storage metadata. `0002_full_online_workflow.sql`
-promotes any legacy ready-for-pickup rows to the secure-download state without
-deleting audit history. The schema covers profiles, legacy schedule records,
-certificate records, payments, payment events,
-verification records, download logs, notifications, activity logs, settings,
-counters, and persistent rate-limit attempts.
+- Certificate formats were adapted to historical samples; **final printed placement, seal size, and official wording require barangay approval**.
+- The signature currently represents an embedded **visual electronic signature image**, not a legally verified cryptographic digital signature.
+- The final monthly-report presentation, notification sender/delivery, data retention/backup procedures, and operational merchant/authorized personnel policies require approved client configuration.
+- Supabase code and local/demo QA scripts are retained for development/compatibility but are not part of the real-payment production workflow.
+- No automated financial settlement, refund, reconciliation API, or bank/GCash/Maya webhook is implemented.
 
-Migrations are ordered, forward-only, and tracked in `schema_migrations`.
-SQLite startup applies them additively; Turso uses the same SQL files through
-`db:migrate:turso`. No migration drops production data.
+## Detailed documentation
 
-`npm run demo:reset` and `npm run db:sqlite:reset` are local-only. There is no
-normal remote reset command and no workflow that uploads `data/dev.sqlite` to
-Turso.
+For group research, system evaluation, or developer handoff, continue with:
 
-## Vercel Private Blob Setup
+| Document | Purpose |
+| --- | --- |
+| [Certificate template alignment](docs/certificate-template-alignment.md) | Original-format comparison and print limitations. |
+| [Manual GCash/Maya workflow](docs/manual-payment-workflow-and-reconciliation.md) | Payment/reference/proof and staff reconciliation boundary. |
+| [Operations guide](docs/operations.md) | Staff request, certificate, payment, and security procedures. |
+| [Vercel and Turso deployment](docs/deployment-vercel-turso.md) | Deployment preparation and credentials/migration handling. |
+| [Client acceptance checklist](docs/client-acceptance-checklist.md) | Manual functional and release-acceptance checks. |
+| [Client acceptance runbook](docs/client-acceptance-runbook.md) | Practical acceptance test sequence. |
+| [Client readiness notes](docs/client-readiness.md) | Earlier handoff context; verify operational status against current deployment. |
 
-Production PDFs use `@vercel/blob` with `access: "private"`. The browser never
-receives a Blob URL or Blob credential. Authenticated application routes load
-private objects server-side, verify SHA-256 against the database record, write
-an audit record, and stream with `no-store` and `nosniff` headers.
-
-If upload or database finalization fails, issuance performs best-effort object
-cleanup and releases the retryable reservation. Existing finalized objects are
-never removed by failure cleanup.
-
-## Certificate Templates
-
-Official reference files are expected at
-`docs/client-assets/certificate-templates/original/`:
-
-- `BRGY.CLEARANCE.pdf`
-- `BRGY.CERTIFICATE.PDF`
-- `RESIDENCY.pdf`
-- `INDIGENCY.pdf`
-
-These files are private layout references, ignored by Git, not assumed to be
-fillable, and never served from `app/`. The current generator uses printable
-HTML/PDF layouts based on the supplied references with synthetic seed data.
-The supplied circular seal images are processed into the browser-ready assets
-`public/branding/mauban-seal.png` and `public/branding/barangay-bato-seal.png`.
-The processing center-crops each source and applies a transparent circular mask
-so the original square white corners do not appear. These public assets are
-needed by the browser preview and PDF renderer; the original reference PDFs
-remain private and ignored.
-
-The current certificate preview and downloaded PDF use the processed seals in
-the shared header and reuse the Barangay Bato seal as the low-opacity center
-watermark. The Main Admin settings page accepts the selected signer image and
-stores it privately in local `data/signatures/` or Vercel Private Blob. The
-preview uses an authenticated image route; the unsigned draft hides both the
-signature image and signer name and is labeled `Unsigned draft - not issued`.
-Signing requires an accessible configured image and signer name. The “Sign &
-Issue Certificate” action is disabled until those are available and links the
-Main Admin to signer settings. Issuance embeds the image into the PDF and stores
-its provider, key, applied timestamp, and SHA-256 checksum in the immutable
-certificate snapshot. Existing issued PDFs are not regenerated when the active
-signature changes. Tests use a synthetic signer image in an isolated ignored
-directory; the test runner removes it after execution.
-
-The printable certificate shows only the official certification/signature
-block. The logged-in administrator remains stored as internal issuance and
-audit metadata, but is intentionally not printed as “Prepared By” on the
-official certificate layout.
-
-Signer roles are template-specific: Clearance, Indigency, and Residency use
-`Barangay Chairman`; Barangay Certificate/PAGPAPATUNAY uses `Punong Barangay`.
-Exact final signature sizing, positioning, and print approval remain client
-handoff items. Production handling may move approved reference, seal, and
-signature assets to Supabase Storage later; the current target for generated
-PDFs is Vercel Private Blob.
-
-## Authentication And Security
-
-SQLite and Turso use the provider-neutral authentication service. Passwords
-use scrypt hashes. The browser stores only a random opaque HttpOnly token;
-the database stores its SHA-256 hash, expiry, last-seen value, and revocation
-state. Role checks load current profile data. Login rate-limit attempts persist
-in the active database. Production cookies are secure when the configured app
-URL uses HTTPS.
-
-Supabase Auth/SSR and RLS files are retained as legacy/future preparation, but
-client deployment documentation does not instruct operators to configure
-Supabase.
-
-## Email Notifications
-
-`sendEmailNotification()` uses Nodemailer and Gmail SMTP when configured. It
-does not block the main workflow when credentials are missing; attempts are
-logged as skipped or failed without exposing secrets. The test runner blanks
-`SMTP_USER`, `SMTP_PASS`, and `EMAIL_FROM`, so parent-shell or local-env SMTP
-values cannot leak into tests.
-
-Gmail requires two-step verification and an App Password for the approved
-sender. Do not use the normal Gmail account password. Test with an approved
-synthetic recipient before enabling client notifications.
-
-## Reports And Payments
-
-Reports support filtering, browser print, PDF download, and Excel export through
-`write-excel-file` 4.1.1. The monthly barangay format remains pending final
-client confirmation.
-
-Payment records support manual GCash and Maya transaction verification. No
-automated payment gateway, card processing, or bank funds transfer API is used.
-Residents scan the official barangay QR code, pay in their external app, and
-submit their reference number and receipt screenshot. Authorized barangay staff
-cross-check merchant records and confirm payment before issuing certificates.
-
-For a thesis presentation without real merchant details, set
-`PAYMENT_DEMO_MODE=true`. The resident page then shows selectable GCash and Maya
-demo methods with generated QR images that do not receive money. Use test
-references and clearly marked test screenshots. Staff must still approve the
-submitted proof before the request becomes paid. Keep this setting `false` when
-using real accounts.
-
-## Desktop Playwright Evidence
-
-The complete deployed workflow can be recorded at the desktop presentation
-size of 1440 x 900:
-
-```bash
-DEMO_BASE_URL=https://barangay-bato-ecertificate-system.vercel.app \
-DEMO_ADMIN_PASSWORD=<synthetic-staff-password> \
-DEMO_RESIDENT_PASSWORD=<synthetic-resident-password> \
-npm run demo:record
-```
-
-The runner covers public pages, resident and admin role routing, request
-submission, payment-proof verification, all four certificate templates,
-resident download, report PDF/Excel exports, rejection and resubmission,
-cancellation, and resident admin-route protection. It writes desktop
-screenshots, video, Playwright trace, structured results, and downloads to
-`artifacts/playwright-demo/`. This directory is ignored by Git and the runner
-never writes passwords to evidence files.
-
-The latest completed run passed 121 assertions, captured 59 screenshots, and
-created seven non-empty downloads. Its HTTP and page-error logs were clear;
-normal `ERR_ABORTED` entries from browser navigation/download handling remain
-in the failed-request log for traceability.
-
-## Supabase MCP Status
-
-No Supabase MCP changes were applied for this deployment goal. Supabase files
-are retained as legacy/future preparation. If the client later changes the
-deployment target, inspect the connected project first and apply reviewed SQL
-through MCP only after explicit confirmation.
-
-## Client Handoff Documentation
-
-- [Client readiness overview](docs/client-readiness.md)
-- [Vercel and Turso deployment guide](docs/deployment-vercel-turso.md)
-- [Client acceptance checklist](docs/client-acceptance-checklist.md)
-- [Client acceptance runbook](docs/client-acceptance-runbook.md)
-- [Certificate QR scanner test gallery](docs/scanner-test-samples.md)
-- [Operations guide](docs/operations.md)
-- [Certificate template alignment notes](docs/certificate-template-alignment.md)
-
-The old `docs/def/` directory is retained as archived historical material and
-is not an active operating or deployment guide.
-
-## Current Progress
-
-| Module | Status | Notes |
-| --- | --- | --- |
-| Existing repo inspection | Completed | Existing MVP and merged work preserved |
-| Public pages | Implemented | Home, About, Login, Register |
-| Local SQLite mode | Implemented | Persistent local database and synthetic seed |
-| Turso deployment mode | Deployed / Partial | Async provider, migrations applied, fail-closed credentials |
-| Vercel deployment | Deployed / Partial | Production alias is live; synthetic presentation accounts seeded; email remains |
-| Private certificate storage | Deployed / Partial | Local plus private Vercel Blob adapters |
-| Resident authentication | Implemented | Hashed passwords and revocable sessions |
-| Admin authentication | Implemented | Main Admin and Barangay Secretary roles |
-| Certificate requests | Implemented | Four confirmed certificate field sets |
-| Request cancellation/resubmission | Implemented | Pending cancellation and rejected resubmission |
-| Certificate generation | Implemented / Partial | Four printable layouts based on supplied PDFs, with configurable visual signer image |
-| PDF download | Implemented | Private retrieval, hash check, and audit log |
-| Online delivery | Implemented | Accepted requests proceed through manual payment proof verification and secure PDF download |
-| Fees | Implemented | PHP 50 or free; manual GCash/Maya verification |
-| Payment status | Implemented | `unpaid`, `paid`, and `free`; verified by staff |
-| Thesis demo payments | Implemented / Optional | Opt-in non-payment GCash/Maya QR mode |
-| Email notifications | Prepared / Optional | Gmail SMTP pending approved credentials |
-| Reports | Implemented / Partial | Print, PDF, Excel; monthly format pending |
-| Activity logs | Implemented | Admin-only major action history |
-| Supabase RLS | Legacy prepared | Not the current deployment target |
-| Client handoff docs | Implemented | Readiness, deployment, operations, acceptance |
-
-## Known Limitations And Next Steps
-
-- Email notifications are not active because SMTP credentials were not
-  supplied; the application skips notification delivery without failing the
-  main action.
-- Production contains synthetic presentation identities only; real operator
-  credentials and a controlled account replacement remain pending.
-- Approved Captain identity, signature/seal assets, print approval, report
-  format, retention policy, and payment policy still require client input.
-- The visual signature is not cryptographically or legally verified.
-- Demo payment mode uses non-payment QR codes and must not be used to collect
-  real funds.
-- A scheduled Blob orphan reconciliation job can be added after the production
-  storage account is approved.
-
-Next: replace the synthetic identities through a controlled process, configure
-and test the approved SMTP sender, run the client acceptance checklist with
-synthetic records, and obtain print, email, report, and certificate-template
-approval before treating the deployment as operational.
-
-## Data Notice
-
-This is a private client project. Do not publish resident records,
-private certificate PDFs, credentials, or client reference assets.
+**Information handling:** The GitHub repository is publicly visible. Do not add real resident records, financial screenshots, authentication secrets, or private original certificate assets. Staff credentials should be shared securely outside the repository.
